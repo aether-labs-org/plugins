@@ -22,4 +22,25 @@ grep -qi "resumable" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md is resumable la
 ! grep -qE "instalado_em|camadas|nao_instaladas|classe:|revisar_em" "$sk/SKILL.md" 2>/dev/null
 check "state keys are English" $?
 
+[ -f "$sk/references/sensor-contract.md" ]; check "sensor-contract.md exists" $?
+for field in "pass signal" "guidance" "scope" "class" "cost" "ceiling" "verbosity"; do
+  grep -qi "$field" "$sk/references/sensor-contract.md" 2>/dev/null
+  check "contract field: $field" $?
+done
+for cls in security correctness heuristic; do
+  grep -q "$cls" "$sk/references/sensor-contract.md" 2>/dev/null; check "contract class: $cls" $?
+done
+grep -qi "never" "$sk/references/sensor-contract.md" 2>/dev/null; check "contract forbids ratcheting security" $?
+grep -q "review_by" "$sk/references/sensor-contract.md" 2>/dev/null; check "heuristic snapshots expire" $?
+
+[ -f "$sk/references/sensors-by-language.md" ]; check "sensors-by-language.md exists" $?
+grep -q "GitLeaks" "$sk/references/sensors-by-language.md" 2>/dev/null; check "secret scanner named" $?
+grep -qi "names tools, never commands" "$sk/references/sensors-by-language.md" 2>/dev/null
+check "language table states the tools-not-commands rule" $?
+
+grep -q "PostToolUse" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md writes the PostToolUse hook" $?
+! grep -q "PreToolUse" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md installs no blocking hook" $?
+grep -q "gate-fast" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md writes the gate-fast target" $?
+grep -q "ceiling_seconds" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md honours the gate ceiling" $?
+
 exit $fail
