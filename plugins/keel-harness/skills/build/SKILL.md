@@ -323,11 +323,13 @@ Before reporting success, check every one of these — the whole list, not a sub
       `lint`, ...), not `pass`/`fail`/`skip`, and that `cut -f3` prints the status, not the class or
       the elapsed time. Exit code matches status (0 pass / 1 fail / 2 skip). Check by running each
       wrapper once on its own.
-- [ ] Every wrapper reads `$SCOPE` (never a hardcoded scope string) and `scripts/gate.sh` matches
-      the report shape in `references/sensor-contract.md` §7 verbatim — per-sensor millisecond
-      timing, 40-line truncation, the `gate: fast - PASSED/FAILED ... model cost` line. A gate.sh
-      that was rewritten from a simpler idea of what a runner should do, instead of copied, is a
-      defect even when it happens to exit with the right code.
+- [ ] Every wrapper reads `$SCOPE` (never a hardcoded scope string) and `scripts/gate.sh` is the
+      **unmodified** copy from `references/sensor-contract.md` §7 — per-sensor millisecond timing,
+      40-line truncation, the terminal-conditional `✓/✗/○` marks, and the exact verdict line. Check
+      it concretely, not by eye: `bash scripts/gate.sh 2>&1 | grep -qE 'gate: fast - (PASSED|FAILED)
+      \([0-9]+ of [0-9]+\) \| ceiling [0-9]+s, spent .* \| model cost: US\$0\.00'`. A gate.sh that
+      was rewritten from a simpler idea of what a runner should do, instead of copied, is a defect
+      even when it happens to exit with the right code.
 - [ ] The `lint` (or any other `heuristic`) wrapper's `pass`/`fail` comes from comparing the current
       count to `snapshot:` in `.agents/state.yml`, not from the linter's raw exit code — confirm by
       reading the wrapper's source, not just by running it once. If the repo genuinely has zero
