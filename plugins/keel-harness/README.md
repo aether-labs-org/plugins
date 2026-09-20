@@ -28,3 +28,17 @@ Checks whether an installed harness has drifted from the repository it guards.
 ## v0.1 Rule
 
 **Informs, does not block.** The gate runs, reports failures and returns guidance. No action is barred, no commit is refused.
+
+## Eval baseline
+
+Run `claude plugin eval . --scaffold` from `plugins/keel-harness/` (each case runs 3 times per arm, with-plugin vs. no-plugin baseline).
+
+- Date: 2026-09-19
+- Claude Code version: 2.1.278
+
+| Case | WITH | W-OUT | Δ |
+| --- | --- | --- | --- |
+| `assess-mature-repo` | 1.00 | 0.33 | +0.67 |
+| `should-not-trigger` | 1.00 | 1.00 | 0.00 |
+
+`assess-mature-repo`'s Δ is driven by `rubric-axes` and `rubric-states`: the no-plugin baseline never emits the six-axis table, so those two graders fail in the without arm while everything scores in the with arm. `should-not-trigger`'s Δ = 0 is the correct result — the skill correctly stays silent on an unrelated git question in both arms. Task 6 adds its cases to this table.
