@@ -1,0 +1,17 @@
+{
+  "name": "aether-labs",
+  "owner": {
+    "name": "Aether Labs",
+    "url": "https://github.com/aether-labs-org"
+  },
+  "description": "Claude Code plugins by Aether Labs.",
+  "plugins": [
+    {
+      "name": "keel-harness",
+      "source": "./plugins/keel-harness",
+      "description": "Assess, install and maintain an AI-agent harness in a repository.",
+      "category": "development",
+      "tags": ["harness", "agents-md", "quality-gate", "sensors"]
+    }
+  ]
+}
