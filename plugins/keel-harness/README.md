@@ -34,7 +34,8 @@ Checks whether an installed harness has drifted from the repository it guards.
 Run `claude plugin eval . --scaffold` from `plugins/keel-harness/` (each case runs 3 times per arm,
 with-plugin vs. no-plugin baseline). `build-typescript` and `gate-catches-defect` additionally
 need `--allow-tools Write Edit Bash` (they install/run real commands), plus `socat`, `gitleaks`
-and `bwrap` on the host.
+and `bwrap` on the host. Both scaffolds also run `npm install`, so they need network access when
+they run.
 
 - Date: 2026-09-21
 - Claude Code version: 2.1.278
@@ -97,9 +98,12 @@ consecutive runs** — i.e. when the plugin itself fails to add value. That is n
 `gate-catches-defect` never got a valid run to measure a Δ from at all, for a host-sandboxing reason
 unrelated to the case's design or the plugin's behavior. The case and its fixture were instead
 verified by hand, outside `claude plugin eval` (`bash scaffold.sh` in a scratch dir, then
-`make gate-fast` directly): the harness fixture gates cleanly (`PASSED (4 of 4)`) before the planted
-regression, and after `sed -i 's/cents \* 0.98/cents * 0.965/' src/posting.ts`, exactly the `tests`
-sensor fails with a `guidance:` block present and the other three sensors stay green — precisely the
-behavior the case's graders check for. The case is kept as-is; re-run `claude plugin eval` for it on
+`make gate-fast` directly): `scaffold.sh` already bakes the planted regression in, so running it once
+only ever produces the regressed state directly — `make gate-fast` → `FAILED (1 of 4)`, exactly the
+`tests` sensor failing with a `guidance:` block present and the other three sensors green. To see the
+clean baseline, revert just the planted change (`git checkout src/posting.ts` — `build-typescript/
+scaffold.sh` committed the original before this script's `sed` ran) and run `make gate-fast` again:
+`PASSED (4 of 4)`. This is precisely the behavior the case's graders check for. The case is kept
+as-is; re-run `claude plugin eval` for it on
 a host without this nested-sandbox restriction (or with an operator explicitly opting into
 `sandbox.enableWeakerNestedSandbox`) to get an official score.

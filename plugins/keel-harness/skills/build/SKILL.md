@@ -22,8 +22,8 @@ Each phase installs independently and is resumable.
 
 ## 1. Read the picture
 
-If `assess` already ran in this session, reuse its report table (`references/rubric.md` axis
-states, evidence paths, costs) — do not re-derive it silently. If it did not run, perform the same
+If `assess` already ran in this session, reuse its report table (axis states, evidence paths,
+costs) — do not re-derive it silently. If it did not run, perform the same
 read-only discovery yourself before proposing anything:
 
 ```bash
@@ -70,7 +70,7 @@ bootstrap:
 If the stack has no build step at all (e.g. a type-only library that ships source as-is), the
 target legitimately only installs — say so in the proposal rather than inventing a build line.
 
-Apply the three-confidence rule (see `assess`'s `references/rubric.md`):
+Apply the three-confidence rule:
 - **High** — a single install+build path is unambiguous: state the inference and ask for
   acceptance ("I see `pnpm install && pnpm build`; wrap that as `make bootstrap`?").
 - **Low** — more than one plausible pairing (e.g. two workspaces, two package managers): ask a
@@ -128,9 +128,11 @@ For every accepted sensor, write:
   `references/sensor-contract.md` §3 and adapted from the worked examples in §4–§6. **Copy the
   line-1 `printf` verbatim** (`id`, then `class`, then `status`, then `summary` — in that order,
   never the wrapper's own elapsed time) **and make the wrapper actually read `$SCOPE`** rather than
-  printing a fixed scope string; only the tool invocation, its output parsing and the guidance text
-  are genuinely repository-specific. `chmod +x` it.
-- `scripts/gate.sh` — the runner, from `references/sensor-contract.md` §7, **copied byte-for-byte,
+  printing a fixed scope string — except a `heuristic` (ratcheted) sensor, which always measures the
+  whole repo so its count stays comparable to its whole-repo snapshot; only `correctness`/`security`
+  sensors scope to `$SCOPE` where their tool supports it. Only the tool invocation, its output
+  parsing and the guidance text are genuinely repository-specific. `chmod +x` it.
+- `scripts/gate.sh` — the runner, from `references/sensor-contract.md` §8, **copied byte-for-byte,
   not rewritten from memory.** It reads the sensor list from `.agents/state.yml`, so adding or
   removing a sensor later is a state edit, not a script edit. A `gate.sh` that runs the sensors but
   skips their per-sensor millisecond timing, the 40-line truncation, or the `✓/✗/○` report shape is
@@ -323,13 +325,15 @@ Before reporting success, check every one of these — the whole list, not a sub
       `lint`, ...), not `pass`/`fail`/`skip`, and that `cut -f3` prints the status, not the class or
       the elapsed time. Exit code matches status (0 pass / 1 fail / 2 skip). Check by running each
       wrapper once on its own.
-- [ ] Every wrapper reads `$SCOPE` (never a hardcoded scope string) and `scripts/gate.sh` is the
-      **unmodified** copy from `references/sensor-contract.md` §7 — per-sensor millisecond timing,
-      40-line truncation, the terminal-conditional `✓/✗/○` marks, and the exact verdict line. Check
-      it concretely, not by eye: `bash scripts/gate.sh 2>&1 | grep -qE 'gate: fast - (PASSED|FAILED)
-      \([0-9]+ of [0-9]+\) \| ceiling [0-9]+s, spent .* \| model cost: US\$0\.00'`. A gate.sh that
-      was rewritten from a simpler idea of what a runner should do, instead of copied, is a defect
-      even when it happens to exit with the right code.
+- [ ] Every `correctness`/`security` wrapper reads `$SCOPE` (never a hardcoded scope string); every
+      `heuristic` wrapper ignores it and always measures the whole repo, to stay comparable with its
+      snapshot. `scripts/gate.sh` is the **unmodified** copy from `references/sensor-contract.md` §8
+      — per-sensor millisecond timing, 40-line truncation, the terminal-conditional `✓/✗/○` marks,
+      and the exact verdict line (including its skip-aware `, N skipped` suffix when at least one
+      sensor skipped). Check it concretely, not by eye: `bash scripts/gate.sh 2>&1 | grep -qE 'gate:
+      fast - (PASSED|FAILED) \([0-9]+ of [0-9]+(, [0-9]+ skipped)?\) \| ceiling [0-9]+s, spent .* \|
+      model cost: US\$0\.00'`. A gate.sh that was rewritten from a simpler idea of what a runner
+      should do, instead of copied, is a defect even when it happens to exit with the right code.
 - [ ] The `lint` (or any other `heuristic`) wrapper's `pass`/`fail` comes from comparing the current
       count to `snapshot:` in `.agents/state.yml`, not from the linter's raw exit code — confirm by
       reading the wrapper's source, not just by running it once. If the repo genuinely has zero

@@ -73,7 +73,11 @@ evidence, and the axis cannot be `present`.
 ## 4. Cost
 
 For each axis that is not `present`, state the cost of closing the gap in **setup minutes** — how
-long `build` would take, confirmations included. For a missing or non-running fast sensor, also
+long `build` would take, confirmations included. Two axes are not closed by `build` in this
+version: **Enforcement** (v0.1 never installs blocking hooks, only PostToolUse) and **Slow
+sensors** (mutation testing and nightly runs are out of scope for v0.1). For those two, report the
+gap plainly and do not quote setup minutes — there is no build step yet that would close them. For
+a missing or non-running fast sensor, also
 state the **seconds it would add to the gate**, measured by actually running the tool once if it
 is installed. If the tool is not installed, write `not measured` — never guess or estimate a
 number. See `references/rubric.md` for the full cost-unit definitions and the three-confidence

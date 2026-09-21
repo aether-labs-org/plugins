@@ -10,13 +10,7 @@ if [ ! -x "$eslint" ]; then
   exit 2
 fi
 
-changed=$(printf '%s\n' "${SCOPE:-}" | sed '/^$/d' | grep -E '^src/.*\.(ts|tsx)$')
-if [ -n "$changed" ]; then
-  # shellcheck disable=SC2086
-  out="$("$eslint" $changed 2>&1)"
-else
-  out="$("$eslint" src 2>&1)"
-fi
+out="$("$eslint" src 2>&1)"
 now=$(printf '%s\n' "$out" | grep -cE '^ +[0-9]+:[0-9]+ +(error|warning)')
 snap=$(sed -n 's/.*problems: *\([0-9][0-9]*\).*/\1/p' .agents/state.yml | head -1)
 : "${snap:=$now}"

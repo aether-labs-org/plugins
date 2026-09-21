@@ -4,9 +4,10 @@
 # actually running `build` against the build-typescript scaffold - see
 # plugins/keel-harness/evals/gate-catches-defect/fixtures/harness/).
 #
-# Steps: lay down the same TypeScript repo build-typescript uses, overlay the
-# pre-built harness fixture, install dependencies, commit a clean baseline, then
-# plant a single-line rounding regression so exactly one sensor (tests) fails.
+# Steps: build-typescript/scaffold.sh lays down the repo and commits a clean
+# baseline itself; this script then overlays the pre-built harness fixture and
+# plants a single-line rounding regression on top, both left uncommitted so
+# scripts/gate.sh's SCOPE (changes since the last commit) picks them up.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

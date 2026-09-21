@@ -5,6 +5,12 @@ and repo discovery. Omit any section for which you found nothing — blank secti
 budget. Use `→ docs/X.md` for anything needing more than one sentence. Keep the whole file to
 100 lines.
 
+**A fully-filled render of every section below is ~101 lines** — one over the ceiling. Omitting
+empty sections alone is not guaranteed to bring a repository that legitimately has content for
+every section under budget. When every section applies, actively trim at least one row or section
+(e.g. collapse the File map to the two or three paths that matter most, or fold a one-line
+Inferential Guide into its neighbour) rather than assuming omission did the work.
+
 ---
 
 ```markdown

@@ -115,7 +115,7 @@ Rules that follow from it, and that the wrapper must honour:
 - **Never `set -e` past the tool call** — the wrapper must survive a non-zero tool exit and
   translate it, not die of it.
 - **No network, no model call.** The money cost of the fast gate is zero.
-- **No plugin paths.** See §8, portability.
+- **No plugin paths.** See §9, portability.
 
 A wrapper whose line 1 reads `fail\ttypecheck\tcorrectness\t1.06s` (status leading, cost trailing)
 is the exact failure this section exists to prevent — it has four tab-separated fields, so a
@@ -266,13 +266,80 @@ printf '  the ratchet off.\n'
 exit 1
 ```
 
+This example runs `eslint src` unconditionally rather than reading `$SCOPE` the way the correctness
+examples above do — that is deliberate, not an oversight. A `heuristic` sensor's live count and its
+`.agents/state.yml` snapshot must be measured at the **same scope**, or the comparison is meaningless.
+The snapshot is always captured whole-repo at install time, so a ratcheted wrapper never filters by
+`$SCOPE`: it always measures the whole repo, the same way its snapshot was measured, so the two stay
+comparable. A scoped run on the one or two files a change touches would almost always report a
+near-zero count against a whole-repo baseline (e.g. 34) and the ratchet could never detect getting
+worse. Only `correctness`/`security` sensors scope to `$SCOPE` where their underlying tool supports
+it.
+
 Note what is *not* here: no `snapshot` for `typecheck` and none for a secret scanner, because
 neither is a heuristic. Copying this ratchet into a `security` sensor is the exact mistake the class
 column exists to prevent.
 
 ---
 
-## 7. `scripts/gate.sh` — the runner
+## 7. Worked example — a security sensor (no ratchet, whole-repo)
+
+GitLeaks has no per-file batch mode, so this sensor is whole-repo by necessity — the same reason
+`typecheck.sh` in §4 is whole-repo, and unlike the scoped `correctness` example in §5. It never
+ratchets: `security` fails on the first finding, full stop, and carries neither a `snapshot` nor a
+`review_by`.
+
+`scripts/sensors/secrets.sh`:
+
+```bash
+#!/usr/bin/env bash
+# secrets — security. Wrapper protocol: see the kit's sensor contract.
+# In:  SCOPE (unused - GitLeaks has no per-file batch mode, so this sensor is whole-repo by
+#      nature, the same way typecheck.sh is for tsc).
+# Out: line 1 = id<TAB>class<TAB>status<TAB>summary. Exit 0 pass / 1 fail / 2 skip.
+set -uo pipefail
+id=secrets
+class=security
+
+gitleaks_bin="$(command -v gitleaks || true)"
+if [ -z "$gitleaks_bin" ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "gitleaks is not installed - install it and re-run make gate-fast"
+  exit 2
+fi
+
+tmp_report="$(mktemp)"
+trap 'rm -f "$tmp_report"' EXIT
+"$gitleaks_bin" detect --no-git --source . --report-format json --report-path "$tmp_report" >/dev/null 2>&1
+rc=$?
+
+if [ "$rc" -eq 0 ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" pass "No leaks found in the repository."
+  exit 0
+fi
+
+leaks=$(grep -c '"RuleID"' "$tmp_report" 2>/dev/null); : "${leaks:=1}"
+printf '%s\t%s\t%s\t%s\n' "$id" "$class" fail "$leaks leaked credential(s) found in the repository."
+grep -oE '"File":"[^"]*"' "$tmp_report" 2>/dev/null | sed 's/"File":"//;s/"$//' | sort -u | head -5 | sed 's/^/  /'
+printf '  guidance: rotate every credential in the files listed above right now, then remove it\n'
+printf '  from source and load it from an environment variable or secret manager at runtime -\n'
+printf '  deleting it from the latest commit is not enough, it is still readable from git history.\n'
+printf '  GitLeaks only matches contiguous patterns: a literal built from string concatenation\n'
+printf '  (like "sk_live_" + "...") will not trip this sensor, so treat any provider-prefix-plus-\n'
+printf '  suffix construction as a leak even when this sensor stays green.\n'
+exit 1
+```
+
+A passing run:
+
+```
+$ bash scripts/sensors/secrets.sh; echo "exit=$?"
+secrets	security	pass	No leaks found in the repository.
+exit=0
+```
+
+---
+
+## 8. `scripts/gate.sh` — the runner
 
 **Copy the script below byte-for-byte into `scripts/gate.sh`.** Do not re-derive its field parsing,
 per-sensor timing, truncation or report rendering from memory or from a simpler idea of what a
@@ -335,7 +402,7 @@ ceiling=$(sed -n 's/^ *ceiling_seconds: *\([0-9][0-9]*\).*/\1/p' "$state" 2>/dev
 : "${ceiling:=5}"
 ids=$(sed -n 's/^ *- id: *\([A-Za-z0-9_-]*\).*/\1/p' "$state" 2>/dev/null)
 
-report=""; total_ms=0; n=0; failed=0
+report=""; total_ms=0; n=0; failed=0; skipped=0
 for id in $ids; do
   s="scripts/sensors/$id.sh"
   [ -f "$s" ] || continue
@@ -353,7 +420,7 @@ for id in $ids; do
 
   case "$rc" in
     0) mark="$m_pass" ;;
-    2) mark="$m_skip" ;;
+    2) mark="$m_skip"; skipped=$((skipped + 1)) ;;
     *) mark="$m_fail"; st=fail; failed=$((failed + 1)) ;;
   esac
 
@@ -368,7 +435,15 @@ if [ "$n_scope" -gt 0 ]; then scope_line="scope: $n_scope files changed since la
 else scope_line="scope: whole repository (no uncommitted changes)"; fi
 if [ "$total_ms" -ge 1000 ]; then spent="$((total_ms / 1000)).$(( (total_ms % 1000) / 100 ))s"
 else spent="${total_ms}ms"; fi
-if [ "$failed" -gt 0 ]; then verdict="FAILED ($failed of $n)"; else verdict="PASSED ($n of $n)"; fi
+ran=$((n - skipped))
+if [ "$skipped" -eq 0 ]; then
+  if [ "$failed" -gt 0 ]; then verdict="FAILED ($failed of $n)"; else verdict="PASSED ($n of $n)"; fi
+elif [ "$failed" -gt 0 ]; then
+  verdict="FAILED ($failed of $ran, $skipped skipped)"
+else
+  passed=$((ran - failed))
+  verdict="PASSED ($passed of $ran, $skipped skipped)"
+fi
 
 {
   printf '%s' "$report"
@@ -403,7 +478,7 @@ read line 1 and the exit code):
 $ make gate-fast
 
 ✓ typecheck   [correctness]  Found 0 errors in 12 files.          312ms
-✓ secrets     [security   ]  No leaks found in 12 changed files.  118ms
+✓ secrets     [security   ]  No leaks found in the repository.    118ms
 ✓ lint        [heuristic  ]  0 problems. same as snapshot (34).   840ms
 ✗ tests       [correctness]  3 passed, 1 failed.                   2.1s
   src/posting.test.ts:41 - expected 1200, received 1180
@@ -416,7 +491,7 @@ gate: fast - FAILED (1 of 4) | ceiling 5s, spent 3.4s | model cost: US$0.00
 full log in .agents/last-run.log
 ```
 
-## 8. Portability
+## 9. Portability
 
 `scripts/gate.sh` and every wrapper are plain `bash` living in the user's repository. They must run
 identically with this plugin absent, uninstalled and unknown — no `${CLAUDE_*}` variable, no path

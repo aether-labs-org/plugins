@@ -2,7 +2,9 @@
 # Same mature TypeScript repo as assess-mature-repo (Task 3), plus:
 # - a real `npm install` so the toolchain is present offline inside the sandbox
 #   (tsc/eslint/vitest binaries exist under node_modules/.bin before the agent runs)
-# - a planted live-looking secret in src/config.ts for the secret sensor to find
+# - a planted secret in src/config.ts (built via string concatenation, so GitLeaks
+#   deliberately does NOT catch it — see secrets.sh's own guidance for why. It's
+#   material for build's own discovery step, not something the gate is meant to flag.)
 set -euo pipefail
 
 mkdir -p src

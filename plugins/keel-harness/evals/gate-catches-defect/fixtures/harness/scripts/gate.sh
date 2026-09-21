@@ -46,7 +46,7 @@ ceiling=$(sed -n 's/^ *ceiling_seconds: *\([0-9][0-9]*\).*/\1/p' "$state" 2>/dev
 : "${ceiling:=5}"
 ids=$(sed -n 's/^ *- id: *\([A-Za-z0-9_-]*\).*/\1/p' "$state" 2>/dev/null)
 
-report=""; total_ms=0; n=0; failed=0
+report=""; total_ms=0; n=0; failed=0; skipped=0
 for id in $ids; do
   s="scripts/sensors/$id.sh"
   [ -f "$s" ] || continue
@@ -64,7 +64,7 @@ for id in $ids; do
 
   case "$rc" in
     0) mark="$m_pass" ;;
-    2) mark="$m_skip" ;;
+    2) mark="$m_skip"; skipped=$((skipped + 1)) ;;
     *) mark="$m_fail"; st=fail; failed=$((failed + 1)) ;;
   esac
 
@@ -79,7 +79,15 @@ if [ "$n_scope" -gt 0 ]; then scope_line="scope: $n_scope files changed since la
 else scope_line="scope: whole repository (no uncommitted changes)"; fi
 if [ "$total_ms" -ge 1000 ]; then spent="$((total_ms / 1000)).$(( (total_ms % 1000) / 100 ))s"
 else spent="${total_ms}ms"; fi
-if [ "$failed" -gt 0 ]; then verdict="FAILED ($failed of $n)"; else verdict="PASSED ($n of $n)"; fi
+ran=$((n - skipped))
+if [ "$skipped" -eq 0 ]; then
+  if [ "$failed" -gt 0 ]; then verdict="FAILED ($failed of $n)"; else verdict="PASSED ($n of $n)"; fi
+elif [ "$failed" -gt 0 ]; then
+  verdict="FAILED ($failed of $ran, $skipped skipped)"
+else
+  passed=$((ran - failed))
+  verdict="PASSED ($passed of $ran, $skipped skipped)"
+fi
 
 {
   printf '%s' "$report"

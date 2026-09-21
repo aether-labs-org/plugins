@@ -1,4 +1,4 @@
 .agents/last-run.log
-evals/results/
+**/evals/results/
 node_modules/
 .DS_Store

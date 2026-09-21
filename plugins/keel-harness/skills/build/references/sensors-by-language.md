@@ -70,9 +70,10 @@ the blind spots worth naming in the guidance text.
   gets the ratchet and a `review_by`.
 - **Affected tests.** Vitest (`related --run <files>`) or Jest (`--findRelatedTests`). Scoped by
   `SCOPE`; with no changed files it runs the whole suite. `correctness` class — never ratcheted.
-- **Secrets.** GitLeaks over the changed files. `security` class: no snapshot, no threshold,
-  fails on the first finding. If GitLeaks is not installed, the wrapper **skips** (exit 2) and says
-  so — a secret sensor that silently passes is worse than none.
+- **Secrets.** GitLeaks over the whole repository (it has no per-file batch mode, unlike the other
+  three sensors). `security` class: no snapshot, no threshold, fails on the first finding. If
+  GitLeaks is not installed, the wrapper **skips** (exit 2) and says so — a secret sensor that
+  silently passes is worse than none.
 - **Blind spots for guidance:** widening a type to `any` instead of modelling absence with
   `undefined` or a union; encoding "missing" as `""` or `-1`; reaching across layers directly.
 - **Architecture fitness (out of the v0.1 fast gate):** `dependency-cruiser`, or
