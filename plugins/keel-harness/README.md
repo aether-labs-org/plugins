@@ -45,6 +45,18 @@ and `bwrap` on the host.
 | `should-not-trigger` | 1.00 | 1.00 | 0.00 | pass (correct result) |
 | `build-typescript` | 0.57–1.00 | 0.43 | +0.14 to +0.57 | pass, confounded — see below |
 | `gate-catches-defect` | 0.20 (single-arm, `--ablation none`) | n/a | n/a | environment-blocked — see below |
+| `doctor-finds-drift` | 1.00 | 0.33 | +0.67 | pass |
+
+`assess-mature-repo` and `doctor-finds-drift` were freshly re-run for this table (3/3 runs each
+arm). `should-not-trigger`, `build-typescript` and `gate-catches-defect` carry over the numbers
+from the same eval session (same date, same Claude Code version) without a fresh re-run — the
+operator chose to skip re-confirming them rather than spend another live run on cases whose
+behavior has no reason to have changed since the last commit touched them.
+
+`doctor-finds-drift`'s Δ is driven by `names-the-drift`: an unmodified model asked "is the harness
+up to date?" has no reason to independently notice or cite a 188-line `AGENTS.md` against a 100-line
+convention it was never told about, so it fails that grader in the without arm every time (`writes-
+nothing` passes in both arms, since the without arm has no tools to write with either).
 
 `assess-mature-repo`'s Δ is driven by `rubric-axes` and `rubric-states`: the no-plugin baseline
 never emits the six-axis table, so those two graders fail in the without arm while everything

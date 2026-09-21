@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: doctor-finds-drift
+description: A harness with an oversize AGENTS.md is caught and named by doctor, which reports and writes nothing.
+tags: [doctor, drift]
+context:
+  scaffold_script: scaffold.sh
