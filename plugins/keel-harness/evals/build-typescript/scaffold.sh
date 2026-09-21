@@ -51,6 +51,10 @@ cat > src/config.ts <<'TS'
 const STRIPE_KEY = "sk_live_" + "51H8xExampleNotReal000000000000000";
 export const config = { stripeKey: STRIPE_KEY };
 TS
+cat > .gitignore <<'GITIGNORE'
+node_modules/
+.agents/last-run.log
+GITIGNORE
 
 npm install --no-audit --no-fund --silent
 
