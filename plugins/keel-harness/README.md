@@ -54,7 +54,7 @@ operator chose to skip re-confirming them rather than spend another live run on 
 behavior has no reason to have changed since the last commit touched them.
 
 `doctor-finds-drift`'s Δ is driven by `names-the-drift`: an unmodified model asked "is the harness
-up to date?" has no reason to independently notice or cite a 188-line `AGENTS.md` against a 100-line
+up to date?" has no reason to independently notice or cite a 161-line `AGENTS.md` against a 100-line
 convention it was never told about, so it fails that grader in the without arm every time (`writes-
 nothing` passes in both arms, since the without arm has no tools to write with either).
 

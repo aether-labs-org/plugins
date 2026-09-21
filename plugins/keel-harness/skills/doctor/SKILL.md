@@ -27,8 +27,8 @@ state, never a comparison across runs. It does not fix anything: every fix goes 
    targets, and `$PATH`, in that order. A command that resolves against none of the three **no
    longer exists** in the project — name the exact command and where in `AGENTS.md` it is cited.
 
-3. **Missing or failing sensor tools.** For every sensor declared in the `Makefile`'s `gate-fast`
-   target and listed under `sensors:` in `.agents/state.yml`, run its wrapper
+3. **Missing or failing sensor tools.** For every sensor listed under `sensors:` in `.agents/state.yml`
+   (the list `make gate-fast` → `scripts/gate.sh` actually runs), run its wrapper
    (`scripts/sensors/<id>.sh`) once. A wrapper whose underlying tool is **not installed**, or that
    exits 2 (skip), is a sensor the gate is not actually running — name the sensor id and what the
    wrapper itself reported is missing.
