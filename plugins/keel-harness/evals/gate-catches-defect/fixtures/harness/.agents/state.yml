@@ -1,0 +1,22 @@
+model_baseline: claude-sonnet-5
+installed_at: 2026-09-20
+runner: Makefile
+gate:
+  fast:
+    ceiling_seconds: 5
+layers:
+  bootstrap: installed
+  guides: installed
+  fast_gate: installed
+  contract: installed
+sensors:
+  - id: typecheck
+    class: correctness
+  - id: lint
+    class: heuristic
+    snapshot: { problems: 0, measured_at: 2026-09-20 }
+    review_by: 2027-03-20
+  - id: tests
+    class: correctness
+  - id: secrets
+    class: security

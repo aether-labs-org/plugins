@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: gate-catches-defect
+description: A single sensor catches a planted regression through the harness's own installed gate, and reports actionable guidance.
+tags: [build, gate, typescript]
+context:
+  scaffold_script: scaffold.sh
