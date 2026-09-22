@@ -1,0 +1,19 @@
+{
+  "name": "solutions-architect",
+  "description": "Turns an agent into an AWS solutions architect: measurable requirements, recorded decisions, draw.io views, list-price FinOps estimates, validated Terraform, documentation and review - read-only against cloud accounts.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Aether Labs"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/aether-labs-org/plugins",
+  "keywords": [
+    "aws",
+    "solutions-architect",
+    "architecture",
+    "finops",
+    "terraform",
+    "drawio",
+    "well-architected"
+  ]
+}
