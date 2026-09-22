@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "provider": "aws",
+  "language": "pt-BR",
+  "docs_path": "architecture",
+  "iac_path": "infra",
+  "regions": ["sa-east-1"],
+  "stage": "requirements",
+  "gates": {},
+  "requirements": [],
+  "decisions": [],
+  "components": [],
+  "assumptions": {
+    "currency": "USD",
+    "hours_per_month": 730,
+    "range": {"low": 0.7, "high": 1.5},
+    "business_units": [],
+    "usage": {}
+  },
+  "tagging": {"required": ["Project", "Environment", "Owner", "CostCenter"]},
+  "suppressions": [],
+  "dependencies": {"aws-core": "1.1.0"}
+}
