@@ -7,7 +7,10 @@ one `architecture/manifest.json`.
 
 **Read-only against cloud accounts.** A `PreToolUse` hook denies `terraform apply`, mutating
 `aws` CLI calls, `cdk deploy`, `kubectl apply` and mutating boto3 code. The plugin writes code
-and documents; a person or a pipeline applies them.
+and documents; a person or a pipeline applies them. The hook is a best-effort second layer:
+static analysis of a shell command string cannot be made complete (see decision D13/§9 in the
+spec). The actual guarantee is the read-only IAM role described in "AWS permissions" below -
+credentials that cannot write, never the hook alone.
 
 ## Install
 

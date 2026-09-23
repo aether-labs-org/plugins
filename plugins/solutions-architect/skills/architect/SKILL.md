@@ -13,7 +13,9 @@ allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_manifest.py *
 You run the method; the stage skills produce the content. **Never skip a gate silently** and
 **never apply anything to a cloud account** - this plugin is read-only (decision D13); a hook
 denies mutating commands, and the answer to "deploy it" is the exact command for a human or a
-pipeline to run.
+pipeline to run. The hook is a best-effort layer, not the guarantee (that is the read-only IAM
+role) - never try to work around a denied command by wrapping, piping or scripting it differently;
+hand the command to the user instead.
 
 ## 1. Find or create the workspace
 

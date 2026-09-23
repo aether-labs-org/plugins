@@ -51,10 +51,10 @@ def tokens(segment):
         return segment.split()
 
 
-def shell_c_arg(tok):
-    """If tok invokes a shell with -c (bare, or inside a combined short-option
-    cluster such as -lc, -ec, -xc, -fc), return the index of the token that
-    holds the command string; else None.
+def find_c_arg(tok, idx):
+    """If the shell invocation at tok[idx] takes -c (bare, or inside a combined
+    short-option cluster such as -lc, -ec, -xc, -fc), return the index of the
+    token that holds the command string; else None.
 
     Walks the option tokens after the shell name, skipping long options
     (--login, ...), "--" (end of options), and "-o <opt>" (which takes a
@@ -63,12 +63,12 @@ def shell_c_arg(tok):
     string shlex handed the shell as a single argument.
     """
     saw_c = False
-    i = 1
+    i = idx + 1
     while i < len(tok):
         t = tok[i]
         if t == "--":
             i += 1
-            continue
+            break
         if t == "-o":
             i += 2
             continue
@@ -86,18 +86,29 @@ def shell_c_arg(tok):
     return None
 
 
-def find_target(tok):
-    """Locate the first token whose basename is a recognised CLI (terraform, aws, ...).
+def is_redirect(t):
+    """True for a token that redirects a shell's stdin (`<`, `<<EOF`, `<<<...`)."""
+    return t == "<" or t.startswith("<<")
 
-    This lets check_segment see through wrappers with their own options (timeout,
-    xargs, find -exec, nice, watch, stdbuf, env -i, sudo -u x, ...) without having
-    to special-case each one: whatever precedes the recognised program is ignored,
-    and the check runs against the program and the tokens that follow it.
+
+def find_first(tok):
+    """Locate the first token whose basename is a recognised shell or CLI
+    (bash/sh/..., terraform, aws, ...), scanning ALL positions.
+
+    This is the single mechanism that lets check_tokens see through wrappers
+    with their own options (timeout, xargs, find -exec, nice, sudo -u x,
+    env, FOO=bar, a shell before -c, ...) without special-casing each one:
+    whatever precedes the recognised name is ignored, and the check runs
+    against that name and the tokens that follow it. Program match is
+    case-insensitive (M3).
     """
     for i, t in enumerate(tok):
-        if t.rsplit("/", 1)[-1] in TARGET_PROGS:
-            return i
-    return None
+        base = t.rsplit("/", 1)[-1].lower()
+        if base in SHELL_NAMES:
+            return i, "shell"
+        if base in TARGET_PROGS:
+            return i, "prog"
+    return None, None
 
 
 def positional(tok, value_flags=frozenset()):
@@ -114,36 +125,10 @@ def positional(tok, value_flags=frozenset()):
     return out
 
 
-def check_segment(segment, depth=0):
-    if depth > MAX_RECURSION:
-        return
-    tok = tokens(segment.strip())
-    if not tok:
-        return
-    head = tok[0].rsplit("/", 1)[-1]
-    # Shells invoked with -c (bare or inside a combined cluster like -lc,
-    # -ec, -xc; long options and -o <opt> and -- are skipped along the way)
-    # or eval hand a whole command as a single shlex token; recurse into
-    # that string so the checks below see the real command instead of
-    # stopping at "bash"/"eval" (C1).
-    if head in SHELL_NAMES:
-        c_idx = shell_c_arg(tok)
-        if c_idx is not None:
-            inner = tok[c_idx]
-            for seg in SEGMENT_SPLIT.split(inner):
-                check_segment(seg, depth + 1)
-            return
-        # No -c: fall through to find_target below, e.g. `bash -x
-        # /path/to/terraform apply` running a binary/script positionally.
-    if head == "eval":
-        inner = " ".join(tok[1:])
-        for seg in SEGMENT_SPLIT.split(inner):
-            check_segment(seg, depth + 1)
-        return
-    idx = find_target(tok)
-    if idx is None:
-        return
-    prog = tok[idx].rsplit("/", 1)[-1]
+def handle_prog(tok, idx):
+    """Apply the terraform/aws/cdk/sam/kubectl mutating-call checks to the
+    program found at tok[idx] and the tokens that follow it."""
+    prog = tok[idx].rsplit("/", 1)[-1].lower()
     args = tok[idx + 1:]
     if prog in ("terraform", "tofu"):
         pos = positional(args)
@@ -178,6 +163,78 @@ def check_segment(segment, depth=0):
             deny(f"`{prog} {sub}` changes cloud resources.")
 
 
+def check_tokens(tok, depth, piped):
+    """Recursively check one already-tokenised simple command.
+
+    `piped` is True when this command is the receiving end of a `|` (its
+    stdin comes from the previous stage of a pipeline). A single recursive
+    design handles every wrapper shape (C1/C3) and every shell shape
+    (bare program, -c string, positional script file, or nothing at all,
+    piped/redirected or not - C4):
+
+    - `eval ...`: recurse into the joined remainder.
+    - A shell name found ANYWHERE in the tokens (not just tok[0], so any
+      wrapper before it - sudo, nice, time, nohup, timeout N, env, FOO=bar,
+      xargs -I{} - is transparently skipped) with a -c option: recurse into
+      the command string it was handed.
+    - The same shell with no -c: whatever follows its options is itself
+      checked the same way, by recursing on it as a fresh token list - this
+      is what lets `bash -x /path/to/terraform apply` still get caught, and
+      what lets `bash scripts/check.sh` resolve to "nothing recognised" and
+      stay allowed, without a separate special case for either.
+    - The same shell with no -c and nothing usable following it (nothing at
+      all, or a `<`/`<<...` redirection token): it will read the command
+      from stdin, which cannot be analysed. Denied when that stdin comes
+      from a pipe or an explicit redirection - never for a bare shell name
+      sitting in an otherwise inert segment.
+    - Otherwise, the first recognised terraform/aws/cdk/sam/kubectl token
+      (again found at any position) is checked directly.
+    """
+    if depth > MAX_RECURSION or not tok:
+        return
+    head = tok[0].rsplit("/", 1)[-1].lower()
+    if head == "eval":
+        analyze(" ".join(tok[1:]), depth + 1)
+        return
+    idx, kind = find_first(tok)
+    if idx is None:
+        return
+    if kind == "prog":
+        handle_prog(tok, idx)
+        return
+    c_idx = find_c_arg(tok, idx)
+    if c_idx is not None:
+        analyze(tok[c_idx], depth + 1)
+        return
+    rest = tok[idx + 1:]
+    if rest and not is_redirect(rest[0]):
+        check_tokens(rest, depth + 1, piped=False)
+        return
+    if piped or (rest and is_redirect(rest[0])):
+        deny(f"`{tok[idx]}` would read a command from stdin (pipe or redirection), which this hook cannot analyse. Run the command directly instead.")
+
+
+def split_segments(text):
+    """Split `text` on &&, ||, ;, |, newline, $( and ` , pairing each
+    resulting segment with whether it directly follows a single `|` (i.e.
+    receives stdin from a pipe, as opposed to ||/;/&&/newline/substitution,
+    which don't)."""
+    segments = []
+    last = 0
+    piped = False
+    for m in SEGMENT_SPLIT.finditer(text):
+        segments.append((text[last:m.start()], piped))
+        piped = m.group() == "|"
+        last = m.end()
+    segments.append((text[last:], piped))
+    return segments
+
+
+def analyze(text, depth):
+    for seg, piped in split_segments(text):
+        check_tokens(tokens(seg.strip()), depth, piped)
+
+
 def check_code(text, where):
     if BOTO_CALL.search(text) or BOTO_OP_STRING.search(text):
         if "boto3" in text or "call_boto3" in text or where == "run_script":
@@ -206,8 +263,7 @@ def main():
         tin = data.get("tool_input", {}) or {}
         if name == "Bash":
             cmd = tin.get("command", "")
-            for seg in SEGMENT_SPLIT.split(cmd):
-                check_segment(seg)
+            analyze(cmd, 0)
             check_code(cmd, "shell")
         elif "run_script" in name:
             for text in strings(tin):
