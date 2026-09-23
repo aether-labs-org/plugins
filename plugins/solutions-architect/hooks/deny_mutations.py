@@ -51,39 +51,42 @@ def tokens(segment):
         return segment.split()
 
 
-def find_c_arg(tok, idx):
-    """If the shell invocation at tok[idx] takes -c (bare, or inside a combined
-    short-option cluster such as -lc, -ec, -xc, -fc), return the index of the
-    token that holds the command string; else None.
+def skip_shell_opts(tok, idx):
+    """Skip every option token after the shell name at tok[idx]: `-o <opt>`
+    (consumes two tokens - the only flag that takes a value), and any other
+    token starting with `-` (short clusters such as -e, -x, -s, -l, -c, ...,
+    long options, and `--` itself) - all skipped alike, and none of them
+    ends option-skipping. A real shell's exact getopt grammar (where `--`
+    stops option parsing and `-s --  --yes` passes `--yes` as a positional
+    parameter, not a filename) isn't safe to replicate here: this hook only
+    needs to tell "a script FILE was named" from "nothing but flags was
+    given, so the shell reads stdin", and treating every dash-prefixed token
+    as a flag - never as a filename - is the conservative, correct call for
+    a security gate (`bash -s -- --yes` must not be read as "run file
+    --yes").
 
-    Walks the option tokens after the shell name, skipping long options
-    (--login, ...), "--" (end of options), and "-o <opt>" (which takes a
-    value), noting whether any short-option cluster seen along the way
-    contains "c". The first non-option token after that is the command
-    string shlex handed the shell as a single argument.
+    Returns (saw_c, first_non_option_index_or_None). saw_c is True if any
+    skipped short-option cluster contained "c" (bash/sh/zsh/dash/ksh's
+    "run this string" flag; long options are never treated as containing
+    it). first_non_option_index is the index of the first token that isn't
+    itself an option - the command string when saw_c is True, the script
+    file (or a redirect token) otherwise - or None when every remaining
+    token was consumed as an option, meaning the shell reads stdin.
     """
     saw_c = False
     i = idx + 1
     while i < len(tok):
         t = tok[i]
-        if t == "--":
-            i += 1
-            break
         if t == "-o":
             i += 2
             continue
-        if t.startswith("--"):
-            i += 1
-            continue
-        if t.startswith("-") and len(t) > 1:
-            if "c" in t[1:]:
+        if t.startswith("-") and t != "-":
+            if not t.startswith("--") and "c" in t[1:]:
                 saw_c = True
             i += 1
             continue
         break
-    if saw_c and i < len(tok):
-        return i
-    return None
+    return saw_c, (i if i < len(tok) else None)
 
 
 def is_redirect(t):
@@ -167,28 +170,26 @@ def check_tokens(tok, depth, piped):
     """Recursively check one already-tokenised simple command.
 
     `piped` is True when this command is the receiving end of a `|` (its
-    stdin comes from the previous stage of a pipeline). A single recursive
-    design handles every wrapper shape (C1/C3) and every shell shape
-    (bare program, -c string, positional script file, or nothing at all,
-    piped/redirected or not - C4):
+    stdin comes from the previous stage of a pipeline). One semantic rule
+    handles every wrapper shape (C1/C3) and every shell shape (C4):
 
     - `eval ...`: recurse into the joined remainder.
     - A shell name found ANYWHERE in the tokens (not just tok[0], so any
       wrapper before it - sudo, nice, time, nohup, timeout N, env, FOO=bar,
-      xargs -I{} - is transparently skipped) with a -c option: recurse into
-      the command string it was handed.
-    - The same shell with no -c: whatever follows its options is itself
-      checked the same way, by recursing on it as a fresh token list - this
-      is what lets `bash -x /path/to/terraform apply` still get caught, and
-      what lets `bash scripts/check.sh` resolve to "nothing recognised" and
-      stay allowed, without a separate special case for either.
-    - The same shell with no -c and nothing usable following it (nothing at
-      all, or a `<`/`<<...` redirection token): it will read the command
-      from stdin, which cannot be analysed. Denied when that stdin comes
-      from a pipe or an explicit redirection - never for a bare shell name
-      sitting in an otherwise inert segment.
+      xargs -I{} - is transparently skipped): skip its option tokens
+      (`skip_shell_opts`).
+      - If a -c option was seen: the first non-option token is the command
+        string it was handed - recurse into it.
+      - Else, if a non-option token remains and it is not a redirect
+        (`<`/`<<...`): it is a script FILE argument - allowed, and whatever
+        follows it are the script's own arguments, not commands, so nothing
+        more to check.
+      - Else (nothing non-option remains, or it's a redirect token): this
+        shell reads the command from stdin, which cannot be analysed.
+        Denied only when that stdin is observably fed by something - a pipe
+        (`piped`), or an explicit `<`/`<<...` redirect in this segment.
     - Otherwise, the first recognised terraform/aws/cdk/sam/kubectl token
-      (again found at any position) is checked directly.
+      (found at any position) is checked directly.
     """
     if depth > MAX_RECURSION or not tok:
         return
@@ -202,15 +203,14 @@ def check_tokens(tok, depth, piped):
     if kind == "prog":
         handle_prog(tok, idx)
         return
-    c_idx = find_c_arg(tok, idx)
-    if c_idx is not None:
-        analyze(tok[c_idx], depth + 1)
+    saw_c, file_idx = skip_shell_opts(tok, idx)
+    if saw_c:
+        if file_idx is not None:
+            analyze(tok[file_idx], depth + 1)
         return
-    rest = tok[idx + 1:]
-    if rest and not is_redirect(rest[0]):
-        check_tokens(rest, depth + 1, piped=False)
+    if file_idx is not None and not is_redirect(tok[file_idx]):
         return
-    if piped or (rest and is_redirect(rest[0])):
+    if piped or (file_idx is not None and is_redirect(tok[file_idx])):
         deny(f"`{tok[idx]}` would read a command from stdin (pipe or redirection), which this hook cannot analyse. Run the command directly instead.")
 
 
