@@ -11,20 +11,20 @@ report_dir="$(dirname "$MANIFEST")/reports"
 mkdir -p "$report_dir"
 results=()
 status=0
-run() { # run <display-id> <command...>
+run() { # run <command...>
   local out rc line
-  out="$("${@:2}" 2>&1)"; rc=$?
+  out="$("$@" 2>&1)"; rc=$?
   printf '%s\n' "$out" | head -40
   line="$(printf '%s\n' "$out" | head -1)"
   results+=("$line")
   if [ "$rc" -eq 1 ]; then status=1; elif [ "$rc" -eq 2 ] && [ "$status" -eq 0 ]; then status=2; fi
 }
-run tf-fmt bash "$here/sensors/tf-fmt.sh"
-run tf-validate bash "$here/sensors/tf-validate.sh"
-run tflint bash "$here/sensors/tflint.sh"
-run checkov bash "$here/sensors/checkov.sh"
+run bash "$here/sensors/tf-fmt.sh"
+run bash "$here/sensors/tf-validate.sh"
+run bash "$here/sensors/tflint.sh"
+run bash "$here/sensors/checkov.sh"
 if [ -f "$plan" ]; then
-  run tags python3 "$here/sensors/tags.py" "$plan" "$MANIFEST"
+  run python3 "$here/sensors/tags.py" "$plan" "$MANIFEST"
 else
   results+=("$(printf 'tags\tcorrectness\tskip\tno plan JSON at %s - run terraform plan -lock=false -out=tf.plan and terraform show -json tf.plan' "$plan")")
   printf '%s\n' "${results[${#results[@]}-1]}"

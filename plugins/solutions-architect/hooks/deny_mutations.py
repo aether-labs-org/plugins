@@ -32,6 +32,9 @@ MUTATING_VERBS = ("create|delete|put|update|modify|terminate|run|start|stop|atta
 BOTO_CALL = re.compile(r"\.\s*(?:%s)_[a-z0-9_]+\s*\(" % MUTATING_VERBS)
 BOTO_OP_STRING = re.compile(r"[\"'](?:%s)_[a-z0-9_]+[\"']" % MUTATING_VERBS)
 SEGMENT_SPLIT = re.compile(r"&&|\|\||;|\||\n|\$\(|`")
+SHELL_NAMES = frozenset(("bash", "sh", "zsh", "dash", "ksh"))
+TARGET_PROGS = ("terraform", "tofu", "aws", "cdk", "sam", "kubectl")
+MAX_RECURSION = 6
 
 
 def deny(reason):
@@ -48,10 +51,53 @@ def tokens(segment):
         return segment.split()
 
 
-def strip_wrappers(tok):
-    while tok and (re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", tok[0]) or tok[0] in ("sudo", "env", "time", "nice", "nohup", "command", "exec")):
-        tok = tok[1:]
-    return tok
+def shell_c_arg(tok):
+    """If tok invokes a shell with -c (bare, or inside a combined short-option
+    cluster such as -lc, -ec, -xc, -fc), return the index of the token that
+    holds the command string; else None.
+
+    Walks the option tokens after the shell name, skipping long options
+    (--login, ...), "--" (end of options), and "-o <opt>" (which takes a
+    value), noting whether any short-option cluster seen along the way
+    contains "c". The first non-option token after that is the command
+    string shlex handed the shell as a single argument.
+    """
+    saw_c = False
+    i = 1
+    while i < len(tok):
+        t = tok[i]
+        if t == "--":
+            i += 1
+            continue
+        if t == "-o":
+            i += 2
+            continue
+        if t.startswith("--"):
+            i += 1
+            continue
+        if t.startswith("-") and len(t) > 1:
+            if "c" in t[1:]:
+                saw_c = True
+            i += 1
+            continue
+        break
+    if saw_c and i < len(tok):
+        return i
+    return None
+
+
+def find_target(tok):
+    """Locate the first token whose basename is a recognised CLI (terraform, aws, ...).
+
+    This lets check_segment see through wrappers with their own options (timeout,
+    xargs, find -exec, nice, watch, stdbuf, env -i, sudo -u x, ...) without having
+    to special-case each one: whatever precedes the recognised program is ignored,
+    and the check runs against the program and the tokens that follow it.
+    """
+    for i, t in enumerate(tok):
+        if t.rsplit("/", 1)[-1] in TARGET_PROGS:
+            return i
+    return None
 
 
 def positional(tok, value_flags=frozenset()):
@@ -68,12 +114,37 @@ def positional(tok, value_flags=frozenset()):
     return out
 
 
-def check_segment(segment):
-    tok = strip_wrappers(tokens(segment.strip()))
+def check_segment(segment, depth=0):
+    if depth > MAX_RECURSION:
+        return
+    tok = tokens(segment.strip())
     if not tok:
         return
-    prog = tok[0].rsplit("/", 1)[-1]
-    args = tok[1:]
+    head = tok[0].rsplit("/", 1)[-1]
+    # Shells invoked with -c (bare or inside a combined cluster like -lc,
+    # -ec, -xc; long options and -o <opt> and -- are skipped along the way)
+    # or eval hand a whole command as a single shlex token; recurse into
+    # that string so the checks below see the real command instead of
+    # stopping at "bash"/"eval" (C1).
+    if head in SHELL_NAMES:
+        c_idx = shell_c_arg(tok)
+        if c_idx is not None:
+            inner = tok[c_idx]
+            for seg in SEGMENT_SPLIT.split(inner):
+                check_segment(seg, depth + 1)
+            return
+        # No -c: fall through to find_target below, e.g. `bash -x
+        # /path/to/terraform apply` running a binary/script positionally.
+    if head == "eval":
+        inner = " ".join(tok[1:])
+        for seg in SEGMENT_SPLIT.split(inner):
+            check_segment(seg, depth + 1)
+        return
+    idx = find_target(tok)
+    if idx is None:
+        return
+    prog = tok[idx].rsplit("/", 1)[-1]
+    args = tok[idx + 1:]
     if prog in ("terraform", "tofu"):
         pos = positional(args)
         sub = pos[0] if pos else ""
@@ -125,17 +196,26 @@ def strings(value):
 
 
 def main():
-    data = json.load(sys.stdin)
-    name = data.get("tool_name", "")
-    tin = data.get("tool_input", {}) or {}
-    if name == "Bash":
-        cmd = tin.get("command", "")
-        for seg in SEGMENT_SPLIT.split(cmd):
-            check_segment(seg)
-        check_code(cmd, "shell")
-    elif "run_script" in name:
-        for text in strings(tin):
-            check_code(text, "run_script")
+    # Fail closed (C2): any unexpected input (non-JSON stdin, a non-dict
+    # payload, a missing/malformed field) must still produce a deny decision
+    # and exit 0, not an uncaught exception -> exit 1, which Claude Code
+    # treats as a non-blocking hook error and lets the tool call proceed.
+    try:
+        data = json.load(sys.stdin)
+        name = data.get("tool_name", "")
+        tin = data.get("tool_input", {}) or {}
+        if name == "Bash":
+            cmd = tin.get("command", "")
+            for seg in SEGMENT_SPLIT.split(cmd):
+                check_segment(seg)
+            check_code(cmd, "shell")
+        elif "run_script" in name:
+            for text in strings(tin):
+                check_code(text, "run_script")
+    except SystemExit:
+        raise
+    except Exception:
+        deny("Could not verify this call is read-only (internal error in the read-only guard).")
     sys.exit(0)
 
 

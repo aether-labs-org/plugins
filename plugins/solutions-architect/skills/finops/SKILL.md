@@ -52,7 +52,11 @@ the cost per business unit (`references/unit-economics.md`) in the ADR's cost ta
 
    `--mode record` calls `aws pricing get-products` (read-only, needs `pricing:GetProducts`) and
    keeps the responses so the estimate can be reproduced offline. Without credentials use
-   `--mode offline` with an existing cache.
+   `--mode offline` with an existing cache. The `before` call can only price products the `after`
+   call already recorded: if the current state has a resource whose price filters differ from the
+   plan (e.g. an instance type being replaced), rerun the `before` call with `--mode record` too
+   when credentials are available; otherwise those lines show "no recorded price response" and
+   must be listed, not guessed.
 4. Render the estimate in the manifest language:
 
    ```bash
