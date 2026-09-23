@@ -1,0 +1,8 @@
+<mxfile><diagram name="dr"><mxGraphModel><root>
+<mxCell id="0"/><mxCell id="1" parent="0"/>
+<object id="r1" label="sa-east-1 (primary)" sa_kind="region" role="primary"><mxCell style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_region;container=1;" vertex="1" parent="1"><mxGeometry x="0" y="0" width="260" height="200" as="geometry"/></mxCell></object>
+<object id="r2" label="us-east-1 (secondary)" sa_kind="region" role="secondary"><mxCell style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_region;container=1;" vertex="1" parent="1"><mxGeometry x="340" y="0" width="260" height="200" as="geometry"/></mxCell></object>
+<object id="db1" label="RDS primary" component_id="orders-db"><mxCell style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;" vertex="1" parent="r1"><mxGeometry x="100" y="80" width="60" height="60" as="geometry"/></mxCell></object>
+<object id="db2" label="RDS cross-region snapshot copy" component_id="orders-db"><mxCell style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;" vertex="1" parent="r2"><mxGeometry x="100" y="80" width="60" height="60" as="geometry"/></mxCell></object>
+<mxCell id="rep" value="1 snapshot copy every 6 h (RPO 6 h)" edge="1" source="db1" target="db2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+</root></mxGraphModel></diagram></mxfile>
