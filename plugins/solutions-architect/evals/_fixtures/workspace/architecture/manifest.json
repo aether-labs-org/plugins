@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "provider": "aws",
+  "language": "pt-BR",
+  "docs_path": "architecture",
+  "iac_path": "infra",
+  "regions": [
+    "sa-east-1",
+    "us-east-1"
+  ],
+  "stage": "diagram",
+  "gates": {
+    "requirements": {
+      "status": "pass",
+      "at": "2026-09-22"
+    },
+    "design": {
+      "status": "pass",
+      "at": "2026-09-22"
+    }
+  },
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "kind": "req",
+      "text": "Customers place orders online."
+    },
+    {
+      "id": "NFR-001",
+      "kind": "nfr",
+      "text": "Order API latency",
+      "measure": "p95 < 300 ms at 200 rps"
+    },
+    {
+      "id": "CON-001",
+      "kind": "con",
+      "text": "Personal data stays in Brazil (LGPD)."
+    },
+    {
+      "id": "NFR-002",
+      "kind": "nfr",
+      "text": "Checkout availability",
+      "measure": "99.9% monthly"
+    },
+    {
+      "id": "NFR-003",
+      "kind": "nfr",
+      "text": "Orders database recovery",
+      "measure": "RTO 1 h, RPO 15 min"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "ADR-0001",
+      "file": "decisions/0001-compute.md",
+      "status": "accepted",
+      "supersedes": null,
+      "addresses": [
+        "NFR-001"
+      ]
+    },
+    {
+      "id": "ADR-0002",
+      "file": "decisions/0002-database.md",
+      "status": "accepted",
+      "supersedes": null,
+      "addresses": [
+        "NFR-003"
+      ]
+    }
+  ],
+  "components": [
+    {
+      "id": "web-alb",
+      "service": "Elastic Load Balancing (ALB)",
+      "decision": "ADR-0001",
+      "terraform": [],
+      "diagrams": [
+        "topology",
+        "network",
+        "dataflow-security"
+      ]
+    },
+    {
+      "id": "order-api",
+      "service": "Amazon ECS on AWS Fargate",
+      "decision": "ADR-0001",
+      "terraform": [],
+      "diagrams": [
+        "topology",
+        "network",
+        "dataflow-security"
+      ]
+    },
+    {
+      "id": "orders-db",
+      "service": "Amazon Aurora PostgreSQL",
+      "decision": "ADR-0002",
+      "terraform": [],
+      "diagrams": [
+        "topology",
+        "network",
+        "dataflow-security",
+        "dr"
+      ]
+    }
+  ],
+  "assumptions": {
+    "currency": "USD",
+    "hours_per_month": 730,
+    "range": {
+      "low": 0.7,
+      "high": 1.5
+    },
+    "business_units": [
+      {
+        "name": "order",
+        "per_month": 300000
+      }
+    ],
+    "usage": {
+      "web-alb": {
+        "lcu": 2
+      }
+    }
+  },
+  "tagging": {
+    "required": [
+      "Project",
+      "Environment",
+      "Owner",
+      "CostCenter"
+    ]
+  },
+  "suppressions": [],
+  "dependencies": {
+    "aws-core": "1.1.0"
+  }
+}

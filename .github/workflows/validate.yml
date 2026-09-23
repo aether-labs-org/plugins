@@ -14,4 +14,4 @@ jobs:
       - name: Install Claude Code
         run: npm i -g @anthropic-ai/claude-code
       - name: Validate plugin
-        run: claude plugin validate ./plugins/keel-harness --strict
+        run: make validate

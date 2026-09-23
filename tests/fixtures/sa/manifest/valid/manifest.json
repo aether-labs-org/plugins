@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "provider": "aws",
+  "language": "pt-BR",
+  "docs_path": "architecture",
+  "iac_path": "infra",
+  "regions": ["sa-east-1"],
+  "stage": "design",
+  "gates": {"requirements": {"status": "pass", "at": "2026-09-22"}},
+  "requirements": [
+    {"id": "REQ-001", "kind": "req", "text": "Customers place orders online."},
+    {"id": "NFR-001", "kind": "nfr", "text": "Order API latency", "measure": "p95 < 300 ms at 200 rps"},
+    {"id": "CON-001", "kind": "con", "text": "Personal data stays in Brazil (LGPD)."}
+  ],
+  "decisions": [
+    {"id": "ADR-0001", "file": "decisions/0001-compute.md", "status": "accepted", "supersedes": null, "addresses": ["NFR-001"]}
+  ],
+  "components": [
+    {"id": "web-alb", "service": "Elastic Load Balancing (ALB)", "decision": "ADR-0001", "terraform": ["aws_lb.web"], "diagrams": ["topology", "network", "dataflow-security"]},
+    {"id": "orders-db", "service": "Amazon RDS for PostgreSQL", "decision": "ADR-0001", "terraform": ["aws_db_instance.db"], "diagrams": ["topology", "dr"]}
+  ],
+  "assumptions": {"currency": "USD", "hours_per_month": 730, "range": {"low": 0.7, "high": 1.5},
+                  "business_units": [{"name": "order", "per_month": 300000}],
+                  "usage": {"web-alb": {"lcu": 2}}},
+  "tagging": {"required": ["Project", "Environment", "Owner", "CostCenter"]},
+  "suppressions": [{"check": "CKV_TF_1", "resource": "module.vpc", "justification": "D22: registry modules are pinned to an exact version and locked by .terraform.lock.hcl."}],
+  "dependencies": {"aws-core": "1.1.0"}
+}

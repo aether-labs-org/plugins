@@ -1,0 +1,112 @@
+{
+ "filters": {
+  "regionCode": "sa-east-1"
+ },
+ "price_list": [
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-ReadRequestUnits"
+    },
+    "sku": "FP32PMXZGT2VFUMA"
+   },
+   "terms": {
+    "OnDemand": {
+     "FP32PMXZGT2VFUMA.JRTCKXETXF": {
+      "effectiveDate": "2026-08-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "FP32PMXZGT2VFUMA.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.1875 per million read request units (South America (Sao Paulo))",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0000001875"
+        },
+        "rateCode": "FP32PMXZGT2VFUMA.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "ReadRequestUnits"
+       }
+      },
+      "sku": "FP32PMXZGT2VFUMA",
+      "termAttributes": {}
+     }
+    }
+   }
+  },
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-WriteRequestUnits"
+    },
+    "sku": "GM69RJT49WH6GV53"
+   },
+   "terms": {
+    "OnDemand": {
+     "GM69RJT49WH6GV53.JRTCKXETXF": {
+      "effectiveDate": "2026-08-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "GM69RJT49WH6GV53.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.9375 per million write request units (South America (Sao Paulo))",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0000009375"
+        },
+        "rateCode": "GM69RJT49WH6GV53.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "WriteRequestUnits"
+       }
+      },
+      "sku": "GM69RJT49WH6GV53",
+      "termAttributes": {}
+     }
+    }
+   }
+  },
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-TimedStorage-ByteHrs"
+    },
+    "sku": "XFGEC4CX3KPPC6Z8"
+   },
+   "terms": {
+    "OnDemand": {
+     "XFGEC4CX3KPPC6Z8.JRTCKXETXF": {
+      "effectiveDate": "2026-08-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "XFGEC4CX3KPPC6Z8.JRTCKXETXF.G2A93NZ7DT": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.00 per GB-Month of storage for first 25 free GB-Months",
+        "endRange": "25",
+        "pricePerUnit": {
+         "USD": "0.0000000000"
+        },
+        "rateCode": "XFGEC4CX3KPPC6Z8.JRTCKXETXF.G2A93NZ7DT",
+        "unit": "GB-Mo"
+       },
+       "XFGEC4CX3KPPC6Z8.JRTCKXETXF.VYAP54KATQ": {
+        "appliesTo": [],
+        "beginRange": "25",
+        "description": "$0.375 per GB-Month of storage used beyond first 25 free GB-Months",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.3750000000"
+        },
+        "rateCode": "XFGEC4CX3KPPC6Z8.JRTCKXETXF.VYAP54KATQ",
+        "unit": "GB-Mo"
+       }
+      },
+      "sku": "XFGEC4CX3KPPC6Z8",
+      "termAttributes": {}
+     }
+    }
+   }
+  }
+ ],
+ "service_code": "AmazonDynamoDB"
+}

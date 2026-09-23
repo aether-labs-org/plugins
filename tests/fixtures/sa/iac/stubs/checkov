@@ -1,0 +1,4 @@
+#!/bin/sh
+# Test stub: prints the JSON file named by STUB_CHECKOV_JSON and records its arguments.
+printf '%s\n' "$*" > "${STUB_ARGS_FILE:-/dev/null}"
+cat "$STUB_CHECKOV_JSON"

@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: wa-review-qualitative
+description: Review finds the NFR no decision covers and does not improvise a pillar review.
+tags: [review]
+context:
+  scaffold_script: scaffold.sh

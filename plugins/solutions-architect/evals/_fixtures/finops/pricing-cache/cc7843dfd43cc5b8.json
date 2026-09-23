@@ -1,0 +1,71 @@
+{
+ "filters": {
+  "productFamily": "Load Balancer-Application",
+  "regionCode": "sa-east-1"
+ },
+ "price_list": [
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-LoadBalancerUsage"
+    },
+    "sku": "4AJP3GA9ECKSCY5M"
+   },
+   "terms": {
+    "OnDemand": {
+     "4AJP3GA9ECKSCY5M.JRTCKXETXF": {
+      "effectiveDate": "2026-08-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "4AJP3GA9ECKSCY5M.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.034 per Application LoadBalancer-hour (or partial hour)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0340000000"
+        },
+        "rateCode": "4AJP3GA9ECKSCY5M.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "Hrs"
+       }
+      },
+      "sku": "4AJP3GA9ECKSCY5M",
+      "termAttributes": {}
+     }
+    }
+   }
+  },
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-LCUUsage"
+    },
+    "sku": "57V3ETTKU499QBWM"
+   },
+   "terms": {
+    "OnDemand": {
+     "57V3ETTKU499QBWM.JRTCKXETXF": {
+      "effectiveDate": "2026-08-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "57V3ETTKU499QBWM.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.011 per used Application load balancer capacity unit-hour (or partial hour)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0110000000"
+        },
+        "rateCode": "57V3ETTKU499QBWM.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "LCU-Hrs"
+       }
+      },
+      "sku": "57V3ETTKU499QBWM",
+      "termAttributes": {}
+     }
+    }
+   }
+  }
+ ],
+ "service_code": "AWSELB"
+}

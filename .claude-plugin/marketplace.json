@@ -11,7 +11,35 @@
       "source": "./plugins/keel-harness",
       "description": "Assess, install and maintain an AI-agent harness in a repository.",
       "category": "development",
-      "tags": ["harness", "agents-md", "quality-gate", "sensors"]
+      "tags": [
+        "harness",
+        "agents-md",
+        "quality-gate",
+        "sensors"
+      ]
+    },
+    {
+      "name": "solutions-architect",
+      "source": "./plugins/solutions-architect",
+      "description": "Turn the agent into an AWS solutions architect: requirements, decisions, draw.io views, list-price FinOps, Terraform gate, docs and review - read-only.",
+      "category": "development",
+      "tags": [
+        "aws",
+        "architecture",
+        "finops",
+        "terraform",
+        "drawio"
+      ],
+      "dependencies": [
+        {
+          "name": "aws-core",
+          "marketplace": "claude-plugins-official",
+          "version": "^1.1.0"
+        }
+      ]
     }
+  ],
+  "allowCrossMarketplaceDependenciesOn": [
+    "claude-plugins-official"
   ]
 }
