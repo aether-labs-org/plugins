@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: finops-estimate
+description: Deterministic list-price estimate from a recorded plan and pricing cache, offline.
+tags: [finops]
+context:
+  scaffold_script: scaffold.sh

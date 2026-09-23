@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: diagram-trigger
+description: A request for one AWS view in a workspace fires the diagram skill.
+tags: [diagram]
+context:
+  scaffold_script: scaffold.sh

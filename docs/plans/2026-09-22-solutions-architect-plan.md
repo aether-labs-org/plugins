@@ -1,7 +1,7 @@
 # solutions-architect — Plano Técnico de Implementação (v0.3)
 
 **Data:** 2026-09-22
-**Status:** Fase 0 executada (§14); decisões D1–D24 fechadas (§2); plano executável da Fase 1 em `docs/plans/2026-09-22-solutions-architect-phase1.md`. Pendente: mínimo efetivo de IAM (H7), que exige um papel não-root
+**Status:** Fase 1 implementada (2026-09-22) no branch `feat/solutions-architect-phase1`; smoke dos evals em §15.2 (suíte completa adiada: sandbox de eval sem Bash nesta máquina). Pendente: suíte completa de evals; mínimo efetivo de IAM (H7), que exige um papel não-root
 **Repositório:** `aether-labs-org/plugins` (marketplace `aether-labs`)
 **Materiais de origem:** `~/Vault/second-brain/AI/solution_architect/` — *compass_artifact…*,
 *deep-research-report.md*, *Ferramental e Produtividade para Solution Architects.md* — mais a pesquisa
@@ -666,6 +666,24 @@ credenciais neutralizadas.
 - **Anti-alucinação:** todo serviço citado em ADR precisa aparecer numa chamada de documentação ou de
   disponibilidade regional na transcrição, e todo valor monetário precisa ter origem numa chamada de
   `price_lookup.py` (ou do Pricing MCP, na descoberta).
+
+**Resultados (Fase 1, 2026-09-22):** smoke run (`--case '*trigger' --runs 1 --ablation none`) em
+`/tmp/sa-eval-smoke`; suíte completa (Task 15 Step 5, com baseline sem plugin) adiada pelo owner para
+uma máquina ou CI sem a restrição de sandbox abaixo.
+
+| Caso | Score (com plugin) | Score (sem plugin) | Delta | Custo |
+|---|---|---|---|---|
+| `diagram-trigger` | 1.00 | — | — | $0.55 |
+| `should-not-trigger` | 1.00 | — | — | $0.09 |
+| `drawio-four-views` | deferred — Bash bloqueado no sandbox de eval (apparmor nested userns) | — | — | — |
+| `finops-estimate` | deferred — Bash bloqueado no sandbox de eval (apparmor nested userns) | — | — | — |
+| `greenfield-web-3tier` | deferred — Bash bloqueado no sandbox de eval (apparmor nested userns) | — | — | — |
+| `read-only-enforced` | deferred — Bash bloqueado no sandbox de eval (apparmor nested userns) | — | — | — |
+| `wa-review-qualitative` | deferred — Bash bloqueado no sandbox de eval (apparmor nested userns) | — | — | — |
+
+Causa: `kernel.apparmor_restrict_unprivileged_userns = 1` nesta máquina; o owner optou por não alterar o
+sysctl (Task 15 Step 1). Os dois casos que não usam Bash (`diagram-trigger`, `should-not-trigger`)
+confirmam o disparo/não-disparo da skill `diagram` independente dessa limitação.
 
 ### 15.3 Frescor e custo
 
