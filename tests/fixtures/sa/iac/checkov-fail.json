@@ -1,0 +1,1 @@
+{"check_type": "terraform", "results": {"failed_checks": [{"check_id": "CKV_AWS_16", "resource": "aws_db_instance.db", "file_path": "/main.tf", "file_line_range": [28, 36], "check_name": "Ensure all data stored in the RDS is securely encrypted at rest"}]}, "summary": {"passed": 11, "failed": 1}}

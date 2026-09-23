@@ -1,0 +1,16 @@
+#!/bin/sh
+# Test stub: fmt passes, init succeeds, validate reports STUB_TF_ERRORS errors (default 0).
+for a in "$@"; do
+  case "$a" in
+    fmt) exit 0 ;;
+    init) exit 0 ;;
+    validate)
+      if [ "${STUB_TF_ERRORS:-0}" -gt 0 ]; then
+        printf '{"valid":false,"error_count":1,"warning_count":0,"diagnostics":[{"severity":"error","summary":"Reference to undeclared input variable","range":{"filename":"main.tf","start":{"line":2}}}]}\n'
+      else
+        printf '{"valid":true,"error_count":0,"warning_count":0,"diagnostics":[]}\n'
+      fi
+      exit 0 ;;
+  esac
+done
+exit 0

@@ -1,0 +1,5 @@
+{"resource_changes": [
+  {"address": "aws_s3_bucket.assets", "mode": "managed", "type": "aws_s3_bucket", "change": {"actions": ["create"], "after": {"tags_all": {"Project": "shop", "Environment": "prod", "Owner": "team-a", "CostCenter": "cc-1"}}}},
+  {"address": "aws_vpc.main", "mode": "managed", "type": "aws_vpc", "change": {"actions": ["create"], "after": {"tags_all": {"Project": "shop", "Environment": "prod", "Owner": "team-a", "CostCenter": "cc-1"}}}},
+  {"address": "aws_route.r", "mode": "managed", "type": "aws_route", "change": {"actions": ["create"], "after": {"destination_cidr_block": "0.0.0.0/0"}}}
+]}
