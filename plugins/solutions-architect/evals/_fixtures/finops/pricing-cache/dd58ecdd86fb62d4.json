@@ -1,0 +1,43 @@
+{
+ "filters": {
+  "databaseEngine": "PostgreSQL",
+  "deploymentOption": "Multi-AZ",
+  "productFamily": "Database Storage",
+  "regionCode": "sa-east-1",
+  "volumeType": "General Purpose-GP3"
+ },
+ "price_list": [
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-RDS:Multi-AZ-GP3-Storage"
+    },
+    "sku": "76QZ3RFK75ZTYQZE"
+   },
+   "terms": {
+    "OnDemand": {
+     "76QZ3RFK75ZTYQZE.JRTCKXETXF": {
+      "effectiveDate": "2026-09-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "76QZ3RFK75ZTYQZE.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.438 per GB-month of provisioned GP3 storage for Multi-AZ deployments running PostgreSQL",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.4380000000"
+        },
+        "rateCode": "76QZ3RFK75ZTYQZE.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "GB-Mo"
+       }
+      },
+      "sku": "76QZ3RFK75ZTYQZE",
+      "termAttributes": {}
+     }
+    }
+   }
+  }
+ ],
+ "service_code": "AmazonRDS"
+}

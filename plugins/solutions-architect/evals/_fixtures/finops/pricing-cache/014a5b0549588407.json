@@ -1,0 +1,70 @@
+{
+ "filters": {
+  "regionCode": "sa-east-1"
+ },
+ "price_list": [
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-TimedStorage-ByteHrs"
+    },
+    "sku": "A2U5G2V8PAN8BBGE"
+   },
+   "terms": {
+    "OnDemand": {
+     "A2U5G2V8PAN8BBGE.JRTCKXETXF": {
+      "effectiveDate": "2026-09-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "A2U5G2V8PAN8BBGE.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.0408 per GB-mo of log storage - South America (Sao Paulo)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0408000000"
+        },
+        "rateCode": "A2U5G2V8PAN8BBGE.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "GB-Mo"
+       }
+      },
+      "sku": "A2U5G2V8PAN8BBGE",
+      "termAttributes": {}
+     }
+    }
+   }
+  },
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-DataProcessing-Bytes"
+    },
+    "sku": "AW4EB5RGNN8S75Q8"
+   },
+   "terms": {
+    "OnDemand": {
+     "AW4EB5RGNN8S75Q8.JRTCKXETXF": {
+      "effectiveDate": "2026-09-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "AW4EB5RGNN8S75Q8.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.90 per GB custom log data ingested in Standard log class - South America (Sao Paulo)",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.9000000000"
+        },
+        "rateCode": "AW4EB5RGNN8S75Q8.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "GB"
+       }
+      },
+      "sku": "AW4EB5RGNN8S75Q8",
+      "termAttributes": {}
+     }
+    }
+   }
+  }
+ ],
+ "service_code": "AmazonCloudWatch"
+}

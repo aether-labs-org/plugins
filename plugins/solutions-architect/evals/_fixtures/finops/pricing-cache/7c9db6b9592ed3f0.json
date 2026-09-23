@@ -1,0 +1,39 @@
+{
+ "filters": {
+  "regionCode": "sa-east-1"
+ },
+ "price_list": [
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-PublicIPv4:InUseAddress"
+    },
+    "sku": "VMVKZDCCHU2PXGFV"
+   },
+   "terms": {
+    "OnDemand": {
+     "VMVKZDCCHU2PXGFV.JRTCKXETXF": {
+      "effectiveDate": "2026-09-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "VMVKZDCCHU2PXGFV.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.005 per In-use public IPv4 address per hour",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0050000000"
+        },
+        "rateCode": "VMVKZDCCHU2PXGFV.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "Hrs"
+       }
+      },
+      "sku": "VMVKZDCCHU2PXGFV",
+      "termAttributes": {}
+     }
+    }
+   }
+  }
+ ],
+ "service_code": "AmazonVPC"
+}

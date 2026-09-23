@@ -1,0 +1,42 @@
+{
+ "filters": {
+  "databaseEngine": "PostgreSQL",
+  "deploymentOption": "Multi-AZ",
+  "instanceType": "db.m7g.large",
+  "regionCode": "sa-east-1"
+ },
+ "price_list": [
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-Multi-AZUsage:db.m7g.large"
+    },
+    "sku": "KX4PWCHFA8B8HFRN"
+   },
+   "terms": {
+    "OnDemand": {
+     "KX4PWCHFA8B8HFRN.JRTCKXETXF": {
+      "effectiveDate": "2026-09-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "KX4PWCHFA8B8HFRN.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "USD 0.442 per RDS db.m7g.large Multi-AZ instance hour (or partial hour) running PostgreSQL",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.4420000000"
+        },
+        "rateCode": "KX4PWCHFA8B8HFRN.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "Hrs"
+       }
+      },
+      "sku": "KX4PWCHFA8B8HFRN",
+      "termAttributes": {}
+     }
+    }
+   }
+  }
+ ],
+ "service_code": "AmazonRDS"
+}

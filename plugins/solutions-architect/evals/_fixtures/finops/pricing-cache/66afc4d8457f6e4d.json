@@ -1,0 +1,71 @@
+{
+ "filters": {
+  "productFamily": "NAT Gateway",
+  "regionCode": "sa-east-1"
+ },
+ "price_list": [
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-NatGateway-Hours"
+    },
+    "sku": "N3JNXFX89DVACZ9Q"
+   },
+   "terms": {
+    "OnDemand": {
+     "N3JNXFX89DVACZ9Q.JRTCKXETXF": {
+      "effectiveDate": "2026-09-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "N3JNXFX89DVACZ9Q.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.093 per NAT Gateway Hour",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0930000000"
+        },
+        "rateCode": "N3JNXFX89DVACZ9Q.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "Hrs"
+       }
+      },
+      "sku": "N3JNXFX89DVACZ9Q",
+      "termAttributes": {}
+     }
+    }
+   }
+  },
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-NatGateway-Bytes"
+    },
+    "sku": "SCEJ72FQAGUB53MY"
+   },
+   "terms": {
+    "OnDemand": {
+     "SCEJ72FQAGUB53MY.JRTCKXETXF": {
+      "effectiveDate": "2026-09-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "SCEJ72FQAGUB53MY.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.093 per GB Data Processed by NAT Gateways",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.0930000000"
+        },
+        "rateCode": "SCEJ72FQAGUB53MY.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "GB"
+       }
+      },
+      "sku": "SCEJ72FQAGUB53MY",
+      "termAttributes": {}
+     }
+    }
+   }
+  }
+ ],
+ "service_code": "AmazonEC2"
+}

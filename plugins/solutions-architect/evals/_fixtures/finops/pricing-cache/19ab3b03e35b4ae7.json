@@ -1,0 +1,41 @@
+{
+ "filters": {
+  "cacheEngine": "Valkey",
+  "instanceType": "cache.r7g.large",
+  "regionCode": "sa-east-1"
+ },
+ "price_list": [
+  {
+   "product": {
+    "attributes": {
+     "usagetype": "SAE1-NodeUsage:cache.r7g.large"
+    },
+    "sku": "ZNE5DXN7UC97KWC9"
+   },
+   "terms": {
+    "OnDemand": {
+     "ZNE5DXN7UC97KWC9.JRTCKXETXF": {
+      "effectiveDate": "2026-09-01T00:00:00Z",
+      "offerTermCode": "JRTCKXETXF",
+      "priceDimensions": {
+       "ZNE5DXN7UC97KWC9.JRTCKXETXF.6YS6EN2CT7": {
+        "appliesTo": [],
+        "beginRange": "0",
+        "description": "$0.3488 per Memory optimized r7g.large node hour running Valkey",
+        "endRange": "Inf",
+        "pricePerUnit": {
+         "USD": "0.3488000000"
+        },
+        "rateCode": "ZNE5DXN7UC97KWC9.JRTCKXETXF.6YS6EN2CT7",
+        "unit": "Hrs"
+       }
+      },
+      "sku": "ZNE5DXN7UC97KWC9",
+      "termAttributes": {}
+     }
+    }
+   }
+  }
+ ],
+ "service_code": "AmazonElastiCache"
+}
