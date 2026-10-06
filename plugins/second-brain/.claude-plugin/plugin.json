@@ -1,0 +1,19 @@
+{
+  "name": "second-brain",
+  "description": "Local-first Second Brain for Claude Code: capture, ingest, find, link, update and lint a plain-markdown vault with a deterministic CLI, protective hooks and optional local auto-commit.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Aether Labs"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/aether-labs-org/plugins",
+  "keywords": ["second-brain", "notes", "knowledge-base", "markdown", "obsidian", "local-first"],
+  "userConfig": {
+    "auto_commit": {
+      "type": "boolean",
+      "title": "Auto-commit vault changes",
+      "description": "At the end of each session, commit vault changes locally when the vault has a .git directory. Never pushes.",
+      "default": true
+    }
+  }
+}
