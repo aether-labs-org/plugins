@@ -123,7 +123,7 @@ Three hooks, all no-ops in a directory without `.second-brain.json`:
 | AC5 | A write to `_raw/` is blocked | `tests/python/test_sb_guard.py` |
 | AC6 | SessionEnd hook commits only when `.git` exists and `auto_commit` is on | `tests/python/test_sb_hooks.py` (`AutoCommitTests`) |
 | AC7 | `ripgrep` finds every note, including under `_` folders | `tests/python/test_sb_cli.py::test_ripgrep_finds_notes_under_underscore_folders` (skipped when `rg` is not on `PATH`) |
-| AC8 | `claude plugin validate --strict` passes | `tests/sb_structure_test.sh`, `make validate` |
+| AC8 | `claude plugin validate --strict` passes | `make validate` (run in CI after installing Claude Code) |
 | AC9 | No embeddings, MCP server or Obsidian plugins | `tests/sb_structure_test.sh` |
 | AC10 | Hooks are no-ops without `.second-brain.json` | `tests/python/test_sb_guard.py`, `tests/python/test_sb_hooks.py` |
 

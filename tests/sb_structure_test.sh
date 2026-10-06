@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Structural checks for the second-brain plugin (spec sections 3, 6, 10).
+# `claude plugin validate --strict` (AC8) runs in `make validate`: the CI installs claude after this suite.
 set -uo pipefail
 fail=0
 check() { if [ "$2" -eq 0 ]; then echo "  ok   $1"; else echo "  FAIL $1"; fail=1; fi; }
@@ -19,13 +20,6 @@ check "userConfig.auto_commit is boolean, default true" $?
 [ ! -e "$p/.mcp.json" ]; check "no .mcp.json (AC9)" $?
 ! grep -rEqi 'sentence[_-]transformers|ollama|faiss|chromadb|onnxruntime|openai' "$p/lib" "$p/bin" "$p/hooks" 2>/dev/null
 check "no embedding/vector dependencies (AC9)" $?
-
-validate_out="$(claude plugin validate "$p" --strict 2>&1)"; validate_status=$?
-check "claude plugin validate --strict" $validate_status
-if [ "$validate_status" -ne 0 ]; then
-  echo "       claude $(claude --version 2>&1 | head -1)"
-  printf '%s\n' "$validate_out" | sed 's/^/       /'
-fi
 skills="init capture ingest find link update lint"
 for s in $skills; do
   f="$p/skills/$s/SKILL.md"
