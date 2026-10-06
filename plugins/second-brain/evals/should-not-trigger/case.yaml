@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: should-not-trigger
+description: An unrelated coding request fires none of the second-brain skills.
+tags: [negative]

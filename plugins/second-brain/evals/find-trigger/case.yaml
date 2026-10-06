@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: find-trigger
+description: A question about the vault fires the find skill and cites the right note.
+tags: [find]
+context:
+  scaffold_script: scaffold.sh

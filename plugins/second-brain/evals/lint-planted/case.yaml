@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: lint-planted
+description: Lint reports the planted broken link and the note without summary.
+tags: [lint]
+context:
+  scaffold_script: scaffold.sh

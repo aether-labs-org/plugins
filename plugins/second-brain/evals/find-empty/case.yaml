@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: find-empty
+description: A question the vault does not cover is answered with an honest gap.
+tags: [find]
+context:
+  scaffold_script: scaffold.sh
