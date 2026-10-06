@@ -20,7 +20,12 @@ check "userConfig.auto_commit is boolean, default true" $?
 ! grep -rEqi 'sentence[_-]transformers|ollama|faiss|chromadb|onnxruntime|openai' "$p/lib" "$p/bin" "$p/hooks" 2>/dev/null
 check "no embedding/vector dependencies (AC9)" $?
 
-claude plugin validate "$p" --strict >/dev/null 2>&1; check "claude plugin validate --strict" $?
+validate_out="$(claude plugin validate "$p" --strict 2>&1)"; validate_status=$?
+check "claude plugin validate --strict" $validate_status
+if [ "$validate_status" -ne 0 ]; then
+  echo "       claude $(claude --version 2>&1 | head -1)"
+  printf '%s\n' "$validate_out" | sed 's/^/       /'
+fi
 skills="init capture ingest find link update lint"
 for s in $skills; do
   f="$p/skills/$s/SKILL.md"
