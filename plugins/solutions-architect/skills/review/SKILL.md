@@ -32,9 +32,23 @@ comes from the official aws-core skill and the method review from a fresh-contex
 5. **Independent pass.** Dispatch the `architecture-reviewer` subagent with the workspace path.
    It answers with blockers, risks and suggestions. If subagents are unavailable, do a second
    pass yourself reading only the artifacts, not this conversation.
-6. Write `architecture/reviews/<YYYY-MM-DD>-review.md` in the manifest language: summary,
+6. **Challenge the decisions.** For each accepted ADR with `Impact: high` (or, without that
+   field, one that is hard to reverse, a large share of the cost, or on an NFR path), using the
+   reviewer's answer and `${CLAUDE_PLUGIN_ROOT}/skills/design/references/discussion.md`:
+   - the strongest alternative not chosen - one from the ADR or a new one;
+   - what changed since the decision (requirements, load, prices, services now available in
+     the region) and whether a Revisit when trigger has fired;
+   - the assumptions that look fragile;
+   - a verdict: `keep`, `revisit` or `supersede`.
+
+   Put this list to the user in one message and ask which decisions, if any, they want to
+   reopen. Each one they reopen becomes an action for the `design` stage (a new ADR that
+   `supersedes` the old one). When the user asked not to be asked, record the verdicts and
+   reopen nothing.
+7. Write `architecture/reviews/<YYYY-MM-DD>-review.md` in the manifest language: summary,
    blockers, pillar findings (from aws-core), lens findings, method checks table, reviewer
-   findings, and actions - each action names the stage to revisit (`design`, `iac`, ...).
+   findings, challenged decisions (with verdict and the user's answer), and actions - each
+   action names the stage to revisit (`design`, `iac`, ...).
 
 ## Exit gate
 

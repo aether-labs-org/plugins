@@ -67,7 +67,9 @@ the cost per business unit (`references/unit-economics.md`) in the ADR's cost ta
 
 5. Read every `not-estimated` and `not-mapped` line. For each: supply the missing assumption,
    or add a price-map entry following `references/aws/price-discovery.md`, or leave it listed as
-   not estimated. **Never write a number for it by hand.**
+   not estimated. **Never write a number for it by hand.** Components with no Terraform (a SaaS
+   such as Datadog or Confluent Cloud) never reach the lookup: list them under "Outside this
+   estimate" with the vendor cost their ADR records, or "not estimated".
 6. Append a "Levers" section to `estimate.md` from `references/levers.md`: only the levers that
    apply to the resources present, each with the condition under which it pays off.
 7. Compare the total with the budget in the requirements. Over budget: say by how much and which
