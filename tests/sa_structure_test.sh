@@ -54,6 +54,29 @@ while IFS= read -r s; do grep -qx "$s" "$p/providers/aws/aws4-allowlist.txt" || 
   < <(grep -rhoE 'mxgraph\.aws4\.[A-Za-z0-9_]+' "$p/skills" | sort -u)
 check "every AWS4 shape named in the skills is in the allowlist" $bad
 
+bad=0
+while IFS= read -r s; do grep -qx "mxgraph.kubernetes.$s" "$p/providers/kubernetes/kubernetes-allowlist.txt" || { echo "    not in kubernetes allowlist: $s"; bad=1; }; done \
+  < <(grep -rhoE 'prIcon=[a-z_0-9]+' "$p/skills" | sed 's/prIcon=//' | sort -u)
+check "every Kubernetes icon named in the skills is in the allowlist" $bad
+
+bad=0
+while IFS= read -r s; do python3 -c 'import json,sys; sys.exit(sys.argv[2] not in json.load(open(sys.argv[1])))' "$p/providers/icons/catalog.json" "$s" || { echo "    not in icon catalog: $s"; bad=1; }; done \
+  < <(grep -rhoE 'sa_icon="[a-z0-9]+"' "$p/skills" | sed 's/sa_icon="//; s/"//' | sort -u)
+while IFS= read -r s; do [ -s "$p/providers/icons/svg/$s.svg" ] || { echo "    missing svg: $s"; bad=1; }; done \
+  < <(python3 -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))))' "$p/providers/icons/catalog.json")
+check "every sa_icon named in the skills is in the catalog and has an svg" $bad
+
+python3 - "$p/providers/icons/catalog.json" "$p/skills/diagram/references/third-party-icons.md" <<'EOF'
+import json, re, sys
+catalog = set(json.load(open(sys.argv[1])))
+rows = [l for l in open(sys.argv[2]) if re.match(r"\| (Observability|Streaming|Platform)", l)]
+table = {s for l in rows for s in re.findall(r"`([a-z0-9]+)`", l)}
+for s in sorted(table - catalog): print(f"    in the table, not in the catalog: {s}")
+for s in sorted(catalog - table): print(f"    in the catalog, not in the table: {s}")
+sys.exit(table != catalog)
+EOF
+check "third-party icon table matches the catalog" $?
+
 ! grep -rn '\.\./\.\.' "$p" --include='*.md' --include='*.json' >/dev/null; check "plugin does not escape its directory" $?
 for f in $(find "$p" -name '*.py'); do python3 -m py_compile "$f" || { echo "    $f"; fail=1; }; done
 check "python scripts compile" 0

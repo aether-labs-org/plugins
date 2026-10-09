@@ -12,7 +12,7 @@ To support another provider, write the same tables for it - no method skill shou
 | How to configure a service well | the aws-core skill in the table below |
 | Well-Architected pillar review | aws-core skill `aws-well-architected-review` |
 | List price | `providers/aws/scripts/price_lookup.py` with `providers/aws/price-map.json`; `aws-pricing` MCP only to discover a new usagetype |
-| Diagram icons | `providers/aws/aws4-allowlist.txt`, `skills/diagram/references/aws/aws4-shapes.md` |
+| Diagram icons | `providers/aws/aws4-allowlist.txt`, `skills/diagram/references/aws/aws4-shapes.md`; provider-neutral: `providers/kubernetes/` and `providers/icons/` (Kafka, Datadog...) |
 | IaC | Terraform `hashicorp/aws` provider + `terraform-aws-modules` (`skills/iac/references/modules.md`) |
 
 ## Logical component -> AWS service -> aws-core skill

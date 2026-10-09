@@ -23,3 +23,9 @@ Answer with three lists, most severe first, at most 20 items in total:
 
 Each item: one sentence, the artifact and location (file and id or line), and what would
 resolve it. Say "no blockers" explicitly when there are none.
+
+Then a fourth list, **Challenged decisions**: for each ADR that is hard to reverse, a large
+share of the cost or on an NFR path, name the strongest alternative it did not choose (from
+the ADR or not) and the measurable condition under which that alternative would win. Flag an
+ADR whose Discussion reads `Not held` or whose assumptions no longer match the requirements.
+These are input for the author, never blockers on their own.

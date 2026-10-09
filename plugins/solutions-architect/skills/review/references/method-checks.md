@@ -3,7 +3,7 @@
 | # | Check | Pass when | Evidence |
 |---|---|---|---|
 | 1 | NFR coverage | `validate_manifest.py --strict-trace` passes | manifest |
-| 2 | Alternatives | every accepted ADR lists 2+ options with scored criteria citing NFR ids | `decisions/` |
+| 2 | Alternatives and discussion | every accepted ADR lists 2+ options with scored criteria citing NFR ids, a Trade-offs table, a Discussion section and Revisit when triggers; each ADR whose Discussion reads `Not held` is listed as a risk | `decisions/` |
 | 3 | Regional availability | every ADR states availability for every workspace region | `decisions/` |
 | 4 | DR matches RTO/RPO | the DR strategy's recovery time and data loss meet the recorded RTO/RPO | `dr.drawio`, DR ADR, requirements |
 | 5 | Stateful components | every database, cache with persistence, and bucket with unrecreatable data has backup or versioning and a retention decision | ADRs, `infra/` |

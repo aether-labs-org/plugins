@@ -4,6 +4,7 @@
 - Date: YYYY-MM-DD
 - Addresses: NFR-001, CON-001
 - Supersedes: -
+- Impact: high | low
 
 ## Context and problem
 <!-- What forces this decision, in two to four sentences. -->
@@ -21,6 +22,12 @@
 | A | | |
 | B | | |
 
+## Trade-offs
+| Option | Gains | Gives up |
+|---|---|---|
+| A | | |
+| B | | |
+
 ## Scoring
 | Criterion | Weight | A | B |
 |---|---|---|---|
@@ -31,6 +38,10 @@
 | Option | Monthly USD | Per <business unit> | Assumptions |
 |---|---|---|---|
 
+## Discussion
+<!-- Questions put to the user, their answers, who decided and why. Or: "Not held - <reason>"
+     followed by the questions that would have been asked. -->
+
 ## Decision
 Chosen option: **<A>**, because <one sentence tied to the drivers>.
 
@@ -38,3 +49,9 @@ Chosen option: **<A>**, because <one sentence tied to the drivers>.
 - Positive:
 - Negative:
 - Reversibility:
+
+## Assumptions
+<!-- What must stay true for this decision to hold. -->
+
+## Revisit when
+<!-- Measurable triggers that reopen this decision, and the option that would then win. -->

@@ -12,3 +12,10 @@
    the skills the team will need.
 6. **Reversibility.** Say how expensive it would be to change the decision in 12 months; prefer
    the cheaper-to-reverse option when scores are close (within 10%).
+7. **A contrary option.** Every decision includes at least one option that is not the obvious
+   one (defer, simpler or more managed, different paradigm); scoring it is how the obvious
+   choice earns its place.
+8. **Sensitivity.** Move each weight by ±10 points: if the winner changes, say which weight
+   flips it and put that weight to the user in the discussion round.
+9. **Revisit triggers.** Write the measurable events that reopen the decision (load above
+   N req/s, cost per order above X, a service reaching a region) - they go in the ADR.

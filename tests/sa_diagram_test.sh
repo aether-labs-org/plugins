@@ -51,6 +51,51 @@ out="$(python3 "$v" "$tmp/bad.drawio" --view topology --allowlist "$allow")"
 printf '%s\n' "$out" | head -1 | grep -q $'\tfail\t'
 check "unreadable file fails cleanly" $?
 
+# Kubernetes shapes and embedded third-party icons.
+emb="$plugin/scripts/embed_icons.py"
+kallow="$plugin/providers/kubernetes/kubernetes-allowlist.txt"
+cat_json="$plugin/providers/icons/catalog.json"
+kman="$fx/k8s/manifest.json"
+vk() { python3 "$v" "$1" --view topology --allowlist "$allow" --allowlist "$kallow" --icons "$cat_json" --manifest "$kman"; }
+[ "$(grep -c '^mxgraph\.kubernetes\.[a-z_0-9]*$' "$kallow")" -ge 30 ]; check "kubernetes allowlist has 30+ icons" $?
+
+cp "$fx/k8s/topology.drawio" "$tmp/k8s.drawio"
+out="$(vk "$tmp/k8s.drawio")"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q 'kafka: sa_icon apachekafka is not embedded - run embed_icons.py'
+check "icon not embedded reported" $?
+
+out="$(python3 "$emb" "$tmp/k8s.drawio" --catalog "$cat_json")"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s\n' "$out" | head -1 | grep -q $'^drawio-icons\tcorrectness\tpass\t'
+check "embed_icons passes" $?
+grep -q 'image=data:image/svg+xml,' "$tmp/k8s.drawio"; check "embed_icons writes a data URI" $?
+vk "$tmp/k8s.drawio" >/dev/null; check "embedded k8s + third-party view passes" $?
+cp "$tmp/k8s.drawio" "$tmp/k8s-once.drawio"
+python3 "$emb" "$tmp/k8s.drawio" --catalog "$cat_json" >/dev/null
+cmp -s "$tmp/k8s.drawio" "$tmp/k8s-once.drawio"; check "embed_icons is idempotent" $?
+
+sed 's#sa_icon="datadog"#sa_icon="made_up_icon"#' "$fx/k8s/topology.drawio" > "$tmp/badicon.drawio"
+out="$(python3 "$emb" "$tmp/badicon.drawio" --catalog "$cat_json")"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q 'made_up_icon is not in the icon catalog'
+check "embed_icons rejects an unknown slug" $?
+out="$(vk "$tmp/badicon.drawio")"
+printf '%s\n' "$out" | grep -q 'sa_icon made_up_icon is not in the icon catalog'
+check "validator rejects an unknown slug" $?
+
+sed 's#shape=image;aspect=fixed#shape=image;image=https://example.com/kafka.svg;aspect=fixed#' "$tmp/k8s-once.drawio" > "$tmp/ext.drawio"
+out="$(vk "$tmp/ext.drawio")"
+printf '%s\n' "$out" | grep -q 'external image'
+check "external image URL reported" $?
+
+sed 's#prIcon=svc#prIcon=made_up#' "$tmp/k8s-once.drawio" > "$tmp/badk8s.drawio"
+out="$(vk "$tmp/badk8s.drawio")"
+printf '%s\n' "$out" | grep -q 'shape mxgraph.kubernetes.made_up is not in the Kubernetes allowlist'
+check "unknown kubernetes icon reported" $?
+
+sed 's#vertex="1" parent="eks"#vertex="1" parent="region"#' "$tmp/k8s-once.drawio" > "$tmp/ns.drawio"
+out="$(vk "$tmp/ns.drawio")"
+printf '%s\n' "$out" | grep -q 'ns (k8s-namespace) is not inside a k8s-cluster'
+check "namespace outside a cluster reported" $?
+
 out="$(PATH=/usr/bin:/bin bash "$plugin/scripts/export_drawio.sh" "$fx/topology.drawio" svg)"; rc=$?
 [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q $'^drawio-export\tcorrectness\tskip\t'
 check "export skips without draw.io Desktop" $?

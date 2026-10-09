@@ -6,7 +6,7 @@ every condition in its row holds.
 | # | Stage | Skill | Artifact | Exit gate |
 |---|---|---|---|---|
 | 1 | `requirements` | requirements | `requirements.md`, manifest `requirements[]` | Every NFR has a measure or `TBD by <owner>`; RTO/RPO, region(s), monthly budget and data classification recorded |
-| 2 | `design` | design | `decisions/NNNN-*.md`, manifest `decisions[]`, `components[]` | Every structural decision has 2+ options and criteria citing NFR ids and cost per business unit; every chosen service checked with `aws___get_regional_availability` for every workspace region; `validate_manifest.py` passes |
+| 2 | `design` | design | `decisions/NNNN-*.md`, manifest `decisions[]`, `components[]` | Every structural decision has 2+ options and criteria citing NFR ids and cost per business unit; every accepted ADR records its Discussion (user's answer or `Not held - <reason>`) and Revisit when triggers; every chosen service checked with `aws___get_regional_availability` for every workspace region; `validate_manifest.py` passes |
 | 3 | `diagram` | diagram | `diagrams/{topology,network,dataflow-security,dr}.drawio`, `diagrams/*.mmd` | `validate_drawio.py` passes for all four views with `--manifest`; `dr` may be skipped only when requirements say no DR |
 | 4 | `finops-compare` | finops | cost rows inside each ADR | Every ADR with a cost impact compares options by monthly list price and cost per business unit, with assumptions written down |
 | 5 | `iac` | iac | `<iac_path>/`, `reports/iac-gate.json` | `iac_gate.sh` exit 0 (every sensor `pass`); every suppression justified in the manifest |
