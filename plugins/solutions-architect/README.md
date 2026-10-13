@@ -72,11 +72,11 @@ read access to the state backend.
 |---|---|
 | `architect` | runs the workflow and its gates |
 | `requirements` | measurable requirements, RTO/RPO, budget, LGPD data classification |
-| `design` | ADRs with alternatives, NFR-based criteria, cost per business unit, regional availability |
-| `diagram` | topology, network, data-flow/security and DR views in draw.io with AWS4 icons |
+| `design` | a discussion round per decision (options, trade-offs, what would change the choice) before ADRs with alternatives, NFR-based criteria, cost per business unit, regional availability |
+| `diagram` | topology, network, data-flow/security and DR views in draw.io with AWS4 icons, Kubernetes shapes and embedded third-party icons (Kafka, Datadog, Prometheus, Argo CD... - see `providers/icons/NOTICE.md`) |
 | `finops` | list-price estimate from the Terraform plan, delta, unit cost, levers |
 | `iac` | Terraform with pinned terraform-aws-modules and the IaC gate |
 | `docs` | arc42-lite document, executive summary, risk register |
-| `review` | Well-Architected review via aws-core, lenses, method checks, independent reviewer |
+| `review` | Well-Architected review via aws-core, lenses, method checks, independent reviewer, and a challenge of high-impact decisions |
 
 Prices are public list prices from the AWS Price List API (no discounts or commitments).

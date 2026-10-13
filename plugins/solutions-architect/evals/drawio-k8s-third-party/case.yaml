@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: drawio-k8s-third-party
+description: Topology view with EKS, Kafka on Kubernetes and Datadog uses Kubernetes shapes and embedded third-party icons.
+tags: [diagram]
+context:
+  scaffold_script: scaffold.sh

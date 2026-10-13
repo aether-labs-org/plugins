@@ -1,0 +1,194 @@
+{
+  "apachekafka": {
+    "category": "streaming-data",
+    "guidelines": "https://www.apache.org/foundation/marks",
+    "hex": "231F20",
+    "license": "Apache-2.0",
+    "source": "simple-icons@16.30.0",
+    "title": "Apache Kafka"
+  },
+  "argo": {
+    "category": "platform-cicd",
+    "guidelines": "",
+    "hex": "EF7B4D",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Argo"
+  },
+  "cloudflare": {
+    "category": "platform-cicd",
+    "guidelines": "https://www.cloudflare.com/trademark/",
+    "hex": "F38020",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Cloudflare"
+  },
+  "datadog": {
+    "category": "observability",
+    "guidelines": "https://www.datadoghq.com/about/resources/",
+    "hex": "632CA6",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Datadog"
+  },
+  "elasticsearch": {
+    "category": "observability",
+    "guidelines": "",
+    "hex": "005571",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Elasticsearch"
+  },
+  "envoyproxy": {
+    "category": "platform-cicd",
+    "guidelines": "",
+    "hex": "AC6199",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Envoy Proxy"
+  },
+  "githubactions": {
+    "category": "platform-cicd",
+    "guidelines": "",
+    "hex": "2088FF",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "GitHub Actions"
+  },
+  "grafana": {
+    "category": "observability",
+    "guidelines": "",
+    "hex": "F46800",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Grafana"
+  },
+  "helm": {
+    "category": "platform-cicd",
+    "guidelines": "",
+    "hex": "0F1689",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Helm"
+  },
+  "istio": {
+    "category": "platform-cicd",
+    "guidelines": "",
+    "hex": "466BB0",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Istio"
+  },
+  "jaeger": {
+    "category": "observability",
+    "guidelines": "https://github.com/cncf/artwork/blob/e7e09686c20db6ddac06e482cf3338b0c8b2e22d/projects/jaeger/jaeger-logo-guide.pdf",
+    "hex": "66CFE3",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Jaeger"
+  },
+  "keycloak": {
+    "category": "platform-cicd",
+    "guidelines": "",
+    "hex": "4D4D4D",
+    "license": "custom",
+    "source": "simple-icons@16.30.0",
+    "title": "Keycloak"
+  },
+  "kong": {
+    "category": "platform-cicd",
+    "guidelines": "https://konghq.com/brand/",
+    "hex": "003459",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Kong"
+  },
+  "kubernetes": {
+    "category": "platform-cicd",
+    "guidelines": "",
+    "hex": "326CE5",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Kubernetes"
+  },
+  "mongodb": {
+    "category": "streaming-data",
+    "guidelines": "",
+    "hex": "47A248",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "MongoDB"
+  },
+  "nginx": {
+    "category": "platform-cicd",
+    "guidelines": "https://www.nginx.com/press/",
+    "hex": "009639",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "NGINX"
+  },
+  "opensearch": {
+    "category": "observability",
+    "guidelines": "https://opensearch.org/trademark-brand-policy.html",
+    "hex": "005EB8",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "OpenSearch"
+  },
+  "opentelemetry": {
+    "category": "observability",
+    "guidelines": "https://cncf-branding.netlify.app/projects/opentelemetry/",
+    "hex": "000000",
+    "license": "CC-BY-4.0",
+    "source": "simple-icons@16.30.0",
+    "title": "OpenTelemetry"
+  },
+  "postgresql": {
+    "category": "streaming-data",
+    "guidelines": "https://www.postgresql.org/about/policies/trademarks/",
+    "hex": "4169E1",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "PostgreSQL"
+  },
+  "prometheus": {
+    "category": "observability",
+    "guidelines": "",
+    "hex": "E6522C",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Prometheus"
+  },
+  "rabbitmq": {
+    "category": "streaming-data",
+    "guidelines": "https://www.rabbitmq.com/trademark-guidelines.html",
+    "hex": "FF6600",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "RabbitMQ"
+  },
+  "redis": {
+    "category": "streaming-data",
+    "guidelines": "https://redis.io/brand-guidelines",
+    "hex": "FF4438",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Redis"
+  },
+  "terraform": {
+    "category": "platform-cicd",
+    "guidelines": "https://www.hashicorp.com/brand",
+    "hex": "844FBA",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Terraform"
+  },
+  "vault": {
+    "category": "platform-cicd",
+    "guidelines": "https://www.hashicorp.com/brand",
+    "hex": "232F3E",
+    "license": "unspecified (Simple Icons is CC0-1.0)",
+    "source": "simple-icons@16.30.0",
+    "title": "Vault"
+  }
+}
