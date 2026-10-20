@@ -4,12 +4,11 @@ The fast gate answers four questions: does it typecheck, is it styled, do the af
 and did a credential leak. This file says which **tool** answers each question in each ecosystem,
 and what the wrapper around it has to know.
 
-> **What is actionable today.** Only the **TypeScript / Node** row is implemented end to end: the
-> wrappers, the ratchet and the eval fixture all exist and are exercised. The other five rows —
-> Next.js / React, Python, Go, Java, Terraform — are **documentation only** until the second plan
-> implements them. Do not install a gate for those stacks from this file alone: propose what is
-> here, say plainly that the wrappers for that stack are not written yet, and stop at the layers
-> that are (`bootstrap`, `guides`).
+> **What is actionable today.** TypeScript, React, Python and Java/Kotlin have bundled, tested
+> sensors under `${CLAUDE_SKILL_DIR}/assets/sensors/` (`typescript/`, `python/`, `jvm/`, plus
+> `common/secrets.sh`); React reuses `typescript/`. Go and Terraform stay **documentation only**:
+> propose what is written here, say plainly that the wrappers for that stack are not bundled, and
+> stop at the layers that are (`bootstrap`, `guides`).
 
 ---
 
@@ -79,22 +78,36 @@ the blind spots worth naming in the guidance text.
 - **Architecture fitness (out of the v0.1 fast gate):** `dependency-cruiser`, or
   `eslint-plugin-boundaries`, or Nx module boundaries. Pass signal: `no dependency violations found`.
 
-### Next.js / React — *documentation only*
+### React — *actionable*
 
-Same four tools as TypeScript, plus the framework's own lint config, which usually already wraps
-ESLint — discover it rather than adding a second linter beside it. Server/client component boundary
-violations surface through the framework build, which is normally too slow for the fast gate; when
-it is, the ceiling rule applies as it does for Java.
+Reuses `assets/sensors/typescript/` unchanged (`typecheck.sh`, `lint.sh`, `tests.sh`) plus
+`common/secrets.sh`. What discovery adds to the `keel:repo-specific` block: `LINT_PATHS` (the
+source roots that hold components, e.g. `src` or `app components`) and the framework's own ESLint
+config, which usually already wraps ESLint, so discover it rather than adding a second linter. The
+framework build (Next.js, Vite) stays out of the fast gate: server/client boundary violations
+surface there, and it is normally too slow, so the ceiling rule applies as it does for Java.
 
-### Python — *documentation only*
+- **Architecture fitness:** `dependency-cruiser`, rendered from the approved map by `rules`.
+- **Mutation testing (slow gate):** Stryker, scoped to the changed files by `rules`' `mutation` sensor.
+- **Affected tests:** Vitest `related --run` or Jest `--findRelatedTests`, as for TypeScript.
+
+### Python — *actionable*
+
+Bundled in `assets/sensors/python/` (`typecheck.sh`, `lint.sh`, `tests.sh`); discovery fills the
+`keel:repo-specific` block (`.venv/bin/...` paths, `mypy` or `pyright`, `TEST_ROOT`).
 
 - **Types:** mypy. Pass signal: `Success: no issues found in N source files`.
 - **Style:** ruff. Format: `path:line:col: CODE msg`; many codes are auto-fixable with `--fix`.
 - **Tests:** pytest. The **first** `FAIL` is the root — later ones often cascade from a fixture.
 - **Blind spots:** annotate public functions; avoid `Any`; use `Optional` / `| None` rather than
   sentinel values; keep the layering (in a hexagonal layout the domain does not import infra).
-- **Architecture fitness:** `import-linter`, driven by an `.importlinter` contract file. Pass signal:
-  `Contracts: N kept, 0 broken`.
+- **Architecture fitness:** `import-linter`, driven by an `.importlinter` contract file that the
+  `rules` skill renders from the approved map. Pass signal: `Contracts: N kept, 0 broken`. It
+  baselines through `ignore_imports` in the contract.
+- **Mutation testing (slow gate):** `mutmut`, scoped to the changed modules by `rules`' `mutation`
+  sensor.
+- **Affected tests:** a changed `a/b/mod.py` maps to `TEST_ROOT/**/test_mod.py` or `**/mod_test.py`;
+  a changed test file runs itself; nothing mapped passes with `no related test found`.
 
 ### Go — *documentation only*
 
@@ -107,7 +120,10 @@ it is, the ceiling rule applies as it does for Java.
 - **Architecture fitness:** golangci-lint with `depguard` (bans forbidden imports), or
   `go-arch-lint`. `internal/` already enforces one boundary at compile time.
 
-### Java — *documentation only*
+### Java / Kotlin (Spring) — *actionable*
+
+Bundled in `assets/sensors/jvm/` (`compile.sh`, `lint.sh`, `tests.sh`); discovery fills the
+`keel:repo-specific` block (Gradle or Maven wrapper, Checkstyle, ktlint or detekt).
 
 - **Types:** the compiler itself. **Usually over the ceiling** — see the consequence above; when the
   measured compile exceeds `gate.fast.ceiling_seconds`, it is not installed in the fast gate and the
@@ -117,8 +133,14 @@ it is, the ceiling rule applies as it does for Java.
   and skip the framework frames above it.
 - **Blind spots:** do not return `null` from a public API — use `Optional<T>`; constructor injection
   rather than field injection; thin controllers.
-- **Architecture fitness:** ArchUnit tests run by the normal test goal; alternatives are Maven
-  Enforcer and Spring Modulith.
+- **Architecture fitness:** ArchUnit (`onionArchitecture()` for hexagonal), generated by the `rules`
+  skill from the approved map and run by `scripts/sensors/architecture.sh`; `FreezingArchRule`
+  baselines existing violations. Alternatives are Maven Enforcer and Spring Modulith.
+- **Spring notes:** keep `org.springframework` and `jakarta.persistence` out of the domain package;
+  the `@Service` annotation on a domain class is the usual first violation.
+- **Mutation testing (slow gate):** PIT, scoped to the changed classes by `rules`' `mutation` sensor.
+- **Affected tests:** a changed `src/main/**/Foo.{java,kt}` maps to `FooTest` when that class
+  exists; Gradle runs `test --tests '*FooTest'`, Maven `-Dtest=FooTest`.
 
 ### Terraform — *documentation only*
 

@@ -1,16 +1,17 @@
 # The rubric, and the right to say "I don't know"
 
-Six axes, three states each, mandatory evidence. No third-party diagnosis tool — this is a
+Seven axes, three states each, mandatory evidence. No third-party diagnosis tool — this is a
 deterministic internal scan.
 
 | Axis | Present | Partial | Absent |
 | --- | --- | --- | --- |
 | **Bootstrap** | Lockfile, and a single target that installs and builds — and it runs | Lockfile without a single target, or a target that exists and fails | Neither |
-| **Guides** | `AGENTS.md` at root ≤ 100 lines, and `docs/` with content | One of the two, or `AGENTS.md` over the ceiling | Neither |
-| **Fast sensors** | Types and style configured *and* runnable | Configured, but one does not run | No configuration |
-| **Slow sensors** | A suite that runs, and coverage configuration | Suite without coverage, or a suite that fails | No suite |
-| **Enforcement** | `.pre-commit-config.yaml` and a CI workflow running the same commands | One of the two, or divergent local/CI commands | Neither |
-| **Context** | Pointers to the other tools, and `.mcp.json` declared (even empty) | Missing pointers, or connectors without declaration | Nothing |
+| **Guides** | An instruction file a target agent reads (`AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, `.devin/rules`), at most 100 lines, and `docs/` with content | One of the two, or an instruction file over the ceiling | Neither |
+| **Fast sensors** | Types and style configured *and* runnable; an architecture tool configured (dependency-cruiser, ArchUnit, import-linter) counts as a structure sensor | Configured, but one does not run | No configuration |
+| **Slow sensors** | A suite that runs, coverage configured **and** mutation testing configured (PIT, Stryker, mutmut) | Suite without coverage or without mutation testing, or a suite that fails | No suite |
+| **Enforcement** | `.pre-commit-config.yaml`, husky or lefthook, plus a CI workflow running the same commands | One of the two, or divergent local/CI commands | Neither |
+| **Context** | The instructions reach every target agent: `AGENTS.md` exists and either there is no `CLAUDE.md` or `CLAUDE.md` imports `@AGENTS.md` | `AGENTS.md` exists but a `CLAUDE.md` without the import hides it from Claude Code | No instruction file |
+| **Rules** | At least one rule documented as a section in `docs/architecture.md`, `docs/conventions.md` or `docs/testing.md` with a sensor that enforces it | Documented rules without enforcement, or TODO stubs | None |
 
 ## There is no aggregate score
 
@@ -20,11 +21,11 @@ its own; never a total, never an overall grade.
 
 ## Two cost units, and only two
 
-- **setup minutes** — how long `build` takes to close that gap, confirmations included.
+- **estimated setup minutes** — how long `build` or `rules` takes to close that gap, confirmations included.
 - **seconds added to the gate** — how much that sensor adds to every edit, measured by running the
   tool once on the real repository, never estimated.
 
-Both units are **measured**, never estimated. Run the tool once when it is installed and read the
+Seconds are **measured**; setup minutes are labelled an estimate, since they cannot be measured before the skill runs. Run the tool once when it is installed and read the
 real number. When the tool is not installed and cannot be measured, the cost is reported as
 **not measured** — never as a guess.
 

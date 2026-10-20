@@ -5,8 +5,8 @@
 # (Makefile, scripts/, .agents/ - already verified clean by gate-catches-defect),
 # add an AGENTS.md of our own (the shared fixture ships none - each case that
 # needs one writes it), then append 120 filler lines so exactly one of doctor's
-# four conditions - AGENTS.md size - is broken. Commands, sensor tools and
-# model_baseline are all left untouched and clean, so only that one condition
+# four conditions - AGENTS.md size - is broken. Commands and sensor tools
+# are left untouched and clean, so only that one condition
 # fires.
 set -euo pipefail
 
@@ -15,8 +15,16 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bash "$here/../build-typescript/scaffold.sh"
 
 cp -r "$here/../gate-catches-defect/fixtures/harness/Makefile" \
-      "$here/../gate-catches-defect/fixtures/harness/scripts" \
       "$here/../gate-catches-defect/fixtures/harness/.agents" .
+
+assets="$here/../../skills/build/assets"
+mkdir -p scripts/lib scripts/sensors
+cp "$assets/gate.sh" scripts/gate.sh
+cp "$assets/gate.env" .agents/gate.env
+cp "$assets/lib/baseline.sh" scripts/lib/baseline.sh
+for s in typecheck lint tests; do cp "$assets/sensors/typescript/$s.sh" "scripts/sensors/$s.sh"; done
+cp "$assets/sensors/common/secrets.sh" scripts/sensors/secrets.sh
+chmod +x scripts/gate.sh scripts/sensors/*.sh
 
 cat > AGENTS.md <<'MD'
 # AGENTS.md — ledger

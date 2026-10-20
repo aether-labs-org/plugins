@@ -1,22 +1,9 @@
-model_baseline: claude-sonnet-5
-installed_at: 2026-09-20
-runner: Makefile
-gate:
-  fast:
-    ceiling_seconds: 5
-layers:
-  bootstrap: installed
-  guides: installed
-  fast_gate: installed
-  contract: installed
-sensors:
-  - id: typecheck
-    class: correctness
-  - id: lint
-    class: heuristic
-    snapshot: { problems: 0, measured_at: 2026-09-20 }
-    review_by: 2027-03-20
-  - id: tests
-    class: correctness
-  - id: secrets
-    class: security
+schema_version: 2
+installed_at: 2026-10-20
+harness_review_by: 2027-04-20
+mode: brownfield
+layers: { bootstrap: installed, guides: installed, fast_gate: installed, slow_gate: not_installed, hook: not_installed, rules: not_installed }
+not_installed:
+  slow_gate: "no mutation or coverage tool configured"
+  hook: "this eval fixture drives the gate by hand"
+  rules: "run /keel-harness:rules to define project rules"

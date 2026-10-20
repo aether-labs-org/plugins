@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Test stub for a build tool run quietly: logs argv to $STUB_LOG, writes the JUnit report $STUB_XML
+# (if set) where Gradle would, prints $STUB_OUT, exits ${STUB_EXIT:-0}.
+printf '%s\n' "$*" >> "${STUB_LOG:-/dev/null}"
+if [ -n "${STUB_XML:-}" ]; then mkdir -p build/test-results/test && cp "$STUB_XML" build/test-results/test/TEST-stub.xml; fi
+[ -n "${STUB_OUT:-}" ] && printf '%s\n' "$STUB_OUT"
+exit "${STUB_EXIT:-0}"

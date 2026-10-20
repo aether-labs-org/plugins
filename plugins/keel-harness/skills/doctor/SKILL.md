@@ -1,59 +1,66 @@
 ---
 name: doctor
 description: >
-  Checks whether an installed harness has drifted from the repository it guards: AGENTS.md
-  over 100 lines, commands cited there that no longer exist, sensors declared in the Makefile
-  whose tool is missing or fails to run, and a model_baseline that has fallen behind. Reports
-  and proposes; writes nothing. Use when someone asks whether their harness is out of date,
+  Checks whether an installed harness has drifted from the repository it guards, by running the
+  same portable validator the repository carries: AGENTS.md over 100 lines, commands cited there
+  that no longer resolve, a CLAUDE.md that hides AGENTS.md, dangling rule pointers, a missing Stop
+  hook, malformed or unavailable sensors, rules that disagree with their env files, oversize topic
+  files, malformed or stale baselines, and an overdue harness review. Explains each warning and
+  proposes the fix; writes nothing. Use when someone asks whether their harness is out of date,
   stale or still valid, or wants a harness health check.
 ---
 
 # Doctor
 
-Reports and proposes, never writes.
+Reports and proposes, never writes. There is one implementation of the checks, the validator
+`harness-check.sh`; `doctor` runs the plugin's latest copy and adds what a script cannot: the
+explanation of each warning and the proposed fix.
 
-`doctor` looks at an already-installed harness against the repository it guards, right now, with
-no history. It runs exactly four checks — no more, no less — each a single look at the current
-state, never a comparison across runs. It does not fix anything: every fix goes back through
-`build`.
+## 1. Run the validator
 
-## The four checks
+From the repository root:
 
-1. **AGENTS.md size.** Read `AGENTS.md` and count its lines. Over **100 lines** is drift — the
-   index has stopped being an index and started accumulating prose that belongs in `docs/`.
+```bash
+bash "${CLAUDE_SKILL_DIR}/../build/assets/harness-check.sh"
+```
 
-2. **Stale commands.** Read every command cited in `AGENTS.md` (the Build & run block, the sensor
-   table, the quality-gate blocks) and resolve each one against `package.json` scripts, `Makefile`
-   targets, and `$PATH`, in that order. A command that resolves against none of the three **no
-   longer exists** in the project — name the exact command and where in `AGENTS.md` it is cited.
+It is read-only. It prints one line per warning, `warn<TAB><check-id><TAB><file><TAB><message><TAB><fix>`,
+then `harness-check: N warning(s)` or `harness-check: harness is clean`. Exit 0 clean, 1 warnings,
+2 no harness: with no `.agents/state.yml`, say so and point at `/keel-harness:build`; that is a
+precondition, not a warning.
 
-3. **Missing or failing sensor tools.** For every sensor listed under `sensors:` in `.agents/state.yml`
-   (the list `make gate-fast` → `scripts/gate.sh` actually runs), run its wrapper
-   (`scripts/sensors/<id>.sh`) once. A wrapper whose underlying tool is **not installed**, or that
-   exits 2 (skip), is a sensor the gate is not actually running — name the sensor id and what the
-   wrapper itself reported is missing.
+## 2. The twelve checks
 
-4. **Stale model_baseline.** Read `model_baseline` from `.agents/state.yml` and compare it against
-   the model running this session. If the installed baseline is behind the running model by one
-   version or more, the harness was tuned for an older model — name both versions.
+| Check id | Condition | Fix goes through |
+| --- | --- | --- |
+| `agents-size` | a tracked `AGENTS.md` is over 100 lines | `build` (guides): move prose into `docs/` |
+| `stale-command` | a command cited in `AGENTS.md` no longer resolves | `build` (guides) |
+| `agents-not-loaded` | `CLAUDE.md` or `.claude/CLAUDE.md` exists without `@AGENTS.md` | `build` (it proposes the import line) |
+| `dangling-pointer` | a `→ path#anchor` target, file or anchor, is missing or still a TODO stub | `rules` |
+| `hook-missing` | no Stop hook pointing at an executable `scripts/hooks/claude-stop.sh` | `build` (hook) |
+| `sensor-malformed` | a sensor whose `id=` differs from its file name, whose `class=` is invalid, or that is not executable | edit the file, or `build` |
+| `sensor-unavailable` | a fast sensor exits 2 for a tracked file it covers (tool missing) | `build` (gates) |
+| `rule-inconsistent` | a rule env file is incomplete, points at a missing doc, anchor, sensor or ADR, or its numbers differ from the section | `rules` |
+| `topic-size` | `docs/architecture.md`, `docs/conventions.md` or `docs/testing.md` is over 300 lines | `rules` (split by subtopic) |
+| `baseline-malformed` | a TSV baseline without its header or with a row that is not `path<TAB>integer` | re-measure with `KEEL_MEASURE=1` |
+| `baseline-stale` | a baseline past its `review_by` whose current total is not below the stored total | fix violations, then re-measure downward |
+| `review-due` | `harness_review_by` has passed | `build` (re-read, then move the date six months on) |
 
-## The output rule
+## 3. Report
 
-**One broken condition produces exactly one warning** — not zero, not two. Each warning names the
-file it concerns, exactly what is wrong, and the `build` step that fixes it (e.g. "re-run `build`'s
-guides phase to regenerate `AGENTS.md`", "re-run `build`'s fast-gate phase to reinstall this
-sensor"). A check that finds nothing stays silent: `doctor` never manufactures a warning to fill
-space, and never splits one broken condition into two lines or folds two distinct problems into
-one. If none of the four checks find anything, say so plainly — a clean harness is a valid answer.
+**One broken condition produces exactly one warning**, never two and never zero. For each warning
+the validator prints, say in plain words what is wrong, name the file, and propose the fix through
+`/keel-harness:build` or `/keel-harness:rules` as in the table. Stay silent about checks that found
+nothing; a clean harness is a valid answer. `doctor` never manufactures a warning.
 
-`doctor` writes nothing; it proposes and stops. If the repository has no installed harness at all
-(no `.agents/state.yml`), say so and point at `build` — that is a precondition, not one of the four
-checks itself.
+Two more things to do every time:
 
-## Not in v0.1
+- **Validator drift.** Compare the repository's copy with the plugin's:
+  `cmp scripts/harness-check.sh "${CLAUDE_SKILL_DIR}/../build/assets/harness-check.sh"`. When they
+  differ, propose updating the installed copy through `build` (the plugin's copy is the latest).
+- **Contradictions between instruction files.** The validator does not read prose. Point the user
+  at Claude Code's `/doctor prompt-audit` for contradictions across `AGENTS.md`, `CLAUDE.md` and
+  the rest.
 
-How often each sensor's failures turn out to be real problems versus noise, and whether
-`AGENTS.md`'s prose still matches the code it describes (not just whether its commands still
-resolve) — both need runs accumulated over time, which a fresh look at the repository does not
-have. They are v0.2 checks, once `.agents/last-run.log` holds enough history to say something.
-`doctor` v0.1 looks once, not across time.
+`doctor` writes nothing: it reports, proposes and stops. It also looks once, not across time:
+checks that need run history (how often a sensor's failures are real) are not part of it.

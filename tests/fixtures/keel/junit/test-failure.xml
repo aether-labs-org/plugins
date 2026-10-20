@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.acme.domain.FeeTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-20T04:18:35.311Z" hostname="build-host" time="0.021">
+  <properties/>
+  <testcase name="appliesTheFee()" classname="com.acme.domain.FeeTest" time="0.021">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;1200&gt; but was: &lt;1181&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;1200&gt; but was: &lt;1181&gt;
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at app//org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:166)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:161)
+	at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:632)
+	at app//com.acme.domain.FeeTest.appliesTheFee(FeeTest.java:4)
+	at java.base@25/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base@25/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at java.base@25/java.util.ArrayList.forEach(ArrayList.java:1604)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

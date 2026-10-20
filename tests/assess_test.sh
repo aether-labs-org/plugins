@@ -6,7 +6,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 sk="$root/plugins/keel-harness/skills/assess"
 
 [ -f "$sk/references/rubric.md" ]; check "rubric.md exists" $?
-for axis in "Bootstrap" "Guides" "Fast sensors" "Slow sensors" "Enforcement" "Context"; do
+for axis in "Bootstrap" "Guides" "Fast sensors" "Slow sensors" "Enforcement" "Context" "Rules"; do
   grep -q "$axis" "$sk/references/rubric.md" 2>/dev/null; check "rubric has axis: $axis" $?
 done
 for state in present partial absent; do
@@ -19,4 +19,14 @@ grep -q "not measured" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md forbids guess
 grep -qi "writes nothing" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md states the no-write rule" $?
 grep -q "aggregate score" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md forbids an aggregate score" $?
 
+R="$sk/references/rubric.md"
+for s in husky lefthook mutation; do grep -qi "$s" "$R"; check "rubric mentions $s" $?; done
+! grep "^| \*\*Context" "$R" | grep -q '\.mcp\.json'; check "Context row no longer requires .mcp.json" $?
+for s in 'estimated setup minutes' greenfield brownfield '.github/copilot-instructions.md' '.devin/rules' 'seven-axis'; do
+  grep -qF -- "$s" "$sk/SKILL.md"; check "SKILL.md contains: $s" $?
+done
+ev="$root/plugins/keel-harness/evals/assess-claude-md"
+for f in case.yaml prompt.md scaffold.sh; do [ -f "$ev/$f" ]; check "assess-claude-md has $f" $?; done
+[ "$(ls "$ev/graders" 2>/dev/null | wc -l)" -ge 3 ]; check "assess-claude-md has 3 graders" $?
+bash -n "$ev/scaffold.sh" 2>/dev/null; check "assess-claude-md scaffold parses" $?
 exit $fail
