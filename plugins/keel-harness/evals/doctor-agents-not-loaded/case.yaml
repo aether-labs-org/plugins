@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: doctor-agents-not-loaded
+description: A harness whose CLAUDE.md does not import AGENTS.md is caught and named by doctor, which reports and writes nothing.
+tags: [doctor, drift, context]
+context:
+  scaffold_script: scaffold.sh

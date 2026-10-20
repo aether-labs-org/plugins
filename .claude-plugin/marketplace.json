@@ -9,7 +9,7 @@
     {
       "name": "keel-harness",
       "source": "./plugins/keel-harness",
-      "description": "Assess, install and maintain an AI-agent harness in a repository.",
+      "description": "Assess, install and maintain an AI-agent harness and the project's own rules — architecture, testing strategy, conventions — in a repository.",
       "category": "development",
       "tags": [
         "harness",

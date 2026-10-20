@@ -4,43 +4,86 @@ fail=0
 check() { if [ "$2" -eq 0 ]; then echo "  ok   $1"; else echo "  FAIL $1"; fail=1; fi; }
 root="$(cd "$(dirname "$0")/.." && pwd)"
 sk="$root/plugins/keel-harness/skills/build"
+S="$sk/SKILL.md"
+C="$sk/references/sensor-contract.md"
+has() { grep -qF -- "$2" "$1" 2>/dev/null; }
 
 [ -f "$sk/references/agents-md-template.md" ]; check "agents-md-template.md exists" $?
 ! grep -q "120" "$sk/references/agents-md-template.md" 2>/dev/null; check "template ceiling is not 120" $?
 grep -q "100" "$sk/references/agents-md-template.md" 2>/dev/null; check "template ceiling is 100" $?
 [ -f "$sk/references/context-engineering.md" ]; check "context-engineering.md copied" $?
 
-grep -q "model_baseline" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md writes model_baseline" $?
-grep -q "installed_at" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md writes installed_at" $?
-grep -q "not_installed" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md records declined layers" $?
-grep -qi "before writing anything" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md states the confirmation gate" $?
-grep -qi "never invent" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md keeps the never-invent-commands rule" $?
-grep -q "100 lines" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md enforces the 100-line ceiling" $?
-grep -qi "resumable" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md is resumable layer by layer" $?
+# --- Task 4: build installs bundled assets
+for s in '${CLAUDE_SKILL_DIR}/assets/gate.sh' 'keel:repo-specific' 'KEEL_MEASURE=1' 'schema_version: 2' \
+         'harness_review_by' 'gate.env' 'gate-slow' 'AskUserQuestion' 'at most 4 questions' \
+         'before writing anything' 'installed_at' 'not_installed' 'resumable' '100 lines'; do
+  has "$S" "$s"; check "SKILL.md contains: $s" $?
+done
+grep -qi "never invent" "$S"; check "SKILL.md keeps the never-invent-commands rule" $?
+for s in model_baseline byte-for-byte 'sensors:'; do
+  ! has "$S" "$s"; check "SKILL.md does not contain: $s" $?
+done
+[ "$(wc -l < "$S")" -le 250 ]; check "SKILL.md is at most 250 lines" $?
+! grep -qE "instalado_em|camadas|nao_instaladas|classe:|revisar_em" "$S"; check "state keys are English" $?
 
-# Portuguese state keys are a regression: the spec fixed English keys.
-! grep -qE "instalado_em|camadas|nao_instaladas|classe:|revisar_em" "$sk/SKILL.md" 2>/dev/null
-check "state keys are English" $?
-
-[ -f "$sk/references/sensor-contract.md" ]; check "sensor-contract.md exists" $?
+[ -f "$C" ]; check "sensor-contract.md exists" $?
+! grep -qE '^#!/usr/bin/env bash' "$C"; check "contract embeds no script" $?
+for s in 'scripts/sensors/slow/' '.agents/baselines/' 'KEEL_MEASURE' 'FreezingArchRule'; do
+  has "$C" "$s"; check "contract contains: $s" $?
+done
+grep -qE 'security.*never.*baseline' "$C"; check "contract: security never reads a baseline" $?
 for field in "pass signal" "guidance" "scope" "class" "cost" "ceiling" "verbosity"; do
-  grep -qi "$field" "$sk/references/sensor-contract.md" 2>/dev/null
-  check "contract field: $field" $?
+  grep -qi "$field" "$C"; check "contract field: $field" $?
 done
-for cls in security correctness heuristic; do
-  grep -q "$cls" "$sk/references/sensor-contract.md" 2>/dev/null; check "contract class: $cls" $?
-done
-grep -qi "never" "$sk/references/sensor-contract.md" 2>/dev/null; check "contract forbids ratcheting security" $?
-grep -q "review_by" "$sk/references/sensor-contract.md" 2>/dev/null; check "heuristic snapshots expire" $?
+for cls in security correctness heuristic; do grep -q "$cls" "$C"; check "contract class: $cls" $?; done
+has "$C" review_by; check "baselines expire (review_by)" $?
 
 [ -f "$sk/references/sensors-by-language.md" ]; check "sensors-by-language.md exists" $?
-grep -q "GitLeaks" "$sk/references/sensors-by-language.md" 2>/dev/null; check "secret scanner named" $?
-grep -qi "names tools, never commands" "$sk/references/sensors-by-language.md" 2>/dev/null
-check "language table states the tools-not-commands rule" $?
+grep -q "GitLeaks" "$sk/references/sensors-by-language.md"; check "secret scanner named" $?
+grep -qi "names tools, never commands" "$sk/references/sensors-by-language.md"; check "language table states the tools-not-commands rule" $?
 
-grep -q "PostToolUse" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md writes the PostToolUse hook" $?
-! grep -q "PreToolUse" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md installs no blocking hook" $?
-grep -q "gate-fast" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md writes the gate-fast target" $?
-grep -q "ceiling_seconds" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md honours the gate ceiling" $?
+grep -q "gate-fast" "$S"; check "SKILL.md writes the gate-fast target" $?
 
+# --- Task 6: Stop hook and v0.1 upgrade
+for s in 'settings-stop.json' '"timeout": 120' 'claude-stop.sh' 'replaces the v0.1 PostToolUse entry' \
+         '.agents/.gate-lock/' '.agents/plans/' '${CLAUDE_PROJECT_DIR}'; do
+  has "$S" "$s"; check "SKILL.md contains: $s" $?
+done
+! grep -q '"PostToolUse"' "$S"; check "SKILL.md has no JSON block keyed PostToolUse" $?
+[ -f "$root/plugins/keel-harness/evals/build-typescript/graders/stop-hook.md" ]; check "stop-hook grader exists" $?
+
+# --- Task 7: template v2, CLAUDE.md bridge, ADR path
+T="$sk/references/agents-md-template.md"
+for s in '## Commands' '## Before you finish' '## Rules' 'make gate-slow'; do has "$T" "$s"; check "template has: $s" $?; done
+for s in 'File map' 'Docs Index' 'Metrics' 'Schemas & contracts'; do ! has "$T" "$s"; check "template lacks: $s" $?; done
+has "$S" '@AGENTS.md' && has "$S" '.claude/CLAUDE.md'; check "SKILL.md has the CLAUDE.md bridge" $?
+CE="$sk/references/context-engineering.md"
+! has "$CE" '150–200'; check "context-engineering drops the unsourced instruction count" $?
+has "$CE" '2602.11988'; check "context-engineering cites arXiv 2602.11988" $?
+! grep -rq 'docs/adr' "$root/plugins/keel-harness"; check "docs/adr appears nowhere in the plugin" $?
+g="$root/plugins/keel-harness/evals/build-typescript/graders"
+[ -f "$g/claude-md-import.md" ] && [ -f "$g/linecount-measured.md" ]; check "claude-md-import and linecount-measured graders exist" $?
+! grep -q "PreToolUse" "$S"; check "SKILL.md installs no blocking hook" $?
+
+# --- Task 22: validator and guide are installed
+for s in 'scripts/harness-check.sh' '.agents/README.md' 'make harness-check' 'harness is clean' 'harness-check: ; @bash scripts/harness-check.sh'; do
+  has "$S" "$s"; check "SKILL.md contains: $s" $?
+done
+[ "$(wc -l < "$S")" -le 250 ]; check "SKILL.md still at most 250 lines" $?
+
+# --- Task 20: stacks
+L="$sk/references/sensors-by-language.md"
+for st in 'TypeScript / Node — *actionable*' 'React — *actionable*' 'Python — *actionable*' 'Java / Kotlin (Spring) — *actionable*'; do
+  has "$L" "$st"; check "stack is actionable: $st" $?
+done
+for st in 'Go — *documentation only*' 'Terraform — *documentation only*'; do has "$L" "$st"; check "stack stays documentation only: $st" $?; done
+has "$S" 'React' && has "$S" 'sensors/typescript/'; check "SKILL.md stack table maps React to sensors/typescript/" $?
+has "$L" 'Stryker' && has "$L" 'dependency-cruiser'; check "React notes mention Stryker and dependency-cruiser" $?
+for c in build-python build-java build-react; do
+  e="$root/plugins/keel-harness/evals/$c"
+  [ -f "$e/case.yaml" ] && [ -f "$e/prompt.md" ] && [ -f "$e/scaffold.sh" ] && [ "$(ls "$e/graders" | wc -l)" -ge 5 ]; check "eval $c exists with graders" $?
+  bash -n "$e/scaffold.sh"; check "eval $c scaffold parses" $?
+done
+grep -q 'ruff' "$root/plugins/keel-harness/evals/build-python/graders/lint-is-ruff.md" 2>/dev/null; check "build-python checks that lint uses ruff" $?
+grep -q 'LINT_PATHS' "$root/plugins/keel-harness/evals/build-react/graders/lint-paths.md" 2>/dev/null; check "build-react checks LINT_PATHS" $?
 exit $fail

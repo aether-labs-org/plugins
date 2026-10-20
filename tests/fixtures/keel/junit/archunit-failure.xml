@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.acme.ArchitectureTest" tests="4" skipped="0" failures="1" errors="0" timestamp="2026-10-20T04:18:35.335Z" hostname="build-host" time="0.405">
+  <properties/>
+  <testcase name="layers" classname="com.acme.ArchitectureTest" time="0.402">
+    <failure message="java.lang.AssertionError: Architecture Violation [Priority: MEDIUM] - Rule 'Onion architecture consisting of (optional)&#10;domain models ('com.acme.domain..')&#10;application services ('com.acme.application..')&#10;adapter 'web' ('com.acme.adapter.web..')&#10;adapter 'persistence' ('com.acme.adapter.persistence..')' was violated (1 times):&#10;Field &lt;com.acme.application.ChargeFee.leak&gt; has type &lt;com.acme.adapter.web.FeeController&gt; in (ChargeFee.java:0)" type="java.lang.AssertionError">java.lang.AssertionError: Architecture Violation [Priority: MEDIUM] - Rule 'Onion architecture consisting of (optional)
+domain models ('com.acme.domain..')
+application services ('com.acme.application..')
+adapter 'web' ('com.acme.adapter.web..')
+adapter 'persistence' ('com.acme.adapter.persistence..')' was violated (1 times):
+Field &lt;com.acme.application.ChargeFee.leak&gt; has type &lt;com.acme.adapter.web.FeeController&gt; in (ChargeFee.java:0)
+	at com.tngtech.archunit.lang.ArchRule$Assertions.assertNoViolation(ArchRule.java:94)
+	at com.tngtech.archunit.lang.ArchRule$Assertions.check(ArchRule.java:86)
+	at com.tngtech.archunit.library.freeze.FreezingArchRule.check(FreezingArchRule.java:97)
+	at com.tngtech.archunit.junit.internal.ArchUnitTestDescriptor$ArchUnitRuleDescriptor.execute(ArchUnitTestDescriptor.java:167)
+	at com.tngtech.archunit.junit.internal.ArchUnitTestDescriptor$ArchUnitRuleDescriptor.execute(ArchUnitTestDescriptor.java:150)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+</failure>
+  </testcase>
+  <testcase name="domain_must_not_depend_on_org_springframework" classname="com.acme.ArchitectureTest" time="0.001"/>
+  <testcase name="domain_must_not_depend_on_jakarta_persistence" classname="com.acme.ArchitectureTest" time="0.001"/>
+  <testcase name="classes_are_analysed" classname="com.acme.ArchitectureTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -2,9 +2,9 @@
 name: assess
 description: >
   Diagnoses how ready a repository is for AI coding agents. Scans the repo against a
-  six-axis rubric — bootstrap, guides, fast sensors, slow sensors, enforcement, context —
-  reporting each axis as absent, partial or present with the file that proves it, plus the
-  cost of closing each gap in setup minutes and seconds added to the gate. Writes nothing.
+  seven-axis rubric — bootstrap, guides, fast sensors, slow sensors, enforcement, context,
+  rules — reporting each axis as absent, partial or present with the file that proves it, plus
+  the estimated setup minutes to close each gap and the seconds added to the gate. Writes nothing.
   Use when someone asks whether their repository is ready for AI agents, what is missing to
   work with coding agents, for an agent-readiness assessment or a harness diagnosis — and
   always before the build skill.
@@ -58,26 +58,37 @@ ls src/ lib/ app/ packages/ services/ cmd/ internal/ 2>/dev/null
 ls .eslintrc* eslint.config* .prettierrc* tsconfig.json ruff.toml mypy.ini pyrightconfig.json \
    .pre-commit-config.yaml .github/workflows/ checkstyle.xml spotbugs* .golangci.yml deny.toml 2>/dev/null
 
-# Context: pointers and connector declarations
-ls AGENTS.md .mcp.json 2>/dev/null
+# Instruction files the target agents (Claude Code, GitHub Copilot, Devin) load
+ls AGENTS.md CLAUDE.md .claude/CLAUDE.md CLAUDE.local.md .claude/rules .github/copilot-instructions.md \
+   .github/instructions .devin/rules .cursor/rules 2>/dev/null
+find . -name AGENTS.md -not -path './node_modules/*' -not -path './.git/*' 2>/dev/null | head -20
+grep -l '@AGENTS.md' CLAUDE.md .claude/CLAUDE.md 2>/dev/null
+
+# Architecture tool configs, mutation tooling, rules and decisions
+ls .dependency-cruiser.cjs .dependency-cruiser.js .importlinter stryker.conf.* mutmut_config.py \
+   docs/architecture.md docs/conventions.md docs/testing.md docs/decisions .husky lefthook.yml 2>/dev/null
+grep -lE 'archunit|pitest|info.solidsoft.pitest' pom.xml build.gradle build.gradle.kts 2>/dev/null
 ```
+
+Also infer the **mode**: `greenfield` when no tracked source files exist in the stack's source
+roots, `brownfield` otherwise. State the evidence as an inference for the user to confirm; never
+record it as fact.
 
 ## 3. Scoring
 
-Read `references/rubric.md` and classify each of the six axes — `Bootstrap`, `Guides`,
-`Fast sensors`, `Slow sensors`, `Enforcement`, `Context` — as `present`, `partial`, or `absent`,
+Read `references/rubric.md` and classify each of the seven axes — `Bootstrap`, `Guides`,
+`Fast sensors`, `Slow sensors`, `Enforcement`, `Context`, `Rules` — as `present`, `partial`, or `absent`,
 per the table there. For every axis, record the repo-relative file that proves the classification
 (a lockfile, a config file, a workflow file, `AGENTS.md` itself). If nothing proves it, there is no
 evidence, and the axis cannot be `present`.
 
 ## 4. Cost
 
-For each axis that is not `present`, state the cost of closing the gap in **setup minutes** — how
-long `build` would take, confirmations included. Two axes are not closed by `build` in this
-version: **Enforcement** (v0.1 never installs blocking hooks, only PostToolUse) and **Slow
-sensors** (mutation testing and nightly runs are out of scope for v0.1). For those two, report the
-gap plainly and do not quote setup minutes — there is no build step yet that would close them. For
-a missing or non-running fast sensor, also
+For each axis that is not `present`, state the cost of closing the gap in **estimated setup
+minutes** — how long `build` (or `rules`, for the `Rules` axis) would take, confirmations included.
+It is an estimate: it cannot be measured before the skill runs. **Enforcement** (pre-commit, CI) is
+not installed by keel; report the gap plainly and do not quote setup minutes. For a missing or
+non-running fast sensor, also
 state the **seconds it would add to the gate**, measured by actually running the tool once if it
 is installed. If the tool is not installed, write `not measured` — never guess or estimate a
 number. See `references/rubric.md` for the full cost-unit definitions and the three-confidence
@@ -85,14 +96,14 @@ inference table used when a judgment call is needed.
 
 ## 5. The report
 
-Emit exactly this Markdown table, one row per axis, in the fixed axis order above:
+Emit the mode inference above the table, then exactly this Markdown table, one row per axis, in the fixed axis order above:
 
 ```
 | Axis | State | Evidence | Cost to close |
 ```
 
 - **Evidence** is a backtick-quoted repo-relative path, or `—` when there is none.
-- **Cost to close** is `N setup minutes`, `+N.Ns gate`, `not measured`, or `—` (for a `present`
+- **Cost to close** is `N estimated setup minutes`, `+N.Ns gate`, `not measured`, or `—` (for a `present`
   axis, which has nothing to close).
 
 After the table, add a short paragraph per `absent` axis naming what is missing and the cheapest

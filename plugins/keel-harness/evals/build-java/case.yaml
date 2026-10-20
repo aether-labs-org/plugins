@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: build-java
+description: Installs the full harness in a Spring Boot repo without asking, as the prompt waives the gate.
+tags: [build, java]
+context:
+  scaffold_script: scaffold.sh

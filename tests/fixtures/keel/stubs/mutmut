@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Test stub: logs argv to $STUB_LOG, prints $STUB_OUT, exits ${STUB_EXIT:-0}.
+printf '%s\n' "$*" >> "${STUB_LOG:-/dev/null}"
+[ -n "${STUB_OUT:-}" ] && printf '%s\n' "$STUB_OUT"
+exit "${STUB_EXIT:-0}"

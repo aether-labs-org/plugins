@@ -1,35 +1,117 @@
 # keel-harness
 
-Assess, install and maintain an AI-agent harness in a repository. This plugin provides a one-command bootstrap, minimal guides, a fast gate of deterministic sensors, and an output contract that turns each sensor's exit code into guidance an agent can act on.
+Assess, install and maintain an AI-agent harness and the project's own rules — architecture, testing
+strategy, conventions — in a repository. keel acts as a harness engineer: it listens to the team,
+measures what the code does today, proposes what it should do and why, and records what the human
+approves. Everything deterministic ships as tested bash files you can read and edit; the skills hold
+only judgment.
 
 ## Skills
 
 ### `/keel-harness:assess`
 
-Diagnoses how ready a repository is for AI coding agents.
+Diagnoses how ready a repository is for AI coding agents on a seven-axis rubric (bootstrap, guides,
+fast sensors, slow sensors, enforcement, context, rules) and infers whether it is greenfield or
+brownfield.
 
-- **Reads:** Stack markers, real scripts, configured sensors, `docs/`, directory structure
-- **Writes:** Nothing
+- **Reads:** stack markers, scripts, sensors, every instruction file the target agents load, `docs/`
+- **Writes:** nothing
 
 ### `/keel-harness:build`
 
-Installs an AI-agent harness in a repository.
+Installs the harness: bootstrap, `AGENTS.md` (at most 100 lines) and a `CLAUDE.md` that imports it, a
+fast and a slow gate, tool sensors, the Claude Code Stop hook, the portable validator and a guide for
+editing the harness by hand. Asks in rounds of at most 4 questions and upgrades v0.1 installs.
 
-- **Reads:** Repository structure, user confirmations
-- **Writes:** `AGENTS.md`, pointer docs, `docs/` stubs, `Makefile`, `scripts/sensors/`, `.agents/state.yml`, gate hook
+- **Reads:** repository structure, user confirmations
+- **Writes:** `AGENTS.md`, `CLAUDE.md`, `Makefile`, `scripts/` (gate, sensors, hook, validator, baseline
+  library), `.agents/` (state, gate budgets, guide), `.claude/settings.json` (merged), `.gitignore`
+
+### `/keel-harness:rules`
+
+Decides, records and enforces the repository's own rules with the team: context interview, as-is
+measurements, proposals backed by data and a cited source, rounds of questions, ADRs. It writes only
+what the user approved and never migrates production code.
+
+- **Reads:** the code (read-only measurements), instruction files, existing ADRs
+- **Writes:** rule sections in `docs/architecture.md`, `docs/conventions.md`, `docs/testing.md`;
+  `docs/decisions/` ADRs; `.agents/rules/<id>.env`; rule sensors, baselines and generated tool config
+  (ArchUnit test, `.dependency-cruiser.cjs`, `.importlinter`); local plans in `.agents/plans/`
 
 ### `/keel-harness:doctor`
 
-Checks whether an installed harness has drifted from the repository it guards.
+Runs the repository's own validator (`harness-check.sh`, 12 checks), explains each warning and proposes
+the fix. Writes nothing.
 
-- **Reads:** `.agents/state.yml` and current project state
-- **Writes:** Nothing
+## The v0.2 rule
 
-## v0.1 Rule
+**keel proposes, the human decides.** Facts (commands, structure, measurements) are discovered or
+measured. Norms (rules, limits, architecture, tools) may be proposed with a justification and are
+written only after approval, in rounds of questions. An approved breaking change becomes a rule, a
+baseline, an ADR and a local migration plan; keel never executes the migration. Still no action is
+blocked: the Stop hook hands the fast gate's guidance back to Claude and stops after a loop guard.
 
-**Informs, does not block.** The gate runs, reports failures and returns guidance. No action is barred, no commit is refused.
+## Target agents
 
-## Eval baseline
+| Agent | What it gets |
+| --- | --- |
+| Claude Code | `AGENTS.md` via the `CLAUDE.md` import, plus the Stop hook that returns gate guidance |
+| GitHub Copilot | `AGENTS.md` (nearest file wins): "Before you finish" tells it to run `make gate-fast` and read it |
+| Devin | `AGENTS.md` (CLI and Desktop). **Risk:** whether Devin's cloud product reads `AGENTS.md` is unverified |
+
+## Stacks, architecture and mutation tools
+
+| Stack | Fast gate | Architecture rule | Mutation (slow gate) |
+| --- | --- | --- | --- |
+| TypeScript | tsc, ESLint, Vitest/Jest, gitleaks | dependency-cruiser | Stryker |
+| React | as TypeScript (reuses `sensors/typescript/`) | dependency-cruiser | Stryker |
+| Python | mypy/pyright, ruff, pytest, gitleaks | import-linter | mutmut |
+| Java / Kotlin | compile, Checkstyle/ktlint/detekt, JUnit, gitleaks | ArchUnit (`onionArchitecture()`) | PIT |
+
+Go and Terraform stay documentation only. `make gate-slow` runs mutation testing and diff coverage
+on the changed files; it is never run by the hook and never wired to CI.
+
+## Tests
+
+`make check` runs `tests/run.sh`: shell tests with stub tools (no network, no model, free).
+`make validate` runs `claude plugin validate --strict`.
+
+## Evals (`claude plugin eval`, manual and paid)
+
+Run `claude plugin eval . --scaffold` from `plugins/keel-harness/`. Host prerequisites per case:
+
+| Case | Host prerequisites |
+| --- | --- |
+| `assess-mature-repo`, `assess-claude-md`, `should-not-trigger` | none |
+| `build-typescript`, `build-react`, `gate-catches-defect`, `rules-brownfield`, `rules-effect-with/without` | node/npm, network, `gitleaks`, `socat`, `bwrap`; `--allow-tools Write Edit Bash` |
+| `build-python` | python3 with `venv`, network |
+| `build-java`, `rules-architecture-java` | JDK 17+, network (Gradle wrapper) |
+| `rules-greenfield` | none beyond the tool allow-list |
+| `doctor-finds-drift`, `doctor-agents-not-loaded` | node/npm, network, `gitleaks` (exactly one warning) |
+
+v0.2 numbers (WITH / W-OUT / Δ) are **not yet measured**: the implementation run did not spend eval
+budget. The owner runs them; `rules-effect-with` and `rules-effect-without` run with `--ablation none`
+and their scores are compared by hand, since that pair is the only test of whether rules proposed by
+keel and approved by a human help an agent.
+
+| Case | WITH | W-OUT | Δ | Verdict |
+| --- | --- | --- | --- | --- |
+| `assess-mature-repo` | not run | | | owner to run |
+| `assess-claude-md` | not run | | | owner to run |
+| `should-not-trigger` | not run | | | owner to run |
+| `build-typescript` | not run | | | owner to run |
+| `build-python` | not run | | | owner to run |
+| `build-java` | not run | | | owner to run |
+| `build-react` | not run | | | owner to run |
+| `gate-catches-defect` | not run | | | owner to run |
+| `rules-brownfield` | not run | | | owner to run |
+| `rules-greenfield` | not run | | | owner to run |
+| `rules-architecture-java` | not run | | | owner to run |
+| `rules-effect-with` / `-without` | not run | | | owner to run (compare by hand) |
+| `doctor-finds-drift` | not run | | | owner to run |
+| `doctor-agents-not-loaded` | not run | | | owner to run |
+
+## v0.1 eval baseline (historical)
 
 Run `claude plugin eval . --scaffold` from `plugins/keel-harness/` (each case runs 3 times per arm,
 with-plugin vs. no-plugin baseline). `build-typescript` and `gate-catches-defect` additionally

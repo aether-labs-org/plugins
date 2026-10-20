@@ -1,118 +1,59 @@
-# AGENTS.md template (100 lines)
+# AGENTS.md template v2 (100 lines)
 
-Fill the template below. Replace `{{...}}` with **real, confirmed** values from the stack profile
-and repo discovery. Omit any section for which you found nothing — blank sections waste context
-budget. Use `→ docs/X.md` for anything needing more than one sentence. Keep the whole file to
-100 lines.
+Fill the template below with **real, confirmed** values from repository discovery. Omit any section
+for which nothing was found. Use `→ docs/X.md` for anything needing more than one sentence. The
+whole file, and every nested `AGENTS.md`, stays at **100 lines** or fewer.
 
-**A fully-filled render of every section below is ~101 lines** — one over the ceiling. Omitting
-empty sections alone is not guaranteed to bring a repository that legitimately has content for
-every section under budget. When every section applies, actively trim at least one row or section
-(e.g. collapse the File map to the two or three paths that matter most, or fold a one-line
-Inferential Guide into its neighbour) rather than assuming omission did the work.
+What stays out, on purpose: file maps, docs indexes, architecture overviews, metrics and schema
+lists. Repository overviews do not help an agent; commands it cannot guess and non-standard
+conventions do (`context-engineering.md`, evidence section).
+
+Sections, in this order. Each is omitted when empty:
+
+1. the header and a one-line identity;
+2. `## Commands`: purpose, command, pass signal;
+3. `## Before you finish`: the exact copy below, unchanged;
+4. `## Rules`: one line per rule, each pointing at `docs/<topic>.md#<id>` (filled by the `rules` skill);
+5. `## Decisions`: a pointer to `docs/decisions/` when ADRs exist;
+6. `## Reading tool output`: at most 4 bullets.
 
 ---
 
 ```markdown
-# AGENTS.md — {{project-name}}
-> Map/index for AI coding agents. Source of truth: `docs/`. Stack: {{stack}}. Last updated: {{YYYY-MM-DD}}.
+# AGENTS.md — {{project}}
+{{One line: what this is, stack, package manager.}} Last updated: {{YYYY-MM-DD}}.
 
-## Project Identity
-- **Stack**: {{primary language/runtime, major frameworks}}
-- **Package manager / build**: {{pnpm | Maven | uv | go | cargo | dotnet ...}}
-- **Entry points**: {{main files / services / packages}}
-- **Key constraint**: {{one-line critical rule, e.g. "no direct DB calls outside the repository layer"}}
+## Commands
+| Purpose | Command | Pass signal |
+| --- | --- | --- |
+| Install and build | `make bootstrap` | {{exit 0}} |
+| Fast gate | `make gate-fast` | `gate: fast - PASSED` |
+| Slow gate | `make gate-slow` | `gate: slow - PASSED` |
+| {{Tests / run / other real command}} | `{{command}}` | {{signal}} |
 
----
+## Before you finish
+Run `make gate-fast` and read it before you say you are done:
+- Line 1 of each sensor is `id  class  status  summary`; fix every `fail`, top to bottom.
+- Follow the `guidance:` block under a failure; it says what to do here and what not to do.
+- Never edit a test, `.agents/baselines/` or `.agents/state.yml` to make the gate pass.
+Before opening a pull request, also run `make gate-slow`.
 
-## Computational Guides — feedforward you can rely on
+## Rules
+- {{rule statement, one verifiable sentence}} → docs/{{topic}}.md#{{id}}
 
-### Build & run
-```bash
-{{build command}}   # → {{output / artifact path}}
-{{run command}}     # → {{e.g. http://localhost:PORT}}
+## Decisions
+Why things are the way they are → docs/decisions/
+
+## Reading tool output
+- The first error in a chain is the root cause; the rest cascade. Fix top-down.
+- {{One stack-specific tip, e.g. the log format or where test output lands.}}
 ```
 
-### File map
-| Path       | Purpose              |
-| ---------- | -------------------- |
-| `{{path}}` | {{one-line purpose}} |
-| `{{path}}` | {{one-line purpose}} |
+## CLAUDE.md bridge
 
-### Schemas & contracts
-- API spec: `{{path/to/openapi.yaml}}` or → `docs/api.md`
-- DB schema: `{{path/to/schema.sql}}` or → `docs/data-model.md`
-- Config: `{{path/to/.env.example}}`
+Claude Code reads `AGENTS.md` only when no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md`
+exists; a `CLAUDE.md` that imports it is the documented bridge. `build` therefore always ensures it:
 
----
-
-## Inferential Guides — read before coding (one-liners only; details in docs/)
-- **Architecture**: {{one sentence on the main pattern}} → `docs/architecture.md`
-- **Conventions**: {{one sentence on the key coding rule}} → `docs/conventions.md`
-- **Anti-patterns**: {{one thing NOT to do}} → `docs/conventions.md#anti-patterns`
-- **Domain glossary**: → `docs/glossary.md`
-
----
-
-## Computational Sensors — run these to verify your work
-Each sensor has a command and the signal to look for in its output.
-
-| Sensor               | Command                    | Pass signal                    |
-| -------------------- | -------------------------- | ------------------------------ |
-| Type check           | `{{typecheck command}}`    | `{{e.g. Found 0 errors}}`      |
-| Lint                 | `{{lint command}}`         | `{{exit 0, no output}}`        |
-| Format               | `{{format check command}}` | `{{all matched}}`              |
-| Tests                | `{{test command}}`         | `{{N passed, 0 failed}}`       |
-| Architecture fitness | `{{fitness command}}`      | `{{BUILD/tests pass}}`         |
-| Build                | `{{build command}}`        | `{{Build succeeded / exit 0}}` |
-
-### Reading sensor output
-- **Test failures**: first `FAIL`/`Error` line is the root; below it is cascade — fix top-down.
-- **Lint errors**: `{{file:line:col rule}}` — jump directly to that location.
-- **Type errors**: the first error in a chain is the real mismatch; the rest are consequences.
-- {{stack-specific tip from the profile, e.g. JUnit stacktrace / clippy note}}
-
----
-
-## Quality Gates — Shift Quality Left
-Run gates **early and at every step**, not only at the end. Treat failures as design signals.
-
-**Per step** (after each small block, fast):
-```bash
-{{typecheck command}} && {{lint command}} && {{affected-tests command}}
-```
-**Before declaring done** (slower, global):
-```bash
-{{full test suite}} && {{architecture-fitness command}}
-```
-Loop: generate a block → run per-step gates → fix at the first signal → only then continue.
-
----
-
-## Inferential Sensors — signals that need interpretation
-- **PR checklist**: → `docs/contributing.md#pr-checklist`
-- **Definition of done**: → `docs/definition-of-done.md`
-- **Architecture fitness review**: → `docs/adr/` (read the latest 3 ADRs before proposing new patterns)
-
----
-
-## Context Engineering Notes
-- **Log format**: `{{timestamp}} [{{level}}] {{service}} — {{message}}`; ignore `DEBUG` unless tracing {{subsystem}}.
-- **Root cause**: search backward from the first `ERROR` for the originating `WARN`.
-- **Metrics**: key metric `{{name}}`, alert at `{{threshold}}` → `docs/observability.md`
-- {{UI tip if applicable: prefer data-testid / accessibility tree over CSS classes}}
-
----
-
-## Docs Index
-| Topic                   | File                    |
-| ----------------------- | ----------------------- |
-| Architecture            | `docs/architecture.md`  |
-| Coding conventions      | `docs/conventions.md`   |
-| API reference           | `docs/api.md`           |
-| Data model              | `docs/data-model.md`    |
-| Contributing / PR guide | `docs/contributing.md`  |
-| Observability           | `docs/observability.md` |
-| ADRs                    | `docs/adr/`             |
-| Glossary                | `docs/glossary.md`      |
-```
+- Neither `CLAUDE.md` nor `.claude/CLAUDE.md` exists: create `CLAUDE.md` containing exactly `@AGENTS.md`.
+- One exists without that line: propose inserting `@AGENTS.md` as its first line, as its own
+  question in a round. Do not touch the rest of the file.

@@ -1,9 +1,15 @@
 # Context Engineering — keep AGENTS.md a lean, agent-readable index
 
 Context Engineering is about *how* you hand context to the agent so it succeeds. The model has a
-finite context window, and frontier models reliably follow only ~150–200 instructions. Giant generic
-manuals become "non-guidance": the agent drowns in secondary rules and loses the real goal. Worse,
-large instruction files rot — humans stop maintaining what can't be mechanically verified.
+finite context window. Giant generic manuals become "non-guidance": the agent drowns in secondary
+rules and loses the real goal. Worse, large instruction files rot — humans stop maintaining what
+can't be mechanically verified.
+
+**Evidence.** Gloaguen et al., ICLR 2026 (arXiv 2602.11988): LLM-generated context files changed
+the success rate by about -0.5 % to -2 % at +20-23 % cost, developer-written ones did better, and
+repository overviews did not help; tool instructions were followed. So: repository overviews do not
+help, commands and non-standard conventions do. Lulla et al. (arXiv 2601.20404) measured a lower
+median runtime with an `AGENTS.md` present.
 
 Based on AI Hero, *A Complete Guide to AGENTS.md — Progressive Disclosure*.
 
@@ -30,7 +36,7 @@ content.
 ## Token budget
 
 Every token loads on every request. A bloated AGENTS.md spends the agent's instruction budget on
-irrelevant rules, leaving less for the actual task. Target ~100 lines; hard cap ~120. If it grows,
+irrelevant rules, leaving less for the actual task. Hard cap: 100 lines, root and nested files alike. If it grows,
 extract sections to `docs/` and replace with pointers.
 
 ---
