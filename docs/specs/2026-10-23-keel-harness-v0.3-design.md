@@ -63,6 +63,8 @@ of scope. The core is agent-agnostic; agent-specific parts are adapters.
 - **Review by consequence**, driven by the C7 consequence map.
 - **Legacy:** baseline + ratchet, canonical exemplars and cleanup loops. A baseline or limit may be
   **loosened only with a justification recorded in the same diff** (§5.3).
+- **Non-negotiable rules** are a property of the rule, not a separate document:
+  `ENFORCEMENT_LEVEL=mandatory` (D43). There is no `constitution.md`.
 - **Portability:** Claude Code adapter only for now (D5 kept); the core must run with no agent at
   all (make, pre-commit, CI).
 - **Scoring:** 0 absent · 1 documented · 2 implemented · 3 implemented and verified (test or eval),
@@ -92,6 +94,12 @@ of scope. The core is agent-agnostic; agent-specific parts are adapters.
 | D36 | Read-only skills (`assess`, `doctor`) declare `disallowed-tools`; `allowed-tools` is never used as a restriction | builder (§9.4) |
 | D37 | Every `never`/`always` in a skill maps to a code check or an eval grader (traceability matrix) | builder |
 | D38 | Each SKILL.md stays under 20,000 bytes, enforced by a test | builder (§9.5) |
+| D39 | keel keeps `.agents/` but owns only its own paths: it never writes `.agents/skills/` (Codex, skills.sh) or `.agents/plugins/`. Ephemeral state moves to `.agents/run/`, so `.gitignore` needs one line; `build` migrates v0.2 installs under confirmation (§4.1) | owner |
+| D40 | Plans live in `.agents/plans/`: versioned but transient. States `active`, `done`, `abandoned`; a `done` plan is removed (git history is the record, the ADR keeps the why). `harness-check` warns `plan-stale` and `progress-size` | owner |
+| D41 | Session memory: sensor history rotates (last N runs); a lessons inbox (`.agents/run/learnings/`) that `doctor` proposes to promote to a rule, sensor or ADR, with approval, or to discard; `doctor` reports auto-memory entries that contradict a rule and never edits them | owner |
+| D42 | Context: `build` proposes the stack's official LSP plugin; the codemap is curated in `docs/architecture.md` (matklad's ARCHITECTURE.md shape) and `harness-check` warns on paths it cites that no longer exist. No generated file tree is loaded by default, and there is no aggregate context-budget check | owner |
+| D43 | `ENFORCEMENT_LEVEL=mandatory\|ratchet` in every rule env file (default `ratchet`). `mandatory`: a computational sensor is required; legacy violations only as an exception list with a deadline that can only shrink; `guard` rejects loosening even with `LOOSENED_BY=` — only a superseding ADR approved through CODEOWNERS changes it; PreToolUse protects its files; CI check is required. `mandatory` rules come first in `AGENTS.md`. No `constitution.md`: principles without a sensor go in `docs/architecture.md` with `→ review:<owner>`; an existing Spec Kit `.specify/memory/constitution.md` is read and each principle linked to a rule; a single document for audit is only ever generated from the rules | owner |
+| D44 | Catalog additions: `comments`, `spelling`, `code-style`, `naming`, `suppressions`, `dependencies`, `type-strictness`, `error-handling`, `logging`, `test-conventions`. keel proposes an entry only when the measurement shows a problem or the user asks for it, and each entry must pass a with/without ablation | owner |
 
 ## 4. Plugin layout (v0.3)
 
@@ -128,8 +136,45 @@ plugins/keel-harness/
   (`${CLAUDE_SKILL_DIR}/../build/assets`). The plugin reference places shared resources at the
   plugin root, reached through `${CLAUDE_PLUGIN_ROOT}`.
 - **The installed contract is stable.** In the target repository `scripts/gate.sh`,
-  `scripts/sensors/` and `.agents/` keep their paths; v0.3 only adds files. `state.yml` moves to
-  `schema_version: 3` and `build` upgrades v0.2 installs in place, under confirmation.
+  `scripts/sensors/` and the committed files under `.agents/` keep their paths. The one move is
+  v0.2's ephemeral files into `.agents/run/` (D39). `state.yml` moves to `schema_version: 3` and
+  `build` upgrades v0.2 installs in place, under confirmation.
+
+### 4.1 Target repository after `build` and `rules`
+
+```
+repo/
+├── AGENTS.md                      # ≤100 lines: Commands · Before you finish · Rules (mandatory first) · Decisions
+├── CLAUDE.md                      # "@AGENTS.md"
+├── Makefile                       # bootstrap · gate-fast · gate-slow · harness-check
+├── src/<module>/AGENTS.md         # local rules, "follow X, not Y", legacy zones
+├── docs/
+│   ├── architecture.md            # codemap, layer map, principles (→ review:), architecture rules
+│   ├── conventions.md testing.md  # one section per rule, with an anchor (≤300 lines each)
+│   └── decisions/NNNN-*.md        # ADRs, superseded, never edited
+├── scripts/
+│   ├── gate.sh harness-check.sh
+│   ├── lib/ baseline.sh envparse.sh junit.sh
+│   ├── sensors/*.sh guard.sh slow/*.sh stoplists/
+│   └── hooks/ claude-stop.sh claude-protect.sh
+├── .agents/
+│   ├── README.md state.yml gate.env consequence.yml
+│   ├── rules/<id>.env baselines/
+│   ├── plans/ progress.md
+│   └── run/                       # git-ignored: logs, fingerprints, lock, flow, history, learnings
+├── .claude/settings.json          # Stop + PreToolUse + deny
+├── .github/workflows/keel.yml
+├── lefthook.yml | .pre-commit-config.yaml | .husky/   # one, the one the repository already uses
+└── CODEOWNERS                     # consequential paths only
+```
+
+| Path | Committed | Why |
+| --- | --- | --- |
+| `.agents/README.md`, `state.yml`, `gate.env`, `consequence.yml` | yes | Harness configuration, reviewed in pull requests |
+| `.agents/rules/*.env`, `.agents/baselines/**` | yes | Rules and frozen debt; `guard` compares them with `HEAD` |
+| `.agents/plans/`, `.agents/progress.md` | yes | Versioned but transient (D40) |
+| `.agents/run/` | **no** — the single `.gitignore` line | Ephemeral state (D39) |
+| `.agents/skills/`, `.agents/plugins/` | not keel's | Owned by other tools; keel never writes them |
 
 ## 5. Flows that are followed
 
@@ -138,7 +183,7 @@ No mechanism makes an LLM follow a flow every time. v0.3 stacks four layers, str
 ### 5.1 Code enforces the order
 
 `scripts/keel` runs each phase of a skill. `keel plan <skill>` writes the proposal; `keel approve`
-records the user's answer with the proposal's hash in `.agents/flow/<skill>.approved` (git-ignored);
+records the user's answer with the proposal's hash in `.agents/run/flow/<skill>.approved` (git-ignored);
 `keel apply` refuses without a matching approval; `keel verify <skill>` replaces the prose
 self-verify checklists (today `build/SKILL.md` §10) and exits non-zero on any unmet item.
 
@@ -151,8 +196,9 @@ pre-approves; it does not restrict (§9.4).
 
 The `guard` sensor (D32) compares baselines, rule limits and gate budgets with `HEAD`. Loosening
 passes only when the diff also adds the record named by `LOOSENED_BY=`, so review by consequence
-sees the justification. Pre-commit and CI run the same gate (D7 revised). `claude-protect.sh`
-(PreToolUse) denies edits to harness files the consequence map marks as protected.
+sees the justification; a `mandatory` rule cannot be loosened this way at all (D43). Pre-commit and
+CI run the same gate (D7 revised). `claude-protect.sh` (PreToolUse) denies edits to harness files
+the consequence map marks as protected.
 
 ### 5.4 Adherence is measured
 
@@ -223,6 +269,8 @@ installed core runs without the plugin; the README states eval confounders hones
 - A Codex adapter (backlog, D5).
 - Multi-agent orchestration beyond documentation (C10).
 - Glob-scoped adapters (`.claude/rules`, `.github/instructions`).
+- A generated file tree loaded by default, and an aggregate context-budget check (D42).
+- A `constitution.md` (D43).
 
 ## 8. Risks and open questions
 
@@ -269,4 +317,16 @@ installed core runs without the plugin; the README states eval confounders hones
 8. **Sandboxing** cut permission prompts by 84 % internally
    ([Anthropic, 2025-10-20](https://www.anthropic.com/engineering/claude-code-sandboxing)).
 9. **Memory belongs with the harness, in open files** (Chase, "Your harness, your memory",
-   LangChain, 2026-04-11 — read through secondary summaries).
+   LangChain, 2026-04-11 — read through secondary summaries). Lessons are staged and reconciled
+   before they become context (lopopolo/harness-engineering `docs/just-in-time-context/`).
+10. **`.agents/` is shared**: Codex reads project skills from `.agents/skills/` and the skills.sh CLI
+    links installs there ([1](https://codex.danielvaughan.com/2026/03/27/codex-cli-skills-ecosystem/),
+    [2](https://codex.danielvaughan.com/2026/05/31/codex-cli-vercel-skills-cli-npx-skills-open-agent-skills-ecosystem/));
+    superpowers keeps `.agents/plugins/marketplace.json`. Claude Code reads nothing under `.agents/`
+    as instructions ([memory docs](https://code.claude.com/docs/en/memory#agents-md)).
+11. **Spec Kit constitution** (`github/spec-kit` `templates/constitution-template.md`,
+    `templates/commands/constitution.md`, `templates/plan-template.md`): principles marked
+    NON-NEGOTIABLE, semantic versioning of amendments, and a "Constitution Check" gate that the
+    model evaluates — an inferential gate, which is why D43 puts non-negotiability in sensors.
+12. **Auto memory** loads the first 200 lines or 25 KB into every session
+    ([memory docs](https://code.claude.com/docs/en/memory)), so it can contradict a rule (D41).

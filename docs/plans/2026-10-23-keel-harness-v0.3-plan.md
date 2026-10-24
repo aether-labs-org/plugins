@@ -16,8 +16,10 @@ spec section it implements.
 
 - Everything installed in a target repository stays plain bash 3.2, no `jq`, no network, no model
   call, and runs with the plugin absent (v0.2 D26 and sensor contract §6).
-- Installed paths (`scripts/gate.sh`, `scripts/sensors/`, `.agents/`) do not move; v0.3 only adds
-  files. A v0.2 install upgrades in place under confirmation.
+- Installed paths (`scripts/gate.sh`, `scripts/sensors/`, committed `.agents/` files) do not move;
+  the one move is v0.2's ephemeral files into `.agents/run/` (D39). A v0.2 install upgrades in place
+  under confirmation.
+- keel never writes `.agents/skills/` or `.agents/plugins/` (D39).
 - `make check` and `make validate` stay green after every task; each phase ends with its acceptance
   criteria checked and the README eval table updated where evals ran.
 
@@ -27,14 +29,14 @@ spec section it implements.
 | --- | --- | --- | --- | --- | --- | --- |
 | **F0 Fixes** | D-1 `guard` sensor; D-2 parser; D-3; D-4; D-5 | High | S | — | Low | D-1 reproduction is a test: fails without a record, passes with one; no `eval` of config; suite green |
 | **F1 Measure** | Run the 15 v0.2 evals with/without, with token cost per case | High (the ruler for F2+) | M ($) | F0 | Medium (host) | README table filled; Δ and cost recorded; any Δ ≤ 0 written up |
-| **F2 Refactor** | v0.3 layout; `scripts/keel` phases; `contracts/`; skill template; `disallowed-tools`; skill-size test; form × failure pass; pressure tests; `assess` dimensions; `schema_version: 3` upgrade | High | L | F1 | Medium | Ported tests green; evals not worse than F1; traceability 100 %; `validate --strict` ok; a v0.2 repo upgrades with a green gate |
+| **F2 Refactor** | v0.3 layout; `scripts/keel` phases; `contracts/` (incl. `ENFORCEMENT_LEVEL`); skill template; `disallowed-tools`; skill-size test; form × failure pass; pressure tests; `assess` dimensions; `.agents/run/` + `schema_version: 3` upgrade; LSP proposal and codemap check | High | L | F1 | Medium | Ported tests green; evals not worse than F1; traceability 100 %; `validate --strict` ok; a v0.2 repo upgrades with a green gate and one `.gitignore` line |
 | **F3a CI + pre-commit** | `assets/core/ci`, `assets/core/precommit` | High | S | F2 | Low | A planted defect is red in pre-commit and in CI |
-| **F3b Versioned plans** | Plan template with Acceptance; progress file | Medium | S | F2 | Low | `keel verify` rejects a plan without Acceptance; a new session resumes from the progress file |
-| **F3c Authority (C7 + R)** | Consequence map; settings deny; `claude-protect.sh`; CODEOWNERS; sandbox option | High | M | F3a | Medium | Eval: editing a baseline is blocked; a consequential path requires a reviewer |
-| **F3d Exemplars + catalog** | `EXEMPLAR=`, legacy zones; function length, complexity, max params, dead code | Medium | M | F2 | Low | Each entry passes a with/without ablation or is removed |
+| **F3b Versioned plans** | `.agents/plans/` with Acceptance and lifecycle; progress file; `plan-stale`, `progress-size` | Medium | S | F2 | Low | `keel verify` rejects a plan without Acceptance; a `done` plan is removed; a new session resumes from the progress file |
+| **F3c Authority (C7 + R)** | Consequence map; settings deny; `claude-protect.sh`; CODEOWNERS; `mandatory` protection; sandbox option | High | M | F3a | Medium | Eval: editing a baseline is blocked; a consequential path requires a reviewer; a `mandatory` rule cannot be loosened |
+| **F3d Exemplars + catalog** | `EXEMPLAR=`, legacy zones; function length, complexity, max params, dead code; the ten D44 entries; pattern sensor | Medium | L | F2 | Low | Each entry passes a with/without ablation or is removed |
 | **F4 Codex** *(backlog)* | `.codex-plugin/`, `assets/adapters/codex/` | Medium | M | F2 | Medium | Same cases with Δ > 0 under Codex |
 | **F5 Profile L** | C3 reviewer (different model, budgeted); C8 journey sensor; C10 documented only | Medium | L | F3 | High | Each component passes its ablation; Δ ≤ 0 means it is removed |
-| **F6 Feedback → infrastructure** | Sensor state history; transcript adherence diagnosis; `doctor` proposes controls for recurring failures; review on model change | Medium | M | F2 | Low | On a fixture with history, `doctor` names the inert sensor and the recurring failure class |
+| **F6 Feedback → infrastructure** | Rotated sensor history; lessons inbox; auto-memory coherence; transcript adherence diagnosis; `doctor` proposes controls for recurring failures; review on model change | Medium | M | F2 | Low | On a fixture with history, `doctor` names the inert sensor, the recurring failure class and an auto-memory entry that contradicts a rule |
 
 ---
 
@@ -80,8 +82,15 @@ skill's evals after each step against the F1 numbers.
 - [ ] Create `assets/core/`, `assets/adapters/claude/`, `scripts/`, `contracts/`; move assets with
   `git mv` so history follows; update every `${CLAUDE_SKILL_DIR}` path that crosses skills to
   `${CLAUDE_PLUGIN_ROOT}`.
-- [ ] `scripts/keel` with `plan | approve | apply | verify | measure | check`; `.agents/flow/`
-  git-ignored; `apply` refuses without an approval matching the proposal hash.
+- [ ] `scripts/keel` with `plan | approve | apply | verify | measure | check`; approvals in
+  `.agents/run/flow/`; `apply` refuses without an approval matching the proposal hash.
+- [ ] Move ephemeral state to `.agents/run/` (gate, Stop hook, `harness-check`); `.gitignore` gets the
+  single `.agents/run/` line; the v0.2 upgrade moves the old files and removes the seven old lines.
+- [ ] `contracts/rule-env.md` gains `ENFORCEMENT_LEVEL=mandatory|ratchet` (default `ratchet`);
+  `harness-check` warns on a `mandatory` rule without a computational sensor; `AGENTS.md` lists
+  `mandatory` rules first; `rules` reads `.specify/memory/constitution.md` when present.
+- [ ] `build` proposes the stack's official LSP plugin; `rules` writes the codemap into
+  `docs/architecture.md`; `harness-check` warns `codemap-stale` on cited paths that no longer exist.
 - [ ] Rewrite each SKILL.md on the template in spec §5.5; move each prose self-verify list into
   `keel verify <skill>`.
 - [ ] `disallowed-tools: Write Edit NotebookEdit` on `assess` and `doctor`.
@@ -106,9 +115,12 @@ skill's evals after each step against the F1 numbers.
 ## F3b — Versioned plans and progress (D6 revised)
 
 - [ ] Plan template with a required **Acceptance** section in the sensors' numbers (spec-anchored,
-  kept small); plans move from `.agents/plans/` (ignored) to a versioned path the user approves.
-- [ ] A progress file the Stop-hook report and `AGENTS.md` point at; `keel verify` rejects a plan
-  without Acceptance.
+  kept small); `.agents/plans/` stops being git-ignored (D40).
+- [ ] Lifecycle `active | done | abandoned` in each plan's header; `keel` removes a `done` plan after
+  its ADR or commit is referenced; `harness-check` warns `plan-stale` (active, untouched for N days)
+  and `progress-size` (over N lines).
+- [ ] `.agents/progress.md`, pointed at by `AGENTS.md`; `keel verify` rejects a plan without
+  Acceptance.
 
 ## F3c — Authority (C7 + R)
 
@@ -117,6 +129,9 @@ skill's evals after each step against the F1 numbers.
 - [ ] From it: deny rules merged into `.claude/settings.json`; `assets/adapters/claude/claude-protect.sh`
   (PreToolUse) denying edits to `harness` paths with the approved route in the reason; CODEOWNERS
   entries for consequential paths.
+- [ ] `mandatory` rules (D43): `guard` rejects loosening even with `LOOSENED_BY=`; their env files and
+  exception lists are protected paths; their sensors are a required CI check; an amendment is a
+  superseding ADR approved through CODEOWNERS.
 - [ ] Sandbox / devcontainer as an option for profile L, with the trade-off stated.
 - [ ] Evals: an attempt to edit a baseline is blocked; a consequential change requests a reviewer.
 
@@ -126,6 +141,16 @@ skill's evals after each step against the F1 numbers.
   marked.
 - [ ] Catalog entries: function length, cyclomatic complexity, max parameters (the thresholds
   presets omit), and optional dead code / duplication (knip, deadcode).
+- [ ] D44 entries, each with Questions / Measure / Default / Why / Sensor / Opinion and its stack
+  tools: `comments` (native doc rules for public API; the "why, not what" part is inferential and
+  says so), `spelling` (cspell / typos with a project dictionary), `code-style` (formatter +
+  `.editorconfig` + `format --check`; the tool config stays the source of truth), `naming` (file and
+  folder patterns over `git ls-files`; identifiers through the linter's naming rule), `suppressions`
+  (lint/type suppressions without a reason, ratcheted), `dependencies` (manifest diff against `HEAD`;
+  a new dependency needs an ADR; lockfile required), `type-strictness`, `error-handling`, `logging`,
+  `test-conventions`.
+- [ ] A generic `pattern` sensor (ast-grep / semgrep / grep) for a team's own approved rules.
+- [ ] `rules` proposes an entry only when `measure.sh` shows a problem or the user asks for it.
 - [ ] One with/without ablation per entry; remove what shows Δ ≤ 0.
 
 ## F4 — Codex adapter (backlog, D5)
@@ -144,8 +169,13 @@ skill's evals after each step against the F1 numbers.
 
 ## F6 — Feedback into infrastructure
 
-- [ ] Append each gate run's per-sensor status to a git-ignored history; `doctor` reports sensors
-  that are always green or always red.
+- [ ] Append each gate run's per-sensor status to `.agents/run/history/`, keeping the last N runs;
+  `doctor` reports sensors that are always green or always red.
+- [ ] Lessons inbox `.agents/run/learnings/`: the Stop hook and `doctor` stage recurring failures and
+  corrections there; `doctor` proposes promoting each to a rule, sensor or ADR — written only with
+  approval — or discarding it.
+- [ ] `doctor` reads Claude Code's auto memory for the project and reports entries that contradict
+  a rule; it never edits them.
 - [ ] Transcript adherence diagnosis (did the flow's phases happen, in order) as a `doctor` mode.
 - [ ] `doctor` groups recurring failures by class and proposes the guide or sensor that would have
   prevented them.
