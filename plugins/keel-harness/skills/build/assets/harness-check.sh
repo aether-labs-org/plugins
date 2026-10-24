@@ -128,6 +128,12 @@ check_hook_missing() {
   warn hook-missing .claude/settings.json "no Stop hook pointing at an executable scripts/hooks/claude-stop.sh" "Run /keel-harness:build to install the Stop hook, or see .agents/README.md"
 }
 
+# --- guard-missing
+check_guard_missing() {
+  [ -f scripts/sensors/guard.sh ] && [ -f scripts/lib/envparse.sh ] && return 0
+  warn guard-missing scripts/sensors/guard.sh "no guard sensor or no scripts/lib/envparse.sh, so the harness can be loosened without anyone noticing" "Run /keel-harness:build to install scripts/sensors/guard.sh and scripts/lib/envparse.sh"
+}
+
 # --- sensor-malformed
 check_sensor_malformed() {
   local s name id cls problems
@@ -278,6 +284,7 @@ check_stale_command
 check_agents_not_loaded
 check_dangling_pointer
 check_hook_missing
+check_guard_missing
 check_sensor_malformed
 check_sensor_unavailable
 check_rule_inconsistent

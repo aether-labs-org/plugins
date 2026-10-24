@@ -10,6 +10,8 @@ mkclean() {
   install_asset "$r" build/assets/harness-check.sh scripts/harness-check.sh
   install_asset "$r" build/assets/gate.sh scripts/gate.sh
   install_asset "$r" build/assets/lib/baseline.sh scripts/lib/baseline.sh
+  install_asset "$r" build/assets/lib/envparse.sh scripts/lib/envparse.sh
+  install_asset "$r" build/assets/sensors/common/guard.sh scripts/sensors/guard.sh
   install_asset "$r" build/assets/hooks/claude-stop.sh scripts/hooks/claude-stop.sh
   mkdir -p "$r/.agents/baselines" "$r/.agents/rules" "$r/.claude" "$r/docs/decisions" "$r/scripts/sensors/slow" "$r/src"
   cp "$KEEL/skills/build/assets/gate.env" "$r/.agents/gate.env"
@@ -107,6 +109,10 @@ r="$(mkclean)"; rm "$r/.claude/settings.json"; hc "$r"; only hook-missing settin
 r="$(mkclean)"; chmod -x "$r/scripts/hooks/claude-stop.sh"; hc "$r"; only hook-missing ''; check "hook-missing: script not executable" $?
 r="$(mkclean)"; printf '{ "hooks": { "PostToolUse": [] } }\n' > "$r/.claude/settings.json"; hc "$r"; only hook-missing settings.json; check "hook-missing: no Stop entry" $?
 r="$(mkclean)"; sed -i 's/hook: installed/hook: not_installed/' "$r/.agents/state.yml"; rm "$r/.claude/settings.json"; hc "$r"; [ $rc -eq 0 ]; check "hook-missing: skipped when the hook layer was declined" $?
+
+# guard-missing
+r="$(mkclean)"; rm "$r/scripts/sensors/guard.sh"; commit "$r"; hc "$r"; only guard-missing scripts/sensors/guard.sh; check "guard-missing: no guard sensor" $?
+r="$(mkclean)"; rm "$r/scripts/lib/envparse.sh"; commit "$r"; hc "$r"; printf '%s\n' "$out" | grep -q '^warn	guard-missing	'; check "guard-missing: no envparse lib" $?
 
 # sensor-malformed
 r="$(mkclean)"; sed -i 's/^id=lint/id=other/' "$r/scripts/sensors/lint.sh"; hc "$r"; only sensor-malformed scripts/sensors/lint.sh; check "sensor-malformed: id differs from file name" $?

@@ -37,7 +37,9 @@ Installed scripts start with a "Managed by keel-harness" line. Edit only between
 1. Edit the value in `.agents/rules/<rule-id>.env` (for example `LIMIT=400`).
 2. Edit the same number in the rule's section in its topic file.
 3. Run `make harness-check`; it flags a number that differs between the two.
-4. Write an ADR in `docs/decisions/` if the change is a real trade-off.
+4. Write an ADR in `docs/decisions/` if the change is a real trade-off. Loosening the limit (raising a
+   `LIMIT`/`MAX`, lowering a `MIN`) always needs one: `guard` fails until an ADR added in the same
+   change names `.agents/rules/<rule-id>.env`.
 
 ### Add a sensor
 Drop an executable file in `scripts/sensors/` (fast) or `scripts/sensors/slow/` (slow). It must:
@@ -51,7 +53,8 @@ Files starting with `_` and subdirectories are never run by the gate.
 ### Disable a sensor
 Move it to `scripts/sensors/disabled/`. The gate runs only top-level `*.sh` files. Move it back to
 re-enable it. `make harness-check` warns when a rule still points at a sensor that is not in
-`scripts/sensors/` or `scripts/sensors/slow/`.
+`scripts/sensors/` or `scripts/sensors/slow/`. Disabling a committed sensor is a loosening: `guard`
+fails until an ADR added in the same change names `scripts/sensors/<id>.sh`.
 
 ### Shrink a baseline after a fix
 ```bash
@@ -82,7 +85,13 @@ Remove the `Stop` entry from `.claude/settings.json`. Copilot and Devin never ha
 
 ### Raise the time budget
 Edit `.agents/gate.env`. The fast gate should stay fast; prefer moving a slow sensor to
-`scripts/sensors/slow/`.
+`scripts/sensors/slow/`. A higher budget needs an ADR in the same change that names `.agents/gate.env`.
+
+### Loosen the harness on purpose
+`guard` compares the harness with the commit the branch started from (`KEEL_GUARD_BASE`, else the
+merge-base with `origin/HEAD`, else `HEAD`). To loosen a baseline, a limit, a list, a budget or a
+sensor deliberately, add an ADR in the same change that names each file by path and says why; then
+`make gate-fast` passes. Without it, undo the loosening and fix the code.
 
 ## Commands
 

@@ -24,7 +24,7 @@ repository-specific parts. You never regenerate a script from prose.
 | Python | `sensors/python/` |
 | Java / Kotlin | `sensors/jvm/` |
 
-Every stack also gets `sensors/common/secrets.sh`. For Go, Terraform and anything else in
+Every stack also gets `sensors/common/secrets.sh` and `sensors/common/guard.sh`. For Go, Terraform and anything else in
 `references/sensors-by-language.md`, propose what that file documents, say plainly that the wrappers
 are not bundled, and install only the layers that are. Each phase installs independently and is
 resumable.
@@ -93,8 +93,8 @@ honest `skip`.
 | --- | --- |
 | `gate.sh` | `scripts/gate.sh` |
 | `gate.env` | `.agents/gate.env` |
-| `lib/baseline.sh` (all stacks), `lib/junit.sh` (Java/Kotlin) | `scripts/lib/` |
-| `sensors/<stack>/<id>.sh`, `sensors/common/secrets.sh` (JVM: `compile.sh` -> `scripts/sensors/compile.sh`) | `scripts/sensors/<id>.sh` |
+| `lib/baseline.sh`, `lib/envparse.sh` (all stacks), `lib/junit.sh` (Java/Kotlin) | `scripts/lib/` |
+| `sensors/<stack>/<id>.sh`, `sensors/common/secrets.sh`, `sensors/common/guard.sh` (JVM: `compile.sh` -> `scripts/sensors/compile.sh`) | `scripts/sensors/<id>.sh` |
 
 The first command of the copy is `cp "${CLAUDE_SKILL_DIR}/assets/gate.sh" scripts/gate.sh`, then
 `chmod +x`. For each sensor, edit **only** the block between `# --- keel:repo-specific begin ---`
@@ -145,8 +145,7 @@ baselines (`security` and `correctness` never get a TSV baseline); and the detai
 
 ## 7. The Stop hook
 
-Claude only sees a gate failure when a hook hands it back, and `PostToolUse` output never reaches
-Claude. So the gate is wired to Claude Code's **`Stop`** hook, which gives the fast gate's guidance
+Claude only sees a gate failure when a hook hands it back. `PostToolUse` sends exit-0 stdout to the debug log and, on exit 2, only stderr, where `make` puts no report. So the gate is wired to Claude Code's **`Stop`** hook, which gives the fast gate's guidance
 back before Claude finishes. It blocks no action: the adapter always exits 0 and the conversation
 continues only while the gate fails, up to its loop guard.
 
@@ -183,7 +182,7 @@ accept-or-drop:
 1. The Stop hook of section 7 replaces the v0.1 PostToolUse entry (remove that entry, keep other keys).
 2. The sensor list in the old state is dropped: each entry already has its file; the gate
    discovers files now.
-3. A v0.1 `snapshot` entry becomes a TSV baseline, re-measured with `KEEL_MEASURE=1`, never copied.
+3. A v0.1 `snapshot` entry becomes a TSV baseline, re-measured with `KEEL_MEASURE=1`, never copied, and named in one upgrade ADR so `guard` accepts it.
 4. The v0.1 model-baseline key is replaced by `harness_review_by` (today + 6 months); state becomes section 9.
 5. The `.gitignore` entries above are added.
 
@@ -197,7 +196,7 @@ Proposed for this repository:
 BOOTSTRAP  make bootstrap -> {{real install command}}  (or: none could be inferred)
 GUIDES     AGENTS.md ({{N}} lines) - preview below; docs/ stubs: {{list or none}}
 GATES      fast (budget {{N}}s): typecheck [correctness], lint [heuristic, baseline {{N}} files],
-           tests [correctness], secrets [security]; left out: {{sensor}} - measured {{N}}s
+           tests [correctness], secrets [security], guard [security]; left out: {{sensor}} - measured {{N}}s
            scripts/gate.sh, .agents/gate.env, make gate-fast, make gate-slow
 HOOK       scripts/hooks/claude-stop.sh + a Stop entry in .claude/settings.json (fast gate, timeout 120)
 ```
@@ -237,7 +236,7 @@ Check what the copied assets do not already guarantee:
 - [ ] `make harness-check` was run and prints `harness is clean`.
 - [ ] Each `heuristic` sensor with a baseline has `.agents/baselines/<id>.tsv` from `KEEL_MEASURE=1`.
 - [ ] A sensor that blew the budget is named, with its seconds, under `not_installed`.
-- [ ] `scripts/` has no `${CLAUDE_*}`, plugin path or `claude` call.
+- [ ] `scripts/` has no `${CLAUDE_*}`, plugin path or `claude` call; `scripts/sensors/guard.sh` and `scripts/lib/envparse.sh` exist.
 - [ ] `.claude/settings.json` parses as JSON and kept every key it had; the `Stop` entry is
       present; there is no PostToolUse gate entry; `scripts/hooks/claude-stop.sh` is executable.
 - [ ] The hook `command` contains the literal `${CLAUDE_PROJECT_DIR}`

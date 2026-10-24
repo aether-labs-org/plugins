@@ -25,8 +25,8 @@ Reference files live next to this one: `references/catalog.md` (the entries and 
 
 ## 0. Precondition
 
-Rule sensors run inside the gates, so this skill needs `scripts/gate.sh`, `scripts/lib/baseline.sh`
-and the Makefile targets `gate-fast` and `gate-slow`. If any is missing, offer to run
+Rule sensors run inside the gates, so this skill needs `scripts/gate.sh`, `scripts/lib/baseline.sh`,
+`scripts/lib/envparse.sh`, `scripts/sensors/guard.sh` and the Makefile targets `gate-fast` and `gate-slow`. If any is missing, offer to run
 `/keel-harness:build` first (in greenfield, build installs the runner even when no tool sensor can
 run yet; a gate with zero sensors is valid). Continue only when the user agrees or they exist.
 
@@ -86,6 +86,8 @@ Write only what was approved, in this order:
 
 1. The ADR in `docs/decisions/`, when the round had a real trade-off, the rule is breaking, or the
    user overrode your recommendation (`adr-template.md`). Never edit an accepted ADR: supersede it.
+   The ADR names, by path, every baseline it introduces and every env file it loosens: `guard` accepts
+   a new or grown baseline, or a relaxed limit, only when an ADR added in the same change names it.
 2. The rule's section in its **topic file**, from `rule-section.md`: `docs/architecture.md` holds
    `architecture` and `folder-layout`; `docs/conventions.md` holds `file-size`, `code-language`,
    `adopted-patterns` and other code conventions; `docs/testing.md` holds `testing-strategy`. Create

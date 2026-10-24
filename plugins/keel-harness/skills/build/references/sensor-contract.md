@@ -52,7 +52,8 @@ is always allowed. The comparison lives in `scripts/lib/baseline.sh` (`baseline_
   `rules` writes at approval time (`KEEL_MEASURE=1 bash scripts/sensors/<id>.sh > .agents/baselines/<id>.tsv`).
 - Because baselines are per file, a baselined sensor may honour `SCOPE` and look only at the files
   that changed.
-- Only keel writes or tightens a baseline, with the user's approval. It never raises one.
+- Only keel writes or tightens a baseline, with the user's approval. It never raises one. `guard` fails a
+  row that grew or appeared unless an ADR added in the same change names the baseline file.
 - `review_by` is the ratchet's expiry. Past it, `harness-check.sh` warns (`baseline-stale`) unless
   the total has dropped; re-measure downward, never upward to accommodate drift.
 
@@ -122,10 +123,12 @@ Each stack sensor keeps everything repository-specific between two markers:
 | --- | --- | --- |
 | `gate.sh`, `gate.env` | - | `scripts/gate.sh`, `.agents/gate.env` |
 | `lib/baseline.sh` | - | `scripts/lib/baseline.sh` |
+| `lib/envparse.sh` | - | `scripts/lib/envparse.sh` (reads rule and gate env files; never executes them) |
 | `sensors/typescript/typecheck.sh` | correctness | `scripts/sensors/typecheck.sh` |
 | `sensors/typescript/lint.sh` | heuristic, TSV baseline | `scripts/sensors/lint.sh` |
 | `sensors/typescript/tests.sh` | correctness | `scripts/sensors/tests.sh` |
 | `sensors/common/secrets.sh` | security, no baseline | `scripts/sensors/secrets.sh` |
+| `sensors/common/guard.sh` | security, no baseline | `scripts/sensors/guard.sh` (fails when the harness was loosened without an ADR) |
 
 Python, Java/Kotlin and rule sensors are listed in `sensors-by-language.md` and in the `rules`
 catalog. The `rules` skill ships its own sensors under its `assets/sensors/` (slow ones install to

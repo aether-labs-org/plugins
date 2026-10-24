@@ -22,8 +22,10 @@ mkdir -p scripts/lib scripts/sensors
 cp "$assets/gate.sh" scripts/gate.sh
 cp "$assets/gate.env" .agents/gate.env
 cp "$assets/lib/baseline.sh" scripts/lib/baseline.sh
+cp "$assets/lib/envparse.sh" scripts/lib/envparse.sh
 for s in typecheck lint tests; do cp "$assets/sensors/typescript/$s.sh" "scripts/sensors/$s.sh"; done
 cp "$assets/sensors/common/secrets.sh" scripts/sensors/secrets.sh
+cp "$assets/sensors/common/guard.sh" scripts/sensors/guard.sh
 chmod +x scripts/gate.sh scripts/sensors/*.sh
 
 cat > AGENTS.md <<'MD'

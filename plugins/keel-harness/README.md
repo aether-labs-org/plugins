@@ -40,7 +40,7 @@ what the user approved and never migrates production code.
 
 ### `/keel-harness:doctor`
 
-Runs the repository's own validator (`harness-check.sh`, 12 checks), explains each warning and proposes
+Runs the repository's own validator (`harness-check.sh`, 13 checks), explains each warning and proposes
 the fix. Writes nothing.
 
 ## The v0.2 rule
