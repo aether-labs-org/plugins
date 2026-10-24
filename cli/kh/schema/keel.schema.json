@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/aether-labs-org/plugins/blob/main/cli/keel/schema/keel.schema.json",
+  "$id": "https://github.com/aether-labs-org/plugins/blob/main/cli/kh/schema/keel.schema.json",
   "title": "keel.yaml",
-  "description": "The sensors and budgets of a repository's keel gates (.agents/keel.yaml). keel validate is the authority; this schema serves editors.",
+  "description": "The sensors and budgets of a repository's keel gates (.agents/keel.yaml). kh validate is the authority; this schema serves editors.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "requires", "gate", "sensors"],
   "properties": {
     "version": { "const": 1 },
-    "requires": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "description": "Exact keel version; must match .agents/keel.lock and the running binary." },
+    "requires": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "description": "Exact kh version; must match .agents/keel.lock and the running binary." },
     "gate": {
       "type": "object",
       "additionalProperties": false,

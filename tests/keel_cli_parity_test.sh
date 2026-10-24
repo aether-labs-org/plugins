@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Parity: on the same repository, `bash scripts/gate.sh` and `keel gate` print the same report,
+# Parity: on the same repository, `bash scripts/gate.sh` and `kh gate` print the same report,
 # write the same log and exit with the same code. Only the timing columns are normalised.
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-BIN="${KEEL_BIN:-$(cd "$(dirname "$0")/.." && pwd)/cli/keel/dist/keel}"
+BIN="${KEEL_BIN:-$(cd "$(dirname "$0")/.." && pwd)/cli/kh/dist/kh}"
 SUMS="$(dirname "$BIN")/SHA256SUMS"
 if [ ! -x "$BIN" ]; then
-  if [ -n "${CI:-}" ]; then fail "keel CLI not built (make -C cli/keel build is required in CI)"; finish; fi
-  echo "  skip keel CLI parity: $BIN not built (make -C cli/keel build)"; exit 0
+  if [ -n "${CI:-}" ]; then fail "kh not built (make -C cli/kh build is required in CI)"; finish; fi
+  echo "  skip kh parity: $BIN not built (make -C cli/kh build)"; exit 0
 fi
 
 # mk -> repo with the real gate.sh and gate.env (installed by copy, whatever KEEL_ENGINE says)

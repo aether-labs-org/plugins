@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aether-labs-org/plugins/cli/keel/internal/config"
+	"github.com/aether-labs-org/plugins/cli/kh/internal/config"
 )
 
 // Native maps a bash sensor file name to the built-in adapter that replaces it in this version.
@@ -60,7 +60,7 @@ func discover(root, dir, gate string) []config.Sensor {
 // Render writes c in keel's canonical layout, so a diff of keel.yaml stays readable.
 func Render(c *config.Config) string {
 	var b strings.Builder
-	b.WriteString("# Managed by keel. The sensors and budgets of this repository's gates; check with `keel validate`.\n")
+	b.WriteString("# Managed by keel. The sensors and budgets of this repository's gates; check with `kh validate`.\n")
 	fmt.Fprintf(&b, "version: %d\nrequires: %s\ngate:\n  fast:\n    ceiling_seconds: %d\n  slow:\n    ceiling_seconds: %d\n",
 		c.Version, c.Requires, c.Ceiling("fast"), c.Ceiling("slow"))
 	if len(c.Sensors) == 0 {
@@ -79,7 +79,7 @@ func Render(c *config.Config) string {
 	return b.String()
 }
 
-// ReadSums parses `sha256sum` output whose names are `<os>-<arch>/keel` (as in engine/SHA256SUMS).
+// ReadSums parses `sha256sum` output whose names are `<os>-<arch>/kh` (as in engine/SHA256SUMS).
 func ReadSums(path string) (map[string]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -94,12 +94,12 @@ func ReadSums(path string) (map[string]string, error) {
 			continue
 		}
 		name := strings.TrimPrefix(fields[1], "*")
-		if plat, ok := strings.CutSuffix(name, "/keel"); ok {
+		if plat, ok := strings.CutSuffix(name, "/kh"); ok {
 			sums[plat] = fields[0]
 		}
 	}
 	if len(sums) == 0 {
-		return nil, fmt.Errorf("%s has no <os>-<arch>/keel rows", path)
+		return nil, fmt.Errorf("%s has no <os>-<arch>/kh rows", path)
 	}
 	return sums, sc.Err()
 }
@@ -107,7 +107,7 @@ func ReadSums(path string) (map[string]string, error) {
 // RenderLock writes the lock file for version with the given checksums, platforms sorted.
 func RenderLock(version string, sums map[string]string) string {
 	var b strings.Builder
-	b.WriteString("# Managed by keel. The pinned keel build; written by keel import --sums or /keel-harness:build, never by hand.\n")
+	b.WriteString("# Managed by keel. The pinned kh build; written by kh import --sums or /keel-harness:build, never by hand.\n")
 	fmt.Fprintf(&b, "version\t%s\n", version)
 	plats := make([]string, 0, len(sums))
 	for p := range sums {
@@ -120,7 +120,7 @@ func RenderLock(version string, sums map[string]string) string {
 	return b.String()
 }
 
-// Import builds the config of a bash-engine install under root for keel version.
+// Import builds the config of a bash-engine install under root for kh version.
 func Import(root, version string) *config.Config {
 	c := &config.Config{Version: 1, Requires: version}
 	c.Gate.Fast.CeilingSeconds = ceiling(root, "CEILING_SECONDS", config.DefaultFastCeiling)

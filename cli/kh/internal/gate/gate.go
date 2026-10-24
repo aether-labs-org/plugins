@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aether-labs-org/plugins/cli/keel/internal/config"
+	"github.com/aether-labs-org/plugins/cli/kh/internal/config"
 )
 
 // Adapter runs a built-in sensor in-process and returns its contract output and exit code.

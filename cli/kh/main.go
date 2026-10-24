@@ -1,4 +1,5 @@
-// keel runs a repository's gates from .agents/keel.yaml, keeping keel's sensor contract byte for byte.
+// kh, the keel harness CLI, runs a repository's gates from .agents/keel.yaml, keeping keel's sensor
+// contract byte for byte.
 package main
 
 import (
@@ -7,13 +8,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/aether-labs-org/plugins/cli/keel/internal/config"
-	"github.com/aether-labs-org/plugins/cli/keel/internal/gate"
-	"github.com/aether-labs-org/plugins/cli/keel/internal/guard"
-	"github.com/aether-labs-org/plugins/cli/keel/internal/importer"
+	"github.com/aether-labs-org/plugins/cli/kh/internal/config"
+	"github.com/aether-labs-org/plugins/cli/kh/internal/gate"
+	"github.com/aether-labs-org/plugins/cli/kh/internal/guard"
+	"github.com/aether-labs-org/plugins/cli/kh/internal/importer"
 )
 
-// version is the keel release; `make dist` sets it with -ldflags "-X main.version=...".
+// version is the kh release; `make dist` sets it with -ldflags "-X main.version=...".
 var version = "0.1.0"
 
 const (
@@ -21,14 +22,14 @@ const (
 	exitUsage  = 64 // bad command line, as gate.sh
 )
 
-const usage = `usage: keel <command>
-  keel gate [fast|slow]        run a gate and print its report (exit 0 pass, 1 fail)
-  keel gate --sensor <id>      run one sensor with SCOPE as given; print its contract output
-  keel measure <id>            the same with KEEL_MEASURE=1 (baseline rows)
-  keel guard                   run the guard sensor
-  keel validate                check .agents/keel.yaml, .agents/keel.lock and the pin
-  keel import [--force] [--sums FILE]   write keel.yaml (and keel.lock) from a bash-engine install
-  keel version
+const usage = `usage: kh <command>
+  kh gate [fast|slow]          run a gate and print its report (exit 0 pass, 1 fail)
+  kh gate --sensor <id>        run one sensor with SCOPE as given; print its contract output
+  kh measure <id>              the same with KEEL_MEASURE=1 (baseline rows)
+  kh guard                     run the guard sensor
+  kh validate                  check .agents/keel.yaml, .agents/keel.lock and the pin
+  kh import [--force] [--sums FILE]     write keel.yaml (and keel.lock) from a bash-engine install
+  kh version
 `
 
 func init() { gate.Adapters["guard"] = guard.Run }
@@ -47,7 +48,7 @@ func findRoot() (string, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("no %s here or in any parent directory - run keel import or /keel-harness:build", config.File)
+			return "", fmt.Errorf("no %s here or in any parent directory - run kh import or /keel-harness:build", config.File)
 		}
 		dir = parent
 	}
@@ -64,7 +65,7 @@ func load(stderr io.Writer) (string, *config.Config, bool) {
 			}
 		}
 	}
-	fmt.Fprintf(stderr, "keel: %v\n", err)
+	fmt.Fprintf(stderr, "kh: %v\n", err)
 	return "", nil, false
 }
 
@@ -75,7 +76,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	switch cmd, rest := args[0], args[1:]; cmd {
 	case "version", "--version":
-		fmt.Fprintf(stdout, "keel %s\n", version)
+		fmt.Fprintf(stdout, "kh %s\n", version)
 		return 0
 	case "validate":
 		root, c, ok := load(stderr)
@@ -83,7 +84,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return exitConfig
 		}
 		_ = root
-		fmt.Fprintf(stdout, "keel: %s is valid (%d sensors, keel %s pinned)\n", config.File, len(c.Sensors), c.Requires)
+		fmt.Fprintf(stdout, "kh: %s is valid (%d sensors, kh %s pinned)\n", config.File, len(c.Sensors), c.Requires)
 		return 0
 	case "gate":
 		if len(rest) == 2 && rest[0] == "--sensor" {
@@ -94,7 +95,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			mode = rest[0]
 		}
 		if len(rest) > 1 || (mode != "fast" && mode != "slow") {
-			fmt.Fprintln(stderr, "usage: keel gate [fast|slow] | keel gate --sensor <id>")
+			fmt.Fprintln(stderr, "usage: kh gate [fast|slow] | kh gate --sensor <id>")
 			return exitUsage
 		}
 		root, c, ok := load(stderr)
@@ -104,7 +105,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return gate.Run(root, mode, c, stdout, gate.IsTTY(os.Stdout))
 	case "measure":
 		if len(rest) != 1 {
-			fmt.Fprintln(stderr, "usage: keel measure <id>")
+			fmt.Fprintln(stderr, "usage: kh measure <id>")
 			return exitUsage
 		}
 		return sensor(rest[0], append(os.Environ(), "KEEL_MEASURE=1"), stdout, stderr)
@@ -132,7 +133,7 @@ func sensor(id string, env []string, stdout, stderr io.Writer) int {
 	}
 	s, found := c.Find(id)
 	if !found {
-		fmt.Fprintf(stderr, "keel: no sensor %q in %s\n", id, config.File)
+		fmt.Fprintf(stderr, "kh: no sensor %q in %s\n", id, config.File)
 		return exitUsage
 	}
 	out, rc := gate.RunSensor(root, s, env)
@@ -150,40 +151,40 @@ func doImport(args []string, stdout, stderr io.Writer) int {
 			sums = args[i+1]
 			i++
 		default:
-			fmt.Fprintln(stderr, "usage: keel import [--force] [--sums FILE]")
+			fmt.Fprintln(stderr, "usage: kh import [--force] [--sums FILE]")
 			return exitUsage
 		}
 	}
 	root, err := os.Getwd()
 	if err != nil {
-		fmt.Fprintf(stderr, "keel: %v\n", err)
+		fmt.Fprintf(stderr, "kh: %v\n", err)
 		return exitConfig
 	}
 	path := filepath.Join(root, config.File)
 	if _, err := os.Stat(path); err == nil && !force {
-		fmt.Fprintf(stderr, "keel: %s already exists - pass --force to overwrite it\n", config.File)
+		fmt.Fprintf(stderr, "kh: %s already exists - pass --force to overwrite it\n", config.File)
 		return exitConfig
 	}
 	c := importer.Import(root, version)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		fmt.Fprintf(stderr, "keel: %v\n", err)
+		fmt.Fprintf(stderr, "kh: %v\n", err)
 		return exitConfig
 	}
 	if err := os.WriteFile(path, []byte(importer.Render(c)), 0o644); err != nil {
-		fmt.Fprintf(stderr, "keel: %v\n", err)
+		fmt.Fprintf(stderr, "kh: %v\n", err)
 		return exitConfig
 	}
 	if sums != "" {
 		m, err := importer.ReadSums(sums)
 		if err != nil {
-			fmt.Fprintf(stderr, "keel: %v\n", err)
+			fmt.Fprintf(stderr, "kh: %v\n", err)
 			return exitConfig
 		}
 		if err := os.WriteFile(filepath.Join(root, config.LockFile), []byte(importer.RenderLock(version, m)), 0o644); err != nil {
-			fmt.Fprintf(stderr, "keel: %v\n", err)
+			fmt.Fprintf(stderr, "kh: %v\n", err)
 			return exitConfig
 		}
 	}
-	fmt.Fprintf(stdout, "keel: wrote %s (%d sensors)\n", config.File, len(c.Sensors))
+	fmt.Fprintf(stdout, "kh: wrote %s (%d sensors)\n", config.File, len(c.Sensors))
 	return 0
 }

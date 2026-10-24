@@ -116,7 +116,7 @@ func Parse(data []byte) (*Config, error) {
 func Load(root string) (*Config, error) {
 	data, err := os.ReadFile(filepath.Join(root, File))
 	if err != nil {
-		return nil, fmt.Errorf("no %s - run keel import or /keel-harness:build", File)
+		return nil, fmt.Errorf("no %s - run kh import or /keel-harness:build", File)
 	}
 	c, err := Parse(data)
 	if err != nil {
@@ -234,14 +234,14 @@ func Platform() string { return runtime.GOOS + "-" + runtime.GOARCH }
 // binary's sha256 equals the lock row for this platform. A mismatch is a fail, never a warning.
 func CheckPin(root string, c *Config, running string) error {
 	if c.Requires != running {
-		return fmt.Errorf("%s requires keel %s, but this is keel %s - run /keel-harness:build to align the pin", File, c.Requires, running)
+		return fmt.Errorf("%s requires kh %s, but this is kh %s - run /keel-harness:build to align the pin", File, c.Requires, running)
 	}
 	l, err := ReadLock(filepath.Join(root, LockFile))
 	if err != nil {
 		return err
 	}
 	if l.Version != c.Requires {
-		return fmt.Errorf("%s pins keel %s but %s requires %s - run /keel-harness:build", LockFile, l.Version, File, c.Requires)
+		return fmt.Errorf("%s pins kh %s but %s requires %s - run /keel-harness:build", LockFile, l.Version, File, c.Requires)
 	}
 	want, ok := l.Sums[Platform()]
 	if !ok {
@@ -256,7 +256,7 @@ func CheckPin(root string, c *Config, running string) error {
 		return err
 	}
 	if got != want {
-		return fmt.Errorf("this keel binary (%s) is not the build %s pins for %s - run /keel-harness:build", exe, LockFile, Platform())
+		return fmt.Errorf("this kh binary (%s) is not the build %s pins for %s - run /keel-harness:build", exe, LockFile, Platform())
 	}
 	return nil
 }

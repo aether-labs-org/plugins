@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aether-labs-org/plugins/cli/keel/internal/config"
-	"github.com/aether-labs-org/plugins/cli/keel/internal/envfile"
+	"github.com/aether-labs-org/plugins/cli/kh/internal/config"
+	"github.com/aether-labs-org/plugins/cli/kh/internal/envfile"
 )
 
 const (

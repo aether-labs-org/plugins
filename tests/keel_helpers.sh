@@ -4,13 +4,13 @@ KEEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../plugins/keel-harness" && pwd)"
 STUBS="$(cd "$(dirname "${BASH_SOURCE[0]}")/fixtures/keel/stubs" && pwd)"
 FIXTURES="$(cd "$(dirname "${BASH_SOURCE[0]}")/fixtures/keel" && pwd)"
 export KEEL STUBS FIXTURES
-# KEEL_ENGINE=cli runs every gate and sensor through the keel CLI (cli/keel, built by
-# `make -C cli/keel build`) instead of scripts/gate.sh; the default is the bash engine.
+# KEEL_ENGINE=cli runs every gate and sensor through kh, the keel harness CLI (cli/kh, built by
+# `make -C cli/kh build`) instead of scripts/gate.sh; the default is the bash engine.
 KEEL_ENGINE="${KEEL_ENGINE:-bash}"
 RUN_SENSOR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/keel_run_sensor.sh"
 export KEEL_ENGINE RUN_SENSOR
 if [ "$KEEL_ENGINE" = cli ]; then
-  KEEL_BIN="${KEEL_BIN:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/cli/keel/dist/keel}"
+  KEEL_BIN="${KEEL_BIN:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/cli/kh/dist/kh}"
   KEEL_SUMS="$(dirname "$KEEL_BIN")/SHA256SUMS"
   export KEEL_BIN KEEL_SUMS
 fi
@@ -36,7 +36,7 @@ new_repo() {
   printf '%s\n' "$d"
 }
 # install_asset REPO SRC_REL DEST_REL  (SRC_REL relative to $KEEL/skills/)
-# Under KEEL_ENGINE=cli, gate.sh is replaced by a shim that runs `keel gate` on the same layout.
+# Under KEEL_ENGINE=cli, gate.sh is replaced by a shim that runs `kh gate` on the same layout.
 install_asset() {
   mkdir -p "$(dirname "$1/$3")"
   if [ "$KEEL_ENGINE" = cli ] && [ "$2" = build/assets/gate.sh ]; then

@@ -3,9 +3,9 @@
 check:
 	./tests/run.sh
 
-# The keel CLI (cli/keel): its unit tests, then the whole suite on both engines.
+# kh, the keel harness CLI (cli/kh): its unit tests, then the whole suite on both engines.
 check-cli:
-	$(MAKE) -C cli/keel test build
+	$(MAKE) -C cli/kh test build
 	./tests/run.sh
 	KEEL_ENGINE=cli ./tests/run.sh
 

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# keel CLI behaviour that has no bash-engine counterpart: keel.yaml validation, the pin and the lock,
+# kh (keel CLI) behaviour that has no bash-engine counterpart: keel.yaml validation, the pin and the lock,
 # import, single-sensor runs, and guard over keel.yaml.
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-BIN="${KEEL_BIN:-$(cd "$(dirname "$0")/.." && pwd)/cli/keel/dist/keel}"
+BIN="${KEEL_BIN:-$(cd "$(dirname "$0")/.." && pwd)/cli/kh/dist/kh}"
 SUMS="$(dirname "$BIN")/SHA256SUMS"
 if [ ! -x "$BIN" ]; then
-  if [ -n "${CI:-}" ]; then fail "keel CLI not built (make -C cli/keel build is required in CI)"; finish; fi
-  echo "  skip keel CLI: $BIN not built (make -C cli/keel build)"; exit 0
+  if [ -n "${CI:-}" ]; then fail "kh not built (make -C cli/kh build is required in CI)"; finish; fi
+  echo "  skip kh: $BIN not built (make -C cli/kh build)"; exit 0
 fi
 k() { out="$(cd "$r" && "$BIN" "$@" 2>&1)"; rc=$?; }
-# stub_guard REPO -> a scripts/sensors/guard.sh that obeys the contract; `keel import` maps the file
+# stub_guard REPO -> a scripts/sensors/guard.sh that obeys the contract; `kh import` maps the file
 # name to the native guard adapter, so its content never runs.
 stub_guard() { printf '#!/usr/bin/env bash\nprintf "guard\\tsecurity\\tpass\\tstub\\n"\n' > "$1/scripts/sensors/guard.sh"; }
 has() { printf '%s\n' "$out" | grep -qF -- "$1"; }
@@ -27,8 +27,8 @@ mk() {
 }
 yaml_set() { sed -i "$1" "$r/.agents/keel.yaml"; }
 
-mk; k version; [ "$out" = "keel 0.1.0" ]; check "version" $?
-k validate; [ $rc -eq 0 ] && has 'is valid (2 sensors, keel 0.1.0 pinned)'; check "imported layout validates" $?
+mk; k version; [ "$out" = "kh 0.1.0" ]; check "version" $?
+k validate; [ $rc -eq 0 ] && has 'is valid (2 sensors, kh 0.1.0 pinned)'; check "imported layout validates" $?
 grep -q '^    adapter: guard$' "$r/.agents/keel.yaml" && grep -q '^    exec: scripts/sensors/lint.sh$' "$r/.agents/keel.yaml"; check "import: guard becomes the native adapter, lint stays exec" $?
 k import; [ $rc -eq 3 ] && has 'pass --force'; check "import refuses to overwrite keel.yaml" $?
 
@@ -52,9 +52,9 @@ mk; mkdir -p "$r/scripts/sensors/disabled"; : > "$r/scripts/sensors/_util.sh"; :
 
 # the pin: keel.yaml, keel.lock and the running binary must agree
 mk; yaml_set 's/^requires: .*/requires: 9.9.9/'; k gate fast
-[ $rc -eq 3 ] && has 'requires keel 9.9.9, but this is keel 0.1.0'; check "pin: other version -> exit 3" $?
+[ $rc -eq 3 ] && has 'requires kh 9.9.9, but this is kh 0.1.0'; check "pin: other version -> exit 3" $?
 mk; rm "$r/.agents/keel.lock"; k gate fast; [ $rc -eq 3 ] && has 'no .agents/keel.lock'; check "pin: missing lock -> exit 3" $?
-mk; sed -i 's/^version\t.*/version\t0.0.9/' "$r/.agents/keel.lock"; k gate fast; [ $rc -eq 3 ] && has 'pins keel 0.0.9'; check "pin: lock version differs -> exit 3" $?
+mk; sed -i 's/^version\t.*/version\t0.0.9/' "$r/.agents/keel.lock"; k gate fast; [ $rc -eq 3 ] && has 'pins kh 0.0.9'; check "pin: lock version differs -> exit 3" $?
 mk; sed -i -E 's/\t[0-9a-f]{64}$/\t0000000000000000000000000000000000000000000000000000000000000000/' "$r/.agents/keel.lock"; k gate fast
 [ $rc -eq 3 ] && has 'is not the build .agents/keel.lock pins'; check "pin: binary checksum differs -> exit 3" $?
 
