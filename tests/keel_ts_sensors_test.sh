@@ -14,7 +14,7 @@ mk() {
 }
 run() { # run REPO SENSOR [env...] -> sets out, rc
   local r="$1" s="$2"; shift 2
-  out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?
+  out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?
 }
 
 # --- structure

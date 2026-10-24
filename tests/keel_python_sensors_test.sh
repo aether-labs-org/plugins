@@ -9,7 +9,7 @@ mk() {
   mkdir -p "$r/.agents/baselines" "$r/pkg" "$r/tests/unit"
   printf '%s\n' "$r"
 }
-run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
+run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
 
 for s in typecheck lint tests; do
   f="$KEEL/skills/$SD/$s.sh"

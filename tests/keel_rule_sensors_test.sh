@@ -14,7 +14,7 @@ mk() {
 put() { install_asset "$1" "$RS/$2.sh" "scripts/sensors/$2.sh"; }
 run() { # run REPO SENSOR [env...] -> out, rc
   local r="$1" s="$2"; shift 2
-  out="$(cd "$r" && env "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?
+  out="$(cd "$r" && env "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?
 }
 nlines() { seq 1 "$1" | sed 's/.*/x/'; }
 commit() { (cd "$1" && git add -A && git commit -q -m c); }
@@ -178,7 +178,7 @@ printf '%s\n' "$out" | grep -qx "$(printf 'src/a.ts\t4')"; check "code-language:
 printf '%s\n' "$out" | grep -q "^src/b.ts	[1-9]"; check "code-language: non-ASCII identifier flagged" $?
 run "$r" code-language; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^code-language	heuristic	fail	' && printf '%s\n' "$out" | grep -q '^  guidance: Rename the identifiers'; check "code-language: fails without baseline" $?
 run "$r" code-language KEEL_MEASURE=1 | cat >/dev/null
-(cd "$r" && KEEL_MEASURE=1 bash scripts/sensors/code-language.sh > .agents/baselines/code-language.tsv)
+(cd "$r" && KEEL_MEASURE=1 bash "$RUN_SENSOR" scripts/sensors/code-language.sh > .agents/baselines/code-language.tsv)
 run "$r" code-language; [ $rc -eq 0 ]; check "code-language: baselined passes" $?
 echo 'const calcula = 1;' >> "$r/src/a.ts"; run "$r" code-language; [ $rc -eq 1 ]; check "code-language: growth fails" $?
 run "$r" code-language SCOPE=src/b.ts; [ $rc -eq 0 ]; check "code-language: SCOPE honoured" $?
@@ -210,7 +210,7 @@ structure slow/mutation
 r="$(mk)"; mkdir -p "$r/scripts/sensors/slow"; install_asset "$r" "$RS/slow/mutation.sh" scripts/sensors/slow/mutation.sh
 printf "MUTATION_MIN_SCORE=70\n" > "$r/.agents/rules/testing-strategy.env"
 mkdir -p "$r/src/main/java/a"; echo c > "$r/src/main/java/a/Foo.java"; commit "$r"
-runm() { local rr="$1"; shift; out="$(cd "$rr" && env STUB_LOG="$rr/stub.log" "$@" bash scripts/sensors/slow/mutation.sh 2>&1)"; rc=$?; }
+runm() { local rr="$1"; shift; out="$(cd "$rr" && env STUB_LOG="$rr/stub.log" "$@" bash "$RUN_SENSOR" scripts/sensors/slow/mutation.sh 2>&1)"; rc=$?; }
 runm "$r" SCOPE=src/main/java/a/Foo.java; [ $rc -eq 2 ]; check "mutation: tool absent -> skip" $?
 use_stub "$r" pitest-maven mvnw
 runm "$r" SCOPE=src/main/java/a/Foo.java STUB_OUT="Generated 10 mutations Killed 6 (60%)" STUB_EXIT=0
@@ -237,7 +237,7 @@ printf "DIFF_COVERAGE_MIN=80\n" > "$r/.agents/rules/testing-strategy.env"
 # src/a.ts has 4 lines; the report covers 1-3, not 4 (whole-file coverage 75%)
 mkdir -p "$r/coverage"; cp "$FIXTURES/coverage/lcov.info" "$r/coverage/lcov.info"; printf 'l1\nl2\nl3\nl4\n' > "$r/src/a.ts"; commit "$r"
 sed -i 's|^CMD=.*|CMD=(true)|' "$r/scripts/sensors/slow/diff-coverage.sh"
-rund() { local rr="$1"; shift; out="$(cd "$rr" && env "$@" bash scripts/sensors/slow/diff-coverage.sh 2>&1)"; rc=$?; }
+rund() { local rr="$1"; shift; out="$(cd "$rr" && env "$@" bash "$RUN_SENSOR" scripts/sensors/slow/diff-coverage.sh 2>&1)"; rc=$?; }
 sed -i '4s/.*/l4 changed/' "$r/src/a.ts"; rund "$r" SCOPE=src/a.ts
 [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^diff-coverage	correctness	fail	diff coverage 0% .*(0 of 1 changed lines)' && printf '%s\n' "$out" | grep -qF '  src/a.ts: lines 4 not covered'; check "diff-coverage: the changed line 4 is uncovered -> fails and lists it" $?
 (cd "$r" && git checkout -q src/a.ts); sed -i '2s/.*/l2 changed/' "$r/src/a.ts"; rund "$r" SCOPE=src/a.ts
