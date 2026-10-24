@@ -47,7 +47,8 @@ spec section it implements.
   a new row fails); every numeric `LIMIT|MIN|MAX|THRESHOLD` key in `.agents/rules/*.env` that
   loosens; `CEILING_SECONDS` / `SLOW_CEILING_SECONDS` in `.agents/gate.env` that grow. A loosening
   passes only when the same diff adds the file named by `LOOSENED_BY=` in the rule's env file (or a
-  `# loosened_by: docs/decisions/NNNN-*.md` line in the baseline header), and that file exists.
+  `# loosened_by: <ADR_DIR>/NNNN-*.md` line in the baseline header), and that file exists. Until F2
+  adds `ADR_DIR`, accept the folders listed in D45.
   Guidance names the record route and says that editing the sensor is the wrong fix.
 - [ ] Turn the reproduction from the review into `tests/keel_guard_test.sh`: 20-line file with
   `LIMIT=10` → `file-size` fails; baseline row added without a record → `guard` fails; with a
@@ -89,6 +90,9 @@ skill's evals after each step against the F1 numbers.
 - [ ] `contracts/rule-env.md` gains `ENFORCEMENT_LEVEL=mandatory|ratchet` (default `ratchet`);
   `harness-check` warns on a `mandatory` rule without a computational sensor; `AGENTS.md` lists
   `mandatory` rules first; `rules` reads `.specify/memory/constitution.md` when present.
+- [ ] ADR folder (D45): `rules` detects an existing ADR folder or creates `docs/adr/`, stores
+  `ADR_DIR=` in `state.yml`; templates, `DECISION=`, `LOOSENED_BY=`, the `tests` sensor guidance and
+  `harness-check` use it; v0.2 installs keep `docs/decisions/`.
 - [ ] `build` proposes the stack's official LSP plugin; `rules` writes the codemap into
   `docs/architecture.md`; `harness-check` warns `codemap-stale` on cited paths that no longer exist.
 - [ ] Rewrite each SKILL.md on the template in spec §5.5; move each prose self-verify list into
@@ -121,6 +125,9 @@ skill's evals after each step against the F1 numbers.
   and `progress-size` (over N lines).
 - [ ] `.agents/progress.md`, pointed at by `AGENTS.md`; `keel verify` rejects a plan without
   Acceptance.
+- [ ] Spec traceability (D46): specs are read from `docs/specs/` or an existing Spec Kit layout;
+  `harness-check` warns `acceptance-untested` when an acceptance criterion names no test file or
+  test id.
 
 ## F3c — Authority (C7 + R)
 
@@ -164,7 +171,10 @@ skill's evals after each step against the F1 numbers.
 - [ ] C3: an optional reviewer sensor that calls a different model, with a token budget and a
   calibration fixture; never in the fast gate.
 - [ ] C8: a journey sensor (Playwright) for web stacks, plus structured-log guidance.
-- [ ] C10: documentation only.
+- [ ] C10: documentation only — the D47 recipe in `.agents/README.md` and the plugin README:
+  planner pass → one main loop (fast gate per task, commit per task) → evaluator at the end →
+  pull request with review by consequence; how to run it with superpowers, the Agent SDK or a
+  `claude -p` loop; profile L requires F3c and the C3/C8 sensors first.
 - [ ] Ablation per component; remove what is not load-bearing.
 
 ## F6 — Feedback into infrastructure

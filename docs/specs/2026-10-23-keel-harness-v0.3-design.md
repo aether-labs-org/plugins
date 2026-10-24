@@ -79,6 +79,7 @@ of scope. The core is agent-agnostic; agent-specific parts are adapters.
 | D5 | Target agents: Claude Code, Copilot, Devin | **Kept.** Codex is backlog (plan F4); the layout leaves room for `.codex-plugin/` | Owner decision, 2026-10-23 |
 | D6 | Execution plans live outside git | **Revised.** Plans and progress are versioned, each plan with a small, verifiable **Acceptance** section | C6 and C5: another session, agent or reviewer must see the plan and its acceptance |
 | D7 | Gate feedback only through the Claude Code Stop hook; no CI | **Revised.** keel installs a CI workflow and a pre-commit hook that run the fast gate, `harness-check` and `guard` | C5 for profiles S and L; pre-commit is the agent-agnostic enforcement layer |
+| D23 | ADRs live in `docs/decisions/` (MADR's default) | **Revised by D45.** Default `docs/adr/`; an existing ADR folder is detected and kept | Owner decision, 2026-10-24 |
 
 ### 3.2 New decisions
 
@@ -100,6 +101,10 @@ of scope. The core is agent-agnostic; agent-specific parts are adapters.
 | D42 | Context: `build` proposes the stack's official LSP plugin; the codemap is curated in `docs/architecture.md` (matklad's ARCHITECTURE.md shape) and `harness-check` warns on paths it cites that no longer exist. No generated file tree is loaded by default, and there is no aggregate context-budget check | owner |
 | D43 | `ENFORCEMENT_LEVEL=mandatory\|ratchet` in every rule env file (default `ratchet`). `mandatory`: a computational sensor is required; legacy violations only as an exception list with a deadline that can only shrink; `guard` rejects loosening even with `LOOSENED_BY=` — only a superseding ADR approved through CODEOWNERS changes it; PreToolUse protects its files; CI check is required. `mandatory` rules come first in `AGENTS.md`. No `constitution.md`: principles without a sensor go in `docs/architecture.md` with `→ review:<owner>`; an existing Spec Kit `.specify/memory/constitution.md` is read and each principle linked to a rule; a single document for audit is only ever generated from the rules | owner |
 | D44 | Catalog additions: `comments`, `spelling`, `code-style`, `naming`, `suppressions`, `dependencies`, `type-strictness`, `error-handling`, `logging`, `test-conventions`. keel proposes an entry only when the measurement shows a problem or the user asks for it, and each entry must pass a with/without ablation | owner |
+| D45 | ADR folder: `rules` detects an existing one (`docs/adr/`, `doc/adr/`, `docs/decisions/`, `docs/architecture/decisions/`) and records it as `ADR_DIR=` in `.agents/state.yml`; with none, it creates `docs/adr/`. Every path keel writes or checks (`DECISION=`, `LOOSENED_BY=`, sensor guidance) uses `ADR_DIR`. A v0.2 install keeps `docs/decisions/` — nothing is moved | owner |
+| D46 | SDD is spec-anchored, never spec-as-source. keel writes no specs: it reads them from `docs/specs/` or an existing Spec Kit layout, and a traceability check warns when an acceptance criterion names no test. Plans (`.agents/plans/`) carry the how; specs carry the what and why | owner |
+| D47 | Autonomous execution is composed, not orchestrated by keel. keel supplies the rails (gate, `guard`, plan Acceptance, protection, evaluator sensors) and documents a recipe — one planner pass, one main loop owning state with stateless subagents for read-heavy work, an inferential evaluator at the end — run by superpowers' `executing-plans` / `subagent-driven-development`, the Agent SDK or a `claude -p` loop. Plans stay files only; no GitHub Issues backend | owner |
+| D48 | The installed engine stays copied bash for v0.3. A declarative CLI is specified separately (`docs/specs/2026-10-24-keel-cli-design.md`) and not scheduled | owner |
 
 ## 4. Plugin layout (v0.3)
 
@@ -151,7 +156,7 @@ repo/
 ├── docs/
 │   ├── architecture.md            # codemap, layer map, principles (→ review:), architecture rules
 │   ├── conventions.md testing.md  # one section per rule, with an anchor (≤300 lines each)
-│   └── decisions/NNNN-*.md        # ADRs, superseded, never edited
+│   └── adr/NNNN-*.md              # ADRs, superseded, never edited (an existing ADR folder wins, D45)
 ├── scripts/
 │   ├── gate.sh harness-check.sh
 │   ├── lib/ baseline.sh envparse.sh junit.sh
@@ -271,6 +276,9 @@ installed core runs without the plugin; the README states eval confounders hones
 - Glob-scoped adapters (`.claude/rules`, `.github/instructions`).
 - A generated file tree loaded by default, and an aggregate context-budget check (D42).
 - A `constitution.md` (D43).
+- Writing specs, and orchestrating autonomous runs (D46, D47).
+- A GitHub Issues backend for plans (D47).
+- A CLI engine (D48; separate spec).
 
 ## 8. Risks and open questions
 
