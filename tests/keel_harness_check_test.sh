@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-HC="$KEEL/skills/build/assets/harness-check.sh"
+HC="$KEEL/assets/core/harness-check.sh"
 [ -f "$HC" ]; check "harness-check.sh exists" $?
 
 # mkclean -> a clean harness repo (committed)
 mkclean() {
   local r; r="$(new_repo)"
-  install_asset "$r" build/assets/harness-check.sh scripts/harness-check.sh
-  install_asset "$r" build/assets/gate.sh scripts/gate.sh
-  install_asset "$r" build/assets/lib/baseline.sh scripts/lib/baseline.sh
-  install_asset "$r" build/assets/lib/envparse.sh scripts/lib/envparse.sh
-  install_asset "$r" build/assets/sensors/common/guard.sh scripts/sensors/guard.sh
-  install_asset "$r" build/assets/hooks/claude-stop.sh scripts/hooks/claude-stop.sh
+  install_asset "$r" assets/core/harness-check.sh scripts/harness-check.sh
+  install_asset "$r" assets/core/gate.sh scripts/gate.sh
+  install_asset "$r" assets/core/lib/baseline.sh scripts/lib/baseline.sh
+  install_asset "$r" assets/core/lib/envparse.sh scripts/lib/envparse.sh
+  install_asset "$r" assets/core/sensors/common/guard.sh scripts/sensors/guard.sh
+  install_asset "$r" assets/adapters/claude/claude-stop.sh scripts/hooks/claude-stop.sh
   mkdir -p "$r/.agents/baselines" "$r/.agents/rules" "$r/.claude" "$r/docs/decisions" "$r/scripts/sensors/slow" "$r/src"
-  cp "$KEEL/skills/build/assets/gate.env" "$r/.agents/gate.env"
-  cp "$KEEL/skills/build/assets/hooks/settings-stop.json" "$r/.claude/settings.json"
+  cp "$KEEL/assets/core/gate.env" "$r/.agents/gate.env"
+  cp "$KEEL/assets/adapters/claude/settings-stop.json" "$r/.claude/settings.json"
   cat > "$r/Makefile" <<'MK'
 bootstrap:
 	npm install
@@ -189,7 +189,7 @@ r="$(mkclean)"; : > "$r/stub.marker"; sed -i 's|^printf .*|printf "%s" "${SCOPE:
 rm -f "$r/scope.seen"
 
 # README.agents.md
-G="$KEEL/skills/build/assets/README.agents.md"
+G="$KEEL/assets/core/README.agents.md"
 [ -f "$G" ] && [ "$(wc -l < "$G")" -le 120 ]; check "README.agents.md exists and is at most 120 lines" $?
 for t in 'make harness-check' 'scripts/sensors/disabled/' 'KEEL_MEASURE=1' 'docs/decisions/' '.claude/settings.json' 'scripts/sensors/'; do grep -qF -- "$t" "$G" 2>/dev/null; check "README.agents.md mentions $t" $?; done
 finish

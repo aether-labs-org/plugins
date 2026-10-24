@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-HOOK_SRC="$KEEL/skills/build/assets/hooks/claude-stop.sh"
+HOOK_SRC="$KEEL/assets/adapters/claude/claude-stop.sh"
 [ -f "$HOOK_SRC" ]; check "claude-stop.sh exists" $?
 # shellcheck disable=SC1090
 . "$HOOK_SRC" 2>/dev/null
@@ -141,7 +141,7 @@ for rcv in 0 1 2 5 127; do
 done
 
 # --- settings
-S="$KEEL/skills/build/assets/hooks/settings-stop.json"
+S="$KEEL/assets/adapters/claude/settings-stop.json"
 jq -e . "$S" >/dev/null 2>&1; check "settings-stop.json parses" $?
 cmd="$(jq -r '.hooks.Stop[0].hooks[0].command' "$S" 2>/dev/null)"
 case "$cmd" in *'${CLAUDE_PROJECT_DIR}'*scripts/hooks/claude-stop.sh*) true ;; *) false ;; esac; check "settings command uses literal CLAUDE_PROJECT_DIR and the hook path" $?

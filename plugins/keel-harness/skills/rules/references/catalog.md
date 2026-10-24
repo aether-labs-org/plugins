@@ -14,7 +14,7 @@ Rules are written to topic files (`docs/architecture.md`: `architecture`, `folde
 ## file-size
 
 **Questions**: Is there a size you already hold files to? Are generated or vendored files excluded?
-**Measure**: `bash "${CLAUDE_SKILL_DIR}/assets/measure.sh" file-size` gives files, p50/p75/p90, max and the `over:N` buckets.
+**Measure**: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" file-size` gives files, p50/p75/p90, max and the `over:N` buckets.
 **Default**: brownfield, the next round number at or above p90 and not below p75 (e.g. p90 = 240, so 300); greenfield, 300 lines.
 **Why**: ESLint's `max-lines` rule defaults to 300 (https://eslint.org/docs/latest/rules/max-lines). Tool defaults disagree widely (Pylint's `max-module-lines` is 1000, Checkstyle's `FileLength` 2000), and no study measures an optimal size for agents; the case for a limit is that a short file is read whole and tends to hold one responsibility. Say so when proposing it.
 **Sensor**: `file-size` (agnostic, `git ls-files` + `wc -l`), class heuristic, TSV baseline (`.agents/baselines/file-size.tsv`).

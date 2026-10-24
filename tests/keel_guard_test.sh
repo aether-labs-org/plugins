@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-G="$KEEL/skills/build/assets/sensors/common/guard.sh"
+G="$KEEL/assets/core/sensors/common/guard.sh"
 [ -f "$G" ]; check "guard.sh exists" $?
 
 # mk -> committed harness: file-size rule (LIMIT=10, empty baseline) and a lint sensor
 mk() {
   local r; r="$(new_repo)"
-  install_asset "$r" build/assets/gate.sh scripts/gate.sh
-  install_asset "$r" build/assets/lib/baseline.sh scripts/lib/baseline.sh
-  install_asset "$r" build/assets/lib/envparse.sh scripts/lib/envparse.sh
-  install_asset "$r" build/assets/sensors/common/guard.sh scripts/sensors/guard.sh
-  install_asset "$r" rules/assets/sensors/file-size.sh scripts/sensors/file-size.sh
+  install_asset "$r" assets/core/gate.sh scripts/gate.sh
+  install_asset "$r" assets/core/lib/baseline.sh scripts/lib/baseline.sh
+  install_asset "$r" assets/core/lib/envparse.sh scripts/lib/envparse.sh
+  install_asset "$r" assets/core/sensors/common/guard.sh scripts/sensors/guard.sh
+  install_asset "$r" assets/core/sensors/rules/file-size.sh scripts/sensors/file-size.sh
   mkdir -p "$r/.agents/rules" "$r/.agents/baselines" "$r/src" "$r/docs/adr"
-  cp "$KEEL/skills/build/assets/gate.env" "$r/.agents/gate.env"
+  cp "$KEEL/assets/core/gate.env" "$r/.agents/gate.env"
   printf 'schema_version: 2\n' > "$r/.agents/state.yml"
   printf 'RULE_ID=file-size\nENFORCEMENT=sensor:file-size\nLIMIT=10\nINCLUDE=src\n' > "$r/.agents/rules/file-size.env"
   printf '# measured_at: 2026-10-24 review_by: 2027-04-24\n' > "$r/.agents/baselines/file-size.tsv"
@@ -75,9 +75,9 @@ out="$(cd "$r" && KEEL_GUARD_BASE=HEAD bash scripts/sensors/guard.sh)"; [ $? -eq
 out="$(cd "$r" && KEEL_GUARD_BASE=nope bash scripts/sensors/guard.sh)"; [ $? -eq 1 ] && printf '%s' "$out" | grep -q 'is not a commit'; check "a bad KEEL_GUARD_BASE fails" $?
 
 # install and edge cases
-r="$(new_repo --no-commit)"; install_asset "$r" build/assets/lib/envparse.sh scripts/lib/envparse.sh; install_asset "$r" build/assets/sensors/common/guard.sh scripts/sensors/guard.sh
+r="$(new_repo --no-commit)"; install_asset "$r" assets/core/lib/envparse.sh scripts/lib/envparse.sh; install_asset "$r" assets/core/sensors/common/guard.sh scripts/sensors/guard.sh
 run "$r"; [ $rc -eq 0 ] && printf '%s' "$out" | grep -q 'No commits yet'; check "no commits: pass" $?
-r="$(new_repo)"; install_asset "$r" build/assets/lib/envparse.sh scripts/lib/envparse.sh; install_asset "$r" build/assets/sensors/common/guard.sh scripts/sensors/guard.sh
+r="$(new_repo)"; install_asset "$r" assets/core/lib/envparse.sh scripts/lib/envparse.sh; install_asset "$r" assets/core/sensors/common/guard.sh scripts/sensors/guard.sh
 mkdir -p "$r/.agents/baselines"; printf 'schema_version: 2\n' > "$r/.agents/state.yml"; printf 'src/a.ts\t9\n' > "$r/.agents/baselines/lint.tsv"
 run "$r"; [ $rc -eq 0 ] && printf '%s' "$out" | grep -q 'Harness installed in this change'; check "harness installed in this change: pass" $?
 r="$(mk)"; rm "$r/scripts/lib/envparse.sh"; run "$r"; [ $rc -eq 2 ]; check "missing envparse lib: skip" $?

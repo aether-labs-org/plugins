@@ -25,10 +25,10 @@ new_repo() {
   )
   printf '%s\n' "$d"
 }
-# install_asset REPO SRC_REL DEST_REL  (SRC_REL relative to $KEEL/skills/)
+# install_asset REPO SRC_REL DEST_REL  (SRC_REL relative to $KEEL, the plugin root)
 install_asset() {
   mkdir -p "$(dirname "$1/$3")"
-  cp "$KEEL/skills/$2" "$1/$3" && chmod +x "$1/$3"
+  cp "$KEEL/$2" "$1/$3" && chmod +x "$1/$3"
 }
 # use_stub REPO TOOL DEST_REL
 use_stub() {

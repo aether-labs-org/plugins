@@ -14,7 +14,7 @@ grep -q "100" "$sk/references/agents-md-template.md" 2>/dev/null; check "templat
 [ -f "$sk/references/context-engineering.md" ]; check "context-engineering.md copied" $?
 
 # --- Task 4: build installs bundled assets
-for s in '${CLAUDE_SKILL_DIR}/assets/gate.sh' 'keel:repo-specific' 'KEEL_MEASURE=1' 'schema_version: 2' \
+for s in '${CLAUDE_PLUGIN_ROOT}/assets/core/gate.sh' 'keel:repo-specific' 'KEEL_MEASURE=1' 'schema_version: 2' \
          'harness_review_by' 'gate.env' 'gate-slow' 'AskUserQuestion' 'at most 4 questions' \
          'before writing anything' 'installed_at' 'not_installed' 'resumable' '100 lines'; do
   has "$S" "$s"; check "SKILL.md contains: $s" $?

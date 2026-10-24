@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-LIB="$KEEL/skills/build/assets/lib/baseline.sh"
+LIB="$KEEL/assets/core/lib/baseline.sh"
 [ -f "$LIB" ]; check "baseline.sh exists" $?
 # shellcheck disable=SC1090
 . "$LIB" 2>/dev/null || true

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-LIB="$KEEL/skills/build/assets/lib/envparse.sh"
+LIB="$KEEL/assets/core/lib/envparse.sh"
 [ -f "$LIB" ]; check "envparse.sh exists" $?
 
 d="$(mktemp -d)"; _keel_tmps="$_keel_tmps $d"
@@ -51,9 +51,9 @@ done
 
 # sensors: a hostile env file fails the sensor instead of running; a missing lib is a skip
 r="$(new_repo)"
-install_asset "$r" build/assets/lib/baseline.sh scripts/lib/baseline.sh
-install_asset "$r" build/assets/lib/envparse.sh scripts/lib/envparse.sh
-install_asset "$r" rules/assets/sensors/file-size.sh scripts/sensors/file-size.sh
+install_asset "$r" assets/core/lib/baseline.sh scripts/lib/baseline.sh
+install_asset "$r" assets/core/lib/envparse.sh scripts/lib/envparse.sh
+install_asset "$r" assets/core/sensors/rules/file-size.sh scripts/sensors/file-size.sh
 mkdir -p "$r/.agents/rules" "$r/src"
 printf 'LIMIT=$(touch PWNED)\nINCLUDE=src\n' > "$r/.agents/rules/file-size.env"
 out="$(cd "$r" && bash scripts/sensors/file-size.sh)"; rc=$?

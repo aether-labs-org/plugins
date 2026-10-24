@@ -7,8 +7,8 @@ output into one fixed shape. The shape is what makes the gate legible to an agen
 same exit codes, same place to look for what to do next, whatever the language or the tool
 underneath.
 
-**The wrappers are tested files, not templates.** They ship under `skills/build/assets/` (stack
-sensors, the gate runner, the baseline library) and `skills/rules/assets/` (rule sensors). `build`
+**The wrappers are tested files, not templates.** They ship under `assets/core/` (stack
+sensors, the gate runner, the baseline library) and `assets/core/sensors/rules/` (rule sensors). `build`
 and `rules` copy them and edit only the block between the `keel:repo-specific` markers. Never
 regenerate a wrapper from this document; this document explains the contract those files obey.
 
@@ -119,7 +119,7 @@ Each stack sensor keeps everything repository-specific between two markers:
 
 ## 5. Assets, by stack
 
-| Asset (under `${CLAUDE_SKILL_DIR}/assets/`) | Class | Installed as |
+| Asset (under `${CLAUDE_PLUGIN_ROOT}/assets/core/`) | Class | Installed as |
 | --- | --- | --- |
 | `gate.sh`, `gate.env` | - | `scripts/gate.sh`, `.agents/gate.env` |
 | `lib/baseline.sh` | - | `scripts/lib/baseline.sh` |

@@ -20,7 +20,7 @@ esac
 STYLE=""; LANG=""; BASE=""; LAYERS=""; FORBIDDEN=""; FREEZE=""; IGNORE_IMPORTS=""
 orig_lang="${LANG-}"
 # shellcheck disable=SC1091
-. "$(cd "$(dirname "$0")" && pwd)/../../../build/assets/lib/envparse.sh"
+. "$(cd "$(dirname "$0")" && pwd)/../assets/core/lib/envparse.sh"
 keel_env_load "$envf" || { echo "render.sh: $KEEL_ENV_ERROR" >&2; exit 65; }
 LANG="$orig_lang"
 if [ -z "$STYLE" ] || [ -z "$LAYERS" ]; then

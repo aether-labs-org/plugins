@@ -17,7 +17,7 @@ bash "$here/../build-typescript/scaffold.sh"
 cp -r "$here/../gate-catches-defect/fixtures/harness/Makefile" \
       "$here/../gate-catches-defect/fixtures/harness/.agents" .
 
-assets="$here/../../skills/build/assets"
+assets="$here/../../assets/core"
 mkdir -p scripts/lib scripts/sensors
 cp "$assets/gate.sh" scripts/gate.sh
 cp "$assets/gate.env" .agents/gate.env

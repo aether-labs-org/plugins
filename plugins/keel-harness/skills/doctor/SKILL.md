@@ -21,7 +21,7 @@ explanation of each warning and the proposed fix.
 From the repository root:
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/../build/assets/harness-check.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/assets/core/harness-check.sh"
 ```
 
 It is read-only. It prints one line per warning, `warn<TAB><check-id><TAB><file><TAB><message><TAB><fix>`,
@@ -57,7 +57,7 @@ nothing; a clean harness is a valid answer. `doctor` never manufactures a warnin
 Two more things to do every time:
 
 - **Validator drift.** Compare the repository's copy with the plugin's:
-  `cmp scripts/harness-check.sh "${CLAUDE_SKILL_DIR}/../build/assets/harness-check.sh"`. When they
+  `cmp scripts/harness-check.sh "${CLAUDE_PLUGIN_ROOT}/assets/core/harness-check.sh"`. When they
   differ, propose updating the installed copy through `build` (the plugin's copy is the latest).
 - **Contradictions between instruction files.** The validator does not read prose. Point the user
   at Claude Code's `/doctor prompt-audit` for contradictions across `AGENTS.md`, `CLAUDE.md` and

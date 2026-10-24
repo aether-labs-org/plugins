@@ -5,9 +5,9 @@ set -uo pipefail
 # mkrepo [--no-commit] -> repo with gate.sh + gate.env installed
 mkrepo() {
   local r; r="$(new_repo "$@")"
-  install_asset "$r" build/assets/gate.sh scripts/gate.sh
+  install_asset "$r" assets/core/gate.sh scripts/gate.sh
   mkdir -p "$r/.agents" "$r/scripts/sensors"
-  cp "$KEEL/skills/build/assets/gate.env" "$r/.agents/gate.env"
+  cp "$KEEL/assets/core/gate.env" "$r/.agents/gate.env"
   printf '%s\n' "$r"
 }
 # stub_sensor REPO RELPATH ID CLASS STATUS SUMMARY RC [BODY]
@@ -19,9 +19,9 @@ stub_sensor() {
     echo "exit $7"; } > "$f"
 }
 
-[ -f "$KEEL/skills/build/assets/gate.sh" ]; check "gate.sh exists" $?
-grep -q 'CEILING_SECONDS=30' "$KEEL/skills/build/assets/gate.env" 2>/dev/null && grep -q 'SLOW_CEILING_SECONDS=600' "$KEEL/skills/build/assets/gate.env" 2>/dev/null; check "gate.env defaults" $?
-head -2 "$KEEL/skills/build/assets/gate.sh" 2>/dev/null | grep -q '^# Managed by keel-harness. Edit only between the keel:repo-specific markers - see .agents/README.md.$'; check "gate.sh managed header" $?
+[ -f "$KEEL/assets/core/gate.sh" ]; check "gate.sh exists" $?
+grep -q 'CEILING_SECONDS=30' "$KEEL/assets/core/gate.env" 2>/dev/null && grep -q 'SLOW_CEILING_SECONDS=600' "$KEEL/assets/core/gate.env" 2>/dev/null; check "gate.env defaults" $?
+head -2 "$KEEL/assets/core/gate.sh" 2>/dev/null | grep -q '^# Managed by keel-harness. Edit only between the keel:repo-specific markers - see .agents/README.md.$'; check "gate.sh managed header" $?
 
 r="$(mkrepo)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok a" 0

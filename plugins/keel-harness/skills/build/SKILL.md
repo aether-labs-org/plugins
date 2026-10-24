@@ -13,10 +13,10 @@ description: >
 # Build
 
 Asks in rounds and writes nothing before the user confirms. Everything deterministic is a tested
-file under `${CLAUDE_SKILL_DIR}/assets/`: you **copy** it and edit only the discovered,
+file under `${CLAUDE_PLUGIN_ROOT}/assets/core/`: you **copy** it and edit only the discovered,
 repository-specific parts. You never regenerate a script from prose.
 
-**Stacks with bundled sensors**, under `${CLAUDE_SKILL_DIR}/assets/sensors/`:
+**Stacks with bundled sensors**, under `${CLAUDE_PLUGIN_ROOT}/assets/core/sensors/`:
 
 | Stack | Sensors |
 | --- | --- |
@@ -87,7 +87,7 @@ Read `references/sensors-by-language.md` and `references/sensor-contract.md` fir
 the sensors whose tool the repository has; a missing tool is either left out or installed as an
 honest `skip`.
 
-**Copy map** (source under `${CLAUDE_SKILL_DIR}/assets/`, destination in the repository):
+**Copy map** (source under `${CLAUDE_PLUGIN_ROOT}/assets/core/`, destination in the repository):
 
 | Source | Destination |
 | --- | --- |
@@ -96,7 +96,7 @@ honest `skip`.
 | `lib/baseline.sh`, `lib/envparse.sh` (all stacks), `lib/junit.sh` (Java/Kotlin) | `scripts/lib/` |
 | `sensors/<stack>/<id>.sh`, `sensors/common/secrets.sh`, `sensors/common/guard.sh` (JVM: `compile.sh` -> `scripts/sensors/compile.sh`) | `scripts/sensors/<id>.sh` |
 
-The first command of the copy is `cp "${CLAUDE_SKILL_DIR}/assets/gate.sh" scripts/gate.sh`, then
+The first command of the copy is `cp "${CLAUDE_PLUGIN_ROOT}/assets/core/gate.sh" scripts/gate.sh`, then
 `chmod +x`. For each sensor, edit **only** the block between `# --- keel:repo-specific begin ---`
 and `# --- keel:repo-specific end ---` (tool path, arguments, paths, guidance text), using what
 discovery found. Never touch the managed-by header or the line-1 contract.
@@ -129,8 +129,8 @@ harness-check: ; @bash scripts/harness-check.sh
 ```
 
 Also install the portable validator and the hand-editing guide:
-`cp "${CLAUDE_SKILL_DIR}/assets/harness-check.sh" scripts/harness-check.sh` (`chmod +x`) and
-`cp "${CLAUDE_SKILL_DIR}/assets/README.agents.md" .agents/README.md`.
+`cp "${CLAUDE_PLUGIN_ROOT}/assets/core/harness-check.sh" scripts/harness-check.sh` (`chmod +x`) and
+`cp "${CLAUDE_PLUGIN_ROOT}/assets/core/README.agents.md" .agents/README.md`.
 
 Everything installed is plain `bash` that must run with this plugin absent: no `${CLAUDE_*}`
 variable, no path into the plugin, no `claude` call, no network. Verify by running `make gate-fast`
@@ -149,9 +149,9 @@ Claude only sees a gate failure when a hook hands it back. `PostToolUse` sends e
 back before Claude finishes. It blocks no action: the adapter always exits 0 and the conversation
 continues only while the gate fails, up to its loop guard.
 
-1. Copy `${CLAUDE_SKILL_DIR}/assets/hooks/claude-stop.sh` to `scripts/hooks/claude-stop.sh`
+1. Copy `${CLAUDE_PLUGIN_ROOT}/assets/adapters/claude/claude-stop.sh` to `scripts/hooks/claude-stop.sh`
    (`chmod +x`).
-2. Show the user the block in `${CLAUDE_SKILL_DIR}/assets/hooks/settings-stop.json` and, once they
+2. Show the user the block in `${CLAUDE_PLUGIN_ROOT}/assets/adapters/claude/settings-stop.json` and, once they
    accept, **merge** it into `.claude/settings.json`: read the file, append the `Stop` entry to the
    existing `hooks` object (or array), keep every other key unchanged; create the file with exactly
    that block if it does not exist.

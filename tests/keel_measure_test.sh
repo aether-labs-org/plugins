@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-M="$KEEL/skills/rules/assets/measure.sh"
+M="$KEEL/scripts/measure.sh"
 [ -f "$M" ]; check "measure.sh exists" $?
 m() { (cd "$R" && bash "$M" "$@" 2>&1); }
 snap() { (cd "$R" && git status --porcelain); }

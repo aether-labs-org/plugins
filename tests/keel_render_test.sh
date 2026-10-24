@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-R="$KEEL/skills/rules/assets/architecture/render.sh"
+R="$KEEL/scripts/render.sh"
 A="$FIXTURES/architecture"
 [ -f "$R" ]; check "render.sh exists" $?
 golden() { # golden <target> <env> <expected>

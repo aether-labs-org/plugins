@@ -18,7 +18,7 @@ cp -r "$here/fixtures/harness/Makefile" "$here/fixtures/harness/.agents" .
 
 # The gate runner, the baseline library and the TypeScript/secrets sensors are the plugin's own
 # bundled assets (the same files `build` copies), not a second copy kept in this fixture.
-assets="$here/../../skills/build/assets"
+assets="$here/../../assets/core"
 mkdir -p scripts/lib scripts/sensors
 cp "$assets/gate.sh" scripts/gate.sh
 cp "$assets/gate.env" .agents/gate.env

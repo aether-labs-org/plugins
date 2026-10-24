@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-SD=build/assets/sensors
+SD=assets/core/sensors
 
 # mk -> repo with baseline lib and the four sensors installed
 mk() {
   local r; r="$(new_repo)"
-  install_asset "$r" build/assets/lib/baseline.sh scripts/lib/baseline.sh
+  install_asset "$r" assets/core/lib/baseline.sh scripts/lib/baseline.sh
   for s in typecheck lint tests; do install_asset "$r" "$SD/typescript/$s.sh" "scripts/sensors/$s.sh"; done
   install_asset "$r" "$SD/common/secrets.sh" scripts/sensors/secrets.sh
   mkdir -p "$r/.agents/baselines" "$r/src"
@@ -19,13 +19,13 @@ run() { # run REPO SENSOR [env...] -> sets out, rc
 
 # --- structure
 for s in typescript/typecheck typescript/lint typescript/tests common/secrets; do
-  f="$KEEL/skills/$SD/$s.sh"; b="$(basename "$s")"
+  f="$KEEL/$SD/$s.sh"; b="$(basename "$s")"
   [ -f "$f" ]; check "$b exists" $?
   sed -n 2p "$f" | grep -q '^# Managed by keel-harness. Edit only between the keel:repo-specific markers - see .agents/README.md.$'; check "$b managed header" $?
   grep -q '^# --- keel:repo-specific begin ---$' "$f" && grep -q '^# --- keel:repo-specific end ---$' "$f"; check "$b markers" $?
   grep -q "^id=$b\$" "$f"; check "$b id equals file name" $?
 done
-! grep -q baseline "$KEEL/skills/$SD/common/secrets.sh"; check "secrets never mentions baseline" $?
+! grep -q baseline "$KEEL/$SD/common/secrets.sh"; check "secrets never mentions baseline" $?
 
 # --- skip when tool missing
 r="$(mk)"

@@ -9,7 +9,7 @@ has() { grep -qF -- "$1" "$f" 2>/dev/null; }
 has "100 lines"; check "AGENTS.md size is covered" $?
 ! has "model_baseline"; check "no model_baseline check (replaced by review-due)" $?
 has 'harness-check.sh'; check "runs harness-check.sh" $?
-has '${CLAUDE_SKILL_DIR}/../build/assets/harness-check.sh'; check "runs the plugin's copy of the validator" $?
+has '${CLAUDE_PLUGIN_ROOT}/assets/core/harness-check.sh'; check "runs the plugin's copy of the validator" $?
 has 'prompt-audit'; check "points at /doctor prompt-audit" $?
 grep -qi "writes nothing" "$f"; check "doctor writes nothing" $?
 grep -qi "exactly one warning" "$f"; check "one condition produces one warning" $?

@@ -174,15 +174,15 @@ cmd_tests() {
 cmd_language() {
   local sl="${1:-}"; shift
   [ -n "$sl" ] || { echo "usage: language <stoplist> [pathspec...]" >&2; return 64; }
-  [ -f "$sl" ] || sl="$here/sensors/stoplists/$sl"
+  [ -f "$sl" ] || sl="$here/../assets/core/sensors/rules/stoplists/$sl"
   [ -f "$sl" ] || { echo "stoplist not found: $sl" >&2; return 64; }
   local inc="" p
   for p in "$@"; do inc="${inc}${inc:+
 }${p}"; done
   printf "INCLUDE='%s'\nSTOPLIST='%s'\n" "$inc" "$sl" > "$tmp/language.env"
-  RULE_ENV="$tmp/language.env" KEEL_MEASURE=1 KEEL_MEASURE_WORDS=1 KEEL_BASELINE_LIB="$here/../../build/assets/lib/baseline.sh" \
-    KEEL_ENVPARSE_LIB="$here/../../build/assets/lib/envparse.sh" \
-    bash "$here/sensors/code-language.sh"
+  RULE_ENV="$tmp/language.env" KEEL_MEASURE=1 KEEL_MEASURE_WORDS=1 KEEL_BASELINE_LIB="$here/../assets/core/lib/baseline.sh" \
+    KEEL_ENVPARSE_LIB="$here/../assets/core/lib/envparse.sh" \
+    bash "$here/../assets/core/sensors/rules/code-language.sh"
 }
 
 sub="${1:-}"; [ $# -gt 0 ] && shift

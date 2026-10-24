@@ -5,7 +5,7 @@ and did a credential leak. This file says which **tool** answers each question i
 and what the wrapper around it has to know.
 
 > **What is actionable today.** TypeScript, React, Python and Java/Kotlin have bundled, tested
-> sensors under `${CLAUDE_SKILL_DIR}/assets/sensors/` (`typescript/`, `python/`, `jvm/`, plus
+> sensors under `${CLAUDE_PLUGIN_ROOT}/assets/core/sensors/` (`typescript/`, `python/`, `jvm/`, plus
 > `common/secrets.sh`); React reuses `typescript/`. Go and Terraform stay **documentation only**:
 > propose what is written here, say plainly that the wrappers for that stack are not bundled, and
 > stop at the layers that are (`bootstrap`, `guides`).

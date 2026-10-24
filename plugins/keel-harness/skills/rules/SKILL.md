@@ -56,12 +56,12 @@ For each catalog entry, measure the as-is state and report it before proposing a
 measurements are read-only and run from the plugin:
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/assets/measure.sh" file-size src    # pathspecs keep lockfiles and vendored files out
-bash "${CLAUDE_SKILL_DIR}/assets/measure.sh" tree 2
-bash "${CLAUDE_SKILL_DIR}/assets/measure.sh" imports java com.acme      # also kotlin, python, ts <src_root>
-bash "${CLAUDE_SKILL_DIR}/assets/measure.sh" framework-imports src/main/java/com/acme/domain
-bash "${CLAUDE_SKILL_DIR}/assets/measure.sh" tests
-bash "${CLAUDE_SKILL_DIR}/assets/measure.sh" language pt.txt
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" file-size src    # pathspecs keep lockfiles and vendored files out
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" tree 2
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" imports java com.acme      # also kotlin, python, ts <src_root>
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" framework-imports src/main/java/com/acme/domain
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" tests
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" language pt.txt
 ```
 
 ## 5. Proposals
@@ -98,11 +98,11 @@ Write only what was approved, in this order:
 4. `.agents/rules/<rule-id>.env` from `rule-env.md`: the metadata (`origin:` discovered | proposed |
    user is `ORIGIN=`; `decision:` is `DECISION=`; also `RULE_ID KIND APPROVED_AT ENFORCEMENT DOC
    PLAN`) and the parameters. Every rule has one, inferential ones included.
-5. The sensors and generated tool config. Copy sensors from `${CLAUDE_SKILL_DIR}/assets/sensors/`
+5. The sensors and generated tool config. Copy sensors from `${CLAUDE_PLUGIN_ROOT}/assets/core/sensors/rules/`
    to `scripts/sensors/<id>.sh`; the slow ones (`slow/mutation.sh`, `slow/diff-coverage.sh`) to
    `scripts/sensors/slow/`; the stop-list to `scripts/sensors/stoplists/`. Edit only inside the
    `keel:repo-specific` markers. Render native architecture config with
-   `bash "${CLAUDE_SKILL_DIR}/assets/architecture/render.sh" <archunit-java|archunit-kotlin|archunit-properties|depcruise|importlinter> .agents/rules/architecture.env`
+   `bash "${CLAUDE_PLUGIN_ROOT}/scripts/render.sh" <archunit-java|archunit-kotlin|archunit-properties|depcruise|importlinter> .agents/rules/architecture.env`
    and write it where the user approved (e.g. `src/test/java/.../ArchitectureTest.java`,
    `src/test/resources/archunit.properties`, `.dependency-cruiser.cjs`, `.importlinter`). In
    brownfield the rendered ArchUnit rules are wrapped in `FreezingArchRule` (`FREEZE=1`), which keeps

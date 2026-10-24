@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
-RS="rules/assets/sensors"
+RS="assets/core/sensors/rules"
 
 # mk -> repo with the baseline lib installed
 mk() {
   local r; r="$(new_repo)"
-  install_asset "$r" build/assets/lib/baseline.sh scripts/lib/baseline.sh
-  install_asset "$r" build/assets/lib/envparse.sh scripts/lib/envparse.sh
+  install_asset "$r" assets/core/lib/baseline.sh scripts/lib/baseline.sh
+  install_asset "$r" assets/core/lib/envparse.sh scripts/lib/envparse.sh
   mkdir -p "$r/.agents/rules" "$r/.agents/baselines" "$r/src"
   printf '%s\n' "$r"
 }
@@ -21,7 +21,7 @@ nlines() { seq 1 "$1" | sed 's/.*/x/'; }
 commit() { (cd "$1" && git add -A && git commit -q -m c); }
 
 structure() { # structure <name>
-  local f="$KEEL/skills/$RS/$1.sh"
+  local f="$KEEL/$RS/$1.sh"
   [ -f "$f" ]; check "$1 exists" $?
   sed -n 2p "$f" | grep -q '^# Managed by keel-harness. Edit only between the keel:repo-specific markers - see .agents/README.md.$'; check "$1 managed header" $?
   grep -q '^# --- keel:repo-specific begin ---$' "$f" && grep -q '^# --- keel:repo-specific end ---$' "$f"; check "$1 markers" $?
@@ -90,7 +90,7 @@ run "$r" architecture KEEL_MEASURE=1; [ $rc -eq 0 ] && [ "$out" = "# native base
 grep -q "Move the dependency behind a port owned by the inner layer, or move the code to the layer allowed to depend on it (docs/architecture.md#architecture). Do not edit the generated rule or the native baseline to make this pass." "$r/scripts/sensors/architecture.sh"; check "architecture: guidance text" $?
 # archunit through a quiet Gradle run: the violation text comes from the JUnit report
 JX="$(cd "$(dirname "$0")" && pwd)/fixtures/keel/junit"
-r="$(mk)"; put "$r" architecture; install_asset "$r" build/assets/lib/junit.sh scripts/lib/junit.sh
+r="$(mk)"; put "$r" architecture; install_asset "$r" assets/core/lib/junit.sh scripts/lib/junit.sh
 printf "STYLE=hexagonal\nLANG=java\nBASE=com.acme\n" > "$r/.agents/rules/architecture.env"
 cp "$(cd "$(dirname "$0")" && pwd)/fixtures/keel/stubs/gradle-junit" "$r/gradlew"; chmod +x "$r/gradlew"
 run "$r" architecture STUB_EXIT=1 STUB_OUT="4 tests completed, 1 failed" STUB_XML="$JX/archunit-failure.xml"
@@ -163,7 +163,7 @@ sed -i 's/^LANG=python/LANG=ts/' "$r/.agents/rules/architecture.env"; run "$r" a
 
 # ================= code-language
 structure code-language
-SL="$KEEL/skills/rules/assets/sensors/stoplists/pt.txt"
+SL="$KEEL/assets/core/sensors/rules/stoplists/pt.txt"
 [ "$(grep -vc '^#' "$SL")" -ge 100 ]; check "stop-list has at least 100 words" $?
 ! grep -v '^#' "$SL" | grep -qxE 'data|total|item|status|local|real|final|base'; check "stop-list excludes data total item status local real final base" $?
 ! grep -v '^#' "$SL" | grep -qvE '^[a-z]+$'; check "stop-list is ASCII lowercase" $?
@@ -185,7 +185,7 @@ echo 'const calcula = 1;' >> "$r/src/a.ts"; run "$r" code-language; [ $rc -eq 1 
 run "$r" code-language SCOPE=src/b.ts; [ $rc -eq 0 ]; check "code-language: SCOPE honoured" $?
 echo 'plain English only' > "$r/src/c.ts"; run "$r" code-language KEEL_MEASURE=1; ! printf '%s\n' "$out" | grep -q 'src/c.ts'; check "code-language: English file not flagged" $?
 # measure.sh language
-MS="$KEEL/skills/rules/assets/measure.sh"
+MS="$KEEL/scripts/measure.sh"
 r="$(mk)"; printf 'const nomeUsuario = 1; // calcula o valor\n' > "$r/src/a.ts"; commit "$r"
 out="$(cd "$r" && bash "$MS" language pt.txt 2>&1)"
 printf '%s\n' "$out" | grep -qx 'flagged 4' && printf '%s\n' "$out" | grep -qx "$(printf 'nome\t1')"; check "measure.sh language: flagged 4 and nome 1" $?
@@ -253,7 +253,7 @@ sed -i '3s/.*/c1 changed/' "$r/src/main/java/a/Foo.java"
 rund "$r" SCOPE=src/main/java/a/Foo.java; [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | grep -q '100%'; check "diff-coverage: jacoco, changed line covered -> passes" $?
 
 # ================= gate slow runs the slow sensors
-r="$(mk)"; install_asset "$r" build/assets/gate.sh scripts/gate.sh; cp "$KEEL/skills/build/assets/gate.env" "$r/.agents/gate.env"
+r="$(mk)"; install_asset "$r" assets/core/gate.sh scripts/gate.sh; cp "$KEEL/assets/core/gate.env" "$r/.agents/gate.env"
 mkdir -p "$r/scripts/sensors/slow" "$r/coverage"; install_asset "$r" "$RS/slow/diff-coverage.sh" scripts/sensors/slow/diff-coverage.sh
 printf "DIFF_COVERAGE_MIN=80\n" > "$r/.agents/rules/testing-strategy.env"; cp "$FIXTURES/coverage/lcov.info" "$r/coverage/lcov.info"; printf 'l1\nl2\nl3\nl4\n' > "$r/src/a.ts"; commit "$r"
 sed -i 's|^CMD=.*|CMD=(true)|' "$r/scripts/sensors/slow/diff-coverage.sh"; sed -i '4s/.*/l4 changed/' "$r/src/a.ts"

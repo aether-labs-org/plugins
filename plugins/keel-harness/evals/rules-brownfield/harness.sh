@@ -3,7 +3,7 @@
 # current repository exactly the way the build skill does, plus a minimal AGENTS.md and CLAUDE.md.
 # Usage: install_harness [--typescript]   (run from the repository root)
 install_harness() {
-  local assets="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../skills/build/assets" && pwd)"
+  local assets="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../assets/core" && pwd)"
   mkdir -p scripts/lib scripts/sensors .agents/baselines
   cp "$assets/gate.sh" scripts/gate.sh
   cp "$assets/gate.env" .agents/gate.env
@@ -61,9 +61,9 @@ MD
 
 # install_rule_sensors <id>...  copies rule sensors from the rules skill (slow ones into slow/)
 install_rule_sensors() {
-  local rassets="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../skills/rules/assets" && pwd)" id
+  local rassets="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../assets/core/sensors/rules" && pwd)" id
   mkdir -p scripts/sensors/stoplists .agents/rules
-  for id in "$@"; do cp "$rassets/sensors/$id.sh" "scripts/sensors/$id.sh"; done
-  cp "$rassets/sensors/stoplists/pt.txt" scripts/sensors/stoplists/pt.txt
+  for id in "$@"; do cp "$rassets/$id.sh" "scripts/sensors/$id.sh"; done
+  cp "$rassets/stoplists/pt.txt" scripts/sensors/stoplists/pt.txt
   chmod +x scripts/sensors/*.sh
 }
