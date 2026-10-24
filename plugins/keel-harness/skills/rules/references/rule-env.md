@@ -1,7 +1,8 @@
 # Rule env file
 
 `.agents/rules/<rule-id>.env` holds the rule's metadata and its machine parameters; the prose stays
-in the topic file. It is plain `KEY=value` (bash-sourceable; CRLF is tolerated), committed, and every
+in the topic file. It is plain `KEY=value`, read by `scripts/lib/envparse.sh` and never sourced or
+executed (CRLF is tolerated; `$VAR` stays literal; a value with `$(` or a backtick fails), committed, and every
 rule has one, inferential rules included. Multi-line values (`INCLUDE`, `ALLOWED`, `LAYERS`,
 `FORBIDDEN`, `MAPPINGS`) are quoted strings, one item per line.
 
@@ -24,3 +25,6 @@ Parameters per sensor: `file-size` (`LIMIT`, `INCLUDE`, `EXCLUDE`), `folder-layo
 `IGNORE_IMPORTS`: one `importer -> imported` per line, import-linter's native baseline),
 `code-language` (`INCLUDE`, `STOPLIST`), `testing-strategy` (`INCLUDE`, `MAPPINGS`,
 `MUTATION_MIN_SCORE`, `DIFF_COVERAGE_MIN`). A sensor skips (exit 2) when its env file is missing.
+Keys are UPPER_CASE. `guard` treats a `*MIN*` key that goes down, a `*LIMIT*`/`*MAX*` key that goes up,
+a longer `ALLOWED`/`EXCLUDE`/`IGNORE_IMPORTS`, a shorter `INCLUDE`/`FORBIDDEN`, a changed `ENFORCEMENT`
+or a deleted env file as a loosening that needs an ADR in the same change.

@@ -20,7 +20,12 @@ if [ ! -f "$RULE_ENV" ]; then
   exit 2
 fi
 INCLUDE=""; EXCLUDE=""; MAPPINGS=""
-eval "$(tr -d '\r' < "$RULE_ENV")"
+# shellcheck disable=SC1090,SC1091
+. "${KEEL_ENVPARSE_LIB:-scripts/lib/envparse.sh}" 2>/dev/null || {
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "scripts/lib/envparse.sh is missing - run /keel-harness:build"
+  exit 2
+}
+keel_env_load_sensor "$id" "$class" "$RULE_ENV"
 
 # --- keel:repo-specific begin ---
 GUIDANCE="Write the missing test at the mapped path, for the behaviour you changed (docs/testing.md#testing-strategy). Do not create an empty test to pass, and do not add the file to .agents/baselines/test-presence.tsv."

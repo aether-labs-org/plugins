@@ -17,7 +17,12 @@ if [ ! -f "$RULE_ENV" ]; then
 fi
 # The env file may define LANG (java|kotlin|ts|python); keep the shell's own locale variable intact.
 orig_lang="${LANG-}"
-eval "$(tr -d '\r' < "$RULE_ENV")"
+# shellcheck disable=SC1090,SC1091
+. "${KEEL_ENVPARSE_LIB:-scripts/lib/envparse.sh}" 2>/dev/null || {
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "scripts/lib/envparse.sh is missing - run /keel-harness:build"
+  exit 2
+}
+keel_env_load_sensor "$id" "$class" "$RULE_ENV"
 LANG="$orig_lang"
 
 # --- keel:repo-specific begin ---

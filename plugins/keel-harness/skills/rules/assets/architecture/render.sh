@@ -7,7 +7,7 @@
 #                    applicationServices|adapter|layer)
 #   FORBIDDEN lines  layer|import_prefix
 #   IGNORE_IMPORTS lines  importer -> imported   (import-linter's native baseline, brownfield)
-# Exit 64 on bad usage, 65 on an env file without STYLE or LAYERS.
+# Exit 64 on bad usage, 65 on an env file that cannot be read or lacks STYLE or LAYERS.
 set -uo pipefail
 
 target="${1:-}"; envf="${2:-}"
@@ -19,7 +19,9 @@ esac
 
 STYLE=""; LANG=""; BASE=""; LAYERS=""; FORBIDDEN=""; FREEZE=""; IGNORE_IMPORTS=""
 orig_lang="${LANG-}"
-eval "$(tr -d '\r' < "$envf")"
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "$0")" && pwd)/../../../build/assets/lib/envparse.sh"
+keel_env_load "$envf" || { echo "render.sh: $KEEL_ENV_ERROR" >&2; exit 65; }
 LANG="$orig_lang"
 if [ -z "$STYLE" ] || [ -z "$LAYERS" ]; then
   echo "render.sh: $envf must define STYLE and LAYERS" >&2

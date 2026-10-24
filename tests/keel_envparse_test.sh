@@ -49,4 +49,19 @@ for case in 'X=$(touch PWNED)|contains $( or a backtick' 'X=`id`|contains $( or 
 done
 [ ! -e "$d/PWNED" ]; check "nothing in an env file is executed" $?
 
+# sensors: a hostile env file fails the sensor instead of running; a missing lib is a skip
+r="$(new_repo)"
+install_asset "$r" build/assets/lib/baseline.sh scripts/lib/baseline.sh
+install_asset "$r" build/assets/lib/envparse.sh scripts/lib/envparse.sh
+install_asset "$r" rules/assets/sensors/file-size.sh scripts/sensors/file-size.sh
+mkdir -p "$r/.agents/rules" "$r/src"
+printf 'LIMIT=$(touch PWNED)\nINCLUDE=src\n' > "$r/.agents/rules/file-size.env"
+out="$(cd "$r" && bash scripts/sensors/file-size.sh)"; rc=$?
+[ $rc -eq 1 ] && [ "$(printf '%s\n' "$out" | head -1 | cut -f1,3)" = "file-size	fail" ] && [ ! -e "$r/PWNED" ]
+check "sensor: hostile env -> fail line 1, nothing executed" $?
+printf '%s\n' "$out" | grep -q '^  guidance: '; check "sensor: hostile env -> guidance" $?
+rm "$r/scripts/lib/envparse.sh"; printf 'LIMIT=10\nINCLUDE=src\n' > "$r/.agents/rules/file-size.env"
+out="$(cd "$r" && bash scripts/sensors/file-size.sh)"; rc=$?
+[ $rc -eq 2 ] && printf '%s' "$out" | head -1 | grep -q 'envparse.sh is missing'; check "sensor: missing lib -> skip naming it" $?
+
 finish

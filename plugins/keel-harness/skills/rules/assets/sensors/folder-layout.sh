@@ -18,7 +18,12 @@ if [ ! -f "$RULE_ENV" ]; then
   exit 2
 fi
 INCLUDE=""; EXCLUDE=""; ALLOWED=""
-eval "$(tr -d '\r' < "$RULE_ENV")"
+# shellcheck disable=SC1090,SC1091
+. "${KEEL_ENVPARSE_LIB:-scripts/lib/envparse.sh}" 2>/dev/null || {
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "scripts/lib/envparse.sh is missing - run /keel-harness:build"
+  exit 2
+}
+keel_env_load_sensor "$id" "$class" "$RULE_ENV"
 
 # --- keel:repo-specific begin ---
 GUIDANCE="Move each file above to where docs/architecture.md#folder-layout says it belongs. Never widen ALLOWED in .agents/rules/folder-layout.env or raise .agents/baselines/folder-layout.tsv to make this pass."

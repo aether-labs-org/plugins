@@ -7,6 +7,7 @@ RS="rules/assets/sensors"
 mk() {
   local r; r="$(new_repo)"
   install_asset "$r" build/assets/lib/baseline.sh scripts/lib/baseline.sh
+  install_asset "$r" build/assets/lib/envparse.sh scripts/lib/envparse.sh
   mkdir -p "$r/.agents/rules" "$r/.agents/baselines" "$r/src"
   printf '%s\n' "$r"
 }
