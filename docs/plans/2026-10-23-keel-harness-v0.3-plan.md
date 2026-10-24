@@ -49,11 +49,11 @@ spec section it implements.
 Executable plan: **`docs/plans/2026-10-24-keel-harness-v0.3-f0-plan.md`** (tasks 1–7, test first,
 content prototyped and verified). Tick these when it is done:
 
-- [ ] **D-5** — `shellcheck` skipped locally when missing, required in CI.
-- [ ] **D-2** — `lib/envparse.sh`; the nine `eval` calls replaced; `rule-env.md` updated.
-- [ ] **D-1** — `sensors/common/guard.sh` (D32) installed by `build`; `harness-check` warns `guard-missing`;
+- [x] **D-5** — `shellcheck` skipped locally when missing, required in CI.
+- [x] **D-2** — `lib/envparse.sh`; the nine `eval` calls replaced; `rule-env.md` updated.
+- [x] **D-1** — `sensors/common/guard.sh` (D32) installed by `build`; `harness-check` warns `guard-missing`;
   the reproduction is `tests/keel_guard_test.sh`.
-- [ ] **D-3, D-4** — documentation fixes.
+- [x] **D-3, D-4** — documentation fixes.
 
 **Done when:** the acceptance in the summary holds and `make check` is green.
 
