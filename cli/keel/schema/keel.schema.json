@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/aether-labs-org/plugins/blob/main/cli/keel/schema/keel.schema.json",
+  "title": "keel.yaml",
+  "description": "The sensors and budgets of a repository's keel gates (.agents/keel.yaml). keel validate is the authority; this schema serves editors.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "requires", "gate", "sensors"],
+  "properties": {
+    "version": { "const": 1 },
+    "requires": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "description": "Exact keel version; must match .agents/keel.lock and the running binary." },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fast": { "$ref": "#/$defs/budget" },
+        "slow": { "$ref": "#/$defs/budget" }
+      }
+    },
+    "sensors": { "type": "array", "items": { "$ref": "#/$defs/sensor" } }
+  },
+  "$defs": {
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "ceiling_seconds": { "type": "integer", "minimum": 1 } }
+    },
+    "sensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "gate"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[^_/\\u0000-\\u001f\\u007f][^/\\u0000-\\u001f\\u007f]*$" },
+        "gate": { "enum": ["fast", "slow"] },
+        "exec": { "type": "string", "description": "A sensor file that obeys the sensor contract, run with bash from the repository root." },
+        "adapter": { "enum": ["guard"] }
+      },
+      "oneOf": [ { "required": ["exec"] }, { "required": ["adapter"] } ]
+    }
+  }
+}
