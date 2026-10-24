@@ -20,5 +20,6 @@ dist:
 	cd dist/engine && sha256sum */kh > SHA256SUMS
 
 test:
+	test -z "$$(gofmt -l .)" || { gofmt -l .; echo "gofmt: format the files above"; exit 1; }
 	go vet ./...
 	go test ./...

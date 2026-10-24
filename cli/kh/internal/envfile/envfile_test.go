@@ -16,7 +16,7 @@ func TestParseMatchesEnvparse(t *testing.T) {
 	want := map[string]string{
 		"RULE_ID": "file-size", "KIND": "metric", "LIMIT": "300", "INCLUDE": "src/",
 		"LAYERS": "domain|src/d|com.d||domainModels\nweb|src/w|com.w|domain|adapter",
-		"NOTE": "it's fine", "LITERAL": "$HOME", "EMPTY": "", "CRLF": "yes", "LAST": "noeol",
+		"NOTE":   "it's fine", "LITERAL": "$HOME", "EMPTY": "", "CRLF": "yes", "LAST": "noeol",
 	}
 	for k, v := range want {
 		if got[k] != v {
