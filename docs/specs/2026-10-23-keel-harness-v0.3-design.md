@@ -136,7 +136,10 @@ plugins/keel-harness/
 ```
 
 - **`assets/` vs `scripts/`** makes visible what goes into the target repository and what runs from
-  the plugin. Today the boundary is only the "Managed by keel" header.
+  the plugin. F2a keeps v0.2's internal layout inside `assets/core/` (`gate.sh`, `harness-check.sh`,
+  `lib/`, `sensors/<stack>/`, `sensors/common/`, with the rule sensors under `sensors/rules/`) instead
+  of the `gate/`, `check/` and `templates/` subfolders drawn above. That keeps the move a set of
+  prefix rewrites; `contracts/` and the templates arrive with F2c. Today the boundary is only the "Managed by keel" header.
 - **`contracts/` at the root** removes the two cross-skill paths
   (`${CLAUDE_SKILL_DIR}/../build/assets`). The plugin reference places shared resources at the
   plugin root, reached through `${CLAUDE_PLUGIN_ROOT}`.

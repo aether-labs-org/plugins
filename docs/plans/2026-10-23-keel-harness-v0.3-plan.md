@@ -59,6 +59,8 @@ content prototyped and verified). Tick these when it is done:
 
 ## F1 — Measure the current plugin (spec §2.2 C9, D31)
 
+Executable plan: **`docs/plans/2026-10-24-keel-harness-v0.3-f1-plan.md`** (owner's machine; budget hard stop; measures the fixed commit `cf495ff`, so F2a can run in parallel).
+
 - [ ] Pick a host without the nested user-namespace restriction documented in the README.
 - [ ] Run every case in `evals/` with and without the plugin, three runs per arm; record WITH,
   W-OUT, Δ and **token cost per case**.
@@ -68,8 +70,20 @@ content prototyped and verified). Tick these when it is done:
 
 ## F2 — Refactor (spec §4, §5, D29, D34–D38)
 
-Migrate one skill at a time — **doctor, then assess, then build, then rules** — and run that
-skill's evals after each step against the F1 numbers.
+F2 runs as four sub-phases, each with its own executable plan written after the previous one is
+validated:
+
+- **F2a — layout** (`docs/plans/2026-10-24-keel-harness-v0.3-f2a-plan.md`): `assets/core/`,
+  `assets/adapters/claude/`, `scripts/`, `${CLAUDE_PLUGIN_ROOT}` paths, layout test; no behaviour
+  change except the F0 `measure.sh language` regression fix. Runs in parallel with F1.
+  - [ ] F2a done.
+- **F2b — state and flow:** `.agents/run/`, `ADR_DIR` (D45), `schema_version: 3` upgrade, `scripts/keel` phases.
+- **F2c — skills:** template rewrite, `contracts/`, `disallowed-tools`, skill-size test, traceability,
+  pressure tests. Migrate one skill at a time — **doctor, then assess, then build, then rules** — and
+  run that skill's evals after each step against the F1 numbers.
+- **F2d — assess and context:** new `assess` dimensions, LSP proposal, codemap check, triggering evals.
+
+The items below are the F2 backlog that F2b–F2d plans draw from.
 
 - [ ] Create `assets/core/`, `assets/adapters/claude/`, `scripts/`, `contracts/`; move assets with
   `git mv` so history follows; update every `${CLAUDE_SKILL_DIR}` path that crosses skills to
