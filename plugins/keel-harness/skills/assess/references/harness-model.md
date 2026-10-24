@@ -54,8 +54,7 @@ be:
 - **Opinionated frameworks** (Spring, Django) reduce agent freedom → higher first-try success.
 - **Legacy / high-debt systems** are hardest to harness; scope sensors to changed files first.
 
-Assess harnessability before choosing how aggressive the gates should be (see
-`reasoning-framework.md` Step 1).
+Assess harnessability before choosing how aggressive the gates should be.
 
 ---
 
@@ -82,7 +81,7 @@ generate a small block
 run the slow gates (full suite + architecture-fitness) before declaring "done"
 ```
 
-**Per-step vs end-of-run** (decide in `reasoning-framework.md` Step 5):
+**Per-step vs end-of-run** (the fast and slow gates; the budget rule is in `build/references/sensor-contract.md` §1, field 7):
 
 | Run at every step (fast, localized) | Run at the end (slow, global)         |
 | ----------------------------------- | ------------------------------------- |
