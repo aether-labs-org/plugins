@@ -76,7 +76,7 @@ validated:
 - **F2a — layout** (`docs/plans/2026-10-24-keel-harness-v0.3-f2a-plan.md`): `assets/core/`,
   `assets/adapters/claude/`, `scripts/`, `${CLAUDE_PLUGIN_ROOT}` paths, layout test; no behaviour
   change except the F0 `measure.sh language` regression fix. Runs in parallel with F1.
-  - [ ] F2a done.
+  - [x] F2a done.
 - **F2b — state and flow:** `.agents/run/`, `ADR_DIR` (D45), `schema_version: 3` upgrade, `scripts/keel` phases.
 - **F2c — skills:** template rewrite, `contracts/`, `disallowed-tools`, skill-size test, traceability,
   pressure tests. Migrate one skill at a time — **doctor, then assess, then build, then rules** — and
