@@ -1,14 +1,16 @@
 # keel CLI — F1 Engine Core: Implementation Plan
 
-> **Execution gate — read this first.** Do not start Task 1 until an ADR in the repository's ADR
-> folder (`docs/adr/`, or the folder `.agents/state.yml` names as `ADR_DIR`) cites
-> `docs/specs/2026-10-24-keel-cli-design.md` and records **which trigger of its §4 was met**: (1) keel runs in enough repositories
-> that re-copying engine fixes costs more than distributing a binary; (2) `doctor` reports engine
-> drift as a recurring finding; (3) the owner can require the binary everywhere the gate runs. The
-> same ADR must supersede, for repositories that choose the CLI engine, the v0.3 portability policy
-> (`2026-10-23-keel-harness-v0.3-design.md` §2.3, "the core must run with no agent at all") and D5
-> (Copilot, Devin), because the binary-only end state (decision 5) runs only where keel is
-> installed. Without that ADR, stop and report.
+> **Execution gate — read this first.** Nothing from this plan is **merged into `main`** until an
+> ADR in the repository's ADR folder (`docs/adr/`, or the folder `.agents/state.yml` names as
+> `ADR_DIR`) cites `docs/specs/2026-10-24-keel-cli-design.md` and records **which trigger of its §4
+> was met**: (1) keel runs in enough repositories that re-copying engine fixes costs more than
+> distributing a binary; (2) `doctor` reports engine drift as a recurring finding; (3) the owner can
+> require the binary everywhere the gate runs. The same ADR must supersede, for repositories that
+> choose the CLI engine, the v0.3 portability policy (`2026-10-23-keel-harness-v0.3-design.md` §2.3,
+> "the core must run with no agent at all") and D5 (Copilot, Devin), because the binary-only end
+> state (decision 5) runs only where keel is installed. **Amended by the owner on 2026-10-24:**
+> development may proceed without the ADR on the separate branch `feat/keel-cli`, created from
+> `main`; the ADR is required before that branch is merged.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking. Follow the steps in order; each task starts with a failing test.
 
@@ -31,16 +33,17 @@ library; bash 3.2-compatible test scripts; git.
 
 **Spec:** `docs/specs/2026-10-24-keel-cli-design.md` (all of it); `docs/specs/2026-10-23-keel-harness-v0.3-design.md`
 D32, D33, D39, D45, D48; `plugins/keel-harness/skills/build/references/sensor-contract.md`, the
-contract kept byte for byte. Read them before Task 1.
+contract kept byte for byte. Read them before Task 1. The two specs and this plan are not on `main`
+yet: read them with `git show origin/docs/keel-cli-plan:<path>`.
 
 **Provenance:** every file and patch below was prototyped on 2026-10-24 outside this repository, in
-a scratch clone, first at F0 tasks 1–4 (`abf09a1`) and then at F0 complete (`abf09a1` plus F0
-tasks 5–6 applied from the F0 plan). On F0 complete: `./tests/run.sh` → 1034 `ok` (991 + 43), rc 0;
-`KEEL_ENGINE=cli ./tests/run.sh` → 1033 `ok` plus 1 `skip (cli)` (991 + 42), rc 0; `go vet` and
-`go test` pass; `make dist` is byte-identical after `go clean -cache`. This document was then
-checked by extracting every file and patch from it into a fresh clone at F0 complete and replaying
-Tasks 1–5: every expected output matched, and `make dist` produced the same bytes as the prototype.
-Copy the content **verbatim**. If a step's output differs from the expected output
+scratch clones: first on F0 (`abf09a1`, then F0 complete), and, after the owner chose `main` as the
+base, on `main` (`1c454e8`), which has no F0. On `main`: `./tests/run.sh` → 989 `ok` (946 + 43) and
+`KEEL_ENGINE=cli ./tests/run.sh` → 989 `ok` (946 + 43), rc 0 both; `go vet` and `go test` pass;
+`make dist` is byte-identical after `go clean -cache`. F1b (after F0 reaches `main`) was checked on
+F0 + F1: 1034 `ok` on bash, 1033 `ok` + 1 `skip (cli)` on the CLI engine. This document was then
+checked by extracting every file and patch from it into a fresh clone of `main` and replaying
+Tasks 1–5: every expected output matched. Copy the content **verbatim**. If a step's output differs from the expected output
 written here, stop and report instead of improvising.
 
 ## Decisions (owner, 2026-10-24, in question rounds)
@@ -59,6 +62,7 @@ written here, stop and report instead of improvising.
 | 10 | `run:` of native adapters (F3) | **An argv list, no shell**; `{scope}` expands to one argument per file |
 | 11 | First native adapter (F3) | **`eslint-json`** |
 | 12 | Phases and depth | **F1 core → F2 native entry points → F3 adapters, one at a time → F4 plugin integration**; only F1 is detailed here |
+| 13 | Base and gate | **A separate branch, `feat/keel-cli`, from `main`** (which has no F0); the plan is adapted to it, and the guard's F0 conformance moves to F1b. The ADR is not needed to develop, only to merge |
 
 ## Builder decisions (revisable; each is pinned by a test)
 
@@ -78,7 +82,7 @@ written here, stop and report instead of improvising.
 ## Known differences from the bash engine (intentional)
 
 1. **Order in non-C locales.** `gate.sh`'s glob and `sort -u` follow `LC_COLLATE`; `keel` orders bytewise. They agree under `C`/`POSIX` (the parity test runs with `LC_ALL=C`). A sensor must not depend on the order of `SCOPE`.
-2. **`guard` needs no `scripts/lib/envparse.sh`.** The one assertion about that (`missing envparse lib: skip`) runs only on the bash engine (`bash_only`).
+2. **No bash oracle for `guard` on `main`.** `main` has no `guard.sh` (F0), so in F1 the native guard is pinned by its Go tests and the seven guard checks of `keel_cli_test.sh`; its 24-check conformance suite (`tests/keel_guard_test.sh`) runs on the CLI engine in F1b. There, one assertion (`missing envparse lib: skip`) is a bash-engine detail and becomes `bash_only`.
 3. **Budget messages name the key of the file that holds it.** `gate.fast.ceiling_seconds raised from 30 to 300` for `keel.yaml`, `CEILING_SECONDS raised …` for `gate.env`.
 4. **`guard.sh`'s `env_get` falls back to the process environment** for a key absent from a file; the port does not (no rule key is an environment variable).
 5. **Unicode marks** (TTY only): `keel` reads `LC_ALL`/`LC_CTYPE`/`LANG` where `gate.sh` asked `locale charmap`.
@@ -96,12 +100,11 @@ written here, stop and report instead of improvising.
 
 | Check | Command | Expected |
 | --- | --- | --- |
-| The gating ADR exists | `grep -lE 'keel-cli-design\.md' docs/adr/*.md docs/decisions/*.md 2>/dev/null` | one file, naming the §4 trigger |
-| F0 is merged | `test -f plugins/keel-harness/skills/build/assets/sensors/common/guard.sh && test -f plugins/keel-harness/skills/build/assets/lib/envparse.sh && test -f tests/keel_guard_test.sh && echo ok` | `ok` |
+| The branch | `git branch --show-current; git merge-base --is-ancestor origin/main HEAD && echo from-main` | `feat/keel-cli` and `from-main` |
 | Go | `go version` | any; `GOTOOLCHAIN=go1.27.3` in `cli/keel/Makefile` fetches 1.27.3 when it differs (network at build time only) |
 | bash, git, jq, shellcheck | `bash --version; git --version; jq --version; shellcheck --version` | present (as for F0) |
 | `claude` CLI | `claude --version` | present (`make validate`) |
-| Baseline | `./tests/run.sh > /tmp/base.log; echo rc=$?; grep -cE '^\s+ok ' /tmp/base.log` | `rc=0` and a count **N** (991 at F0 complete). Every expected count below is written relative to N |
+| Baseline | `./tests/run.sh > /tmp/base.log; echo rc=$?; grep -cE '^\s+ok ' /tmp/base.log` | `rc=0` and a count **N** (946 at `main` `1c454e8`). Every expected count below is written relative to N |
 
 ## Review focus
 
@@ -126,7 +129,7 @@ The inputs most likely to break a repository that switches engines, each with th
 | `cli/keel/internal/importer/` | `keel.yaml` and `keel.lock` from a bash-engine install | 3 |
 | `cli/keel/main.go`, `Makefile`, `README.md` | commands, exit codes, reproducible builds | 3 |
 | `tests/keel_cli_test.sh`, `tests/keel_cli_parity_test.sh` | CLI behaviour; byte parity with `gate.sh` | 3 |
-| `tests/keel_helpers.sh`, `tests/keel_run_sensor.sh`, 7 test files | `KEEL_ENGINE=cli` | 4 |
+| `tests/keel_helpers.sh`, `tests/keel_run_sensor.sh`, 4 sensor test files | `KEEL_ENGINE=cli` | 4 |
 | `.github/workflows/validate.yml`, `Makefile`, `.gitignore` | CI on both engines, `make check-cli`, `cli/keel/dist/` ignored | 1, 5 |
 
 ---
@@ -614,7 +617,7 @@ Behaviour of `guard.Run`, all relative to the base (`KEEL_GUARD_BASE`, else the 
 | A raised budget, read from `keel.yaml` when the file exists (at the base and now, independently), else from `gate.env` | `<file>: <key> raised from <a> to <b>` with the key of that file |
 | A sensor at the base (from `keel.yaml`, else from `scripts/sensors/{,slow/}*.sh`) missing now | `<exec path or .agents/keel.yaml>: sensor removed or disabled` |
 
-A loosening passes only when an ADR added since the base in `docs/adr`, `doc/adr`, `docs/decisions` or `docs/architecture/decisions` contains the reported file's path. The full conformance suite for `guard` is `tests/keel_guard_test.sh` run on the CLI engine (Task 4); here the Go tests pin the helpers whose semantics come from awk and grep.
+A loosening passes only when an ADR added since the base in `docs/adr`, `doc/adr`, `docs/decisions` or `docs/architecture/decisions` contains the reported file's path. `guard.sh` is the F0 sensor this ports (`git show origin/feat/keel-harness-v0.3-f0:plugins/keel-harness/skills/build/assets/sensors/common/guard.sh`); its conformance suite, `tests/keel_guard_test.sh`, runs on the CLI engine in F1b. Here the Go tests pin the helpers whose semantics come from awk and grep, and Task 3's `keel_cli_test.sh` pins the behaviour.
 
 - [ ] **Step 1: write the failing tests.**
 
@@ -1357,6 +1360,9 @@ if [ ! -x "$BIN" ]; then
   echo "  skip keel CLI: $BIN not built (make -C cli/keel build)"; exit 0
 fi
 k() { out="$(cd "$r" && "$BIN" "$@" 2>&1)"; rc=$?; }
+# stub_guard REPO -> a scripts/sensors/guard.sh that obeys the contract; `keel import` maps the file
+# name to the native guard adapter, so its content never runs.
+stub_guard() { printf '#!/usr/bin/env bash\nprintf "guard\\tsecurity\\tpass\\tstub\\n"\n' > "$1/scripts/sensors/guard.sh"; }
 has() { printf '%s\n' "$out" | grep -qF -- "$1"; }
 
 # mk -> committed repo with one exec sensor, guard, state.yml, keel.yaml and keel.lock imported
@@ -1364,7 +1370,7 @@ mk() {
   r="$(new_repo)"
   mkdir -p "$r/scripts/sensors" "$r/.agents" "$r/docs/adr"
   printf '#!/usr/bin/env bash\nprintf "lint\\theuristic\\tpass\\tok\\n"\n[ "${KEEL_MEASURE:-}" = 1 ] && echo measured\nprintf "%%s" "$SCOPE" > scope.out\n' > "$r/scripts/sensors/lint.sh"
-  cp "$KEEL/skills/build/assets/sensors/common/guard.sh" "$r/scripts/sensors/guard.sh"
+  stub_guard "$r"
   printf 'schema_version: 2\n' > "$r/.agents/state.yml"
   # As /keel-harness:build will: a wrapper replaced by a native adapter leaves the repository.
   (cd "$r" && "$BIN" import --sums "$SUMS" >/dev/null && rm scripts/sensors/guard.sh && git add -A && git commit -qm harness)
@@ -1429,7 +1435,7 @@ printf '# ADR 0009\nThe fast gate needs 90s: `.agents/keel.yaml`.\n' > "$r/docs/
 
 # engine switch: budgets move from gate.env at the base to keel.yaml now
 r="$(new_repo)"; mkdir -p "$r/scripts/sensors" "$r/.agents"; printf 'schema_version: 2\n' > "$r/.agents/state.yml"
-cp "$KEEL/skills/build/assets/gate.env" "$r/.agents/gate.env"; cp "$KEEL/skills/build/assets/sensors/common/guard.sh" "$r/scripts/sensors/guard.sh"
+cp "$KEEL/skills/build/assets/gate.env" "$r/.agents/gate.env"; stub_guard "$r"
 (cd "$r" && git add -A && git commit -qm bash-engine && "$BIN" import --sums "$SUMS" >/dev/null && git rm -q .agents/gate.env)
 k guard; [ $rc -eq 0 ]; check "engine switch with the same budgets passes" $?
 yaml_set '0,/ceiling_seconds: 30/s//ceiling_seconds: 300/'; k guard
@@ -2195,11 +2201,9 @@ Every configuration or pin problem exits 3 and is never a pass; bad usage exits 
 ## Task 4 — the existing suite runs on the CLI engine (`KEEL_ENGINE=cli`)
 
 **Files:** create `tests/keel_run_sensor.sh`; modify `tests/keel_helpers.sh`, `tests/keel_ts_sensors_test.sh`,
-`tests/keel_python_sensors_test.sh`, `tests/keel_jvm_sensors_test.sh`, `tests/keel_rule_sensors_test.sh`,
-`tests/keel_guard_test.sh`, `tests/keel_envparse_test.sh`.
+`tests/keel_python_sensors_test.sh`, `tests/keel_jvm_sensors_test.sh`, `tests/keel_rule_sensors_test.sh`.
 
-**Interfaces — produces:** `KEEL_ENGINE` (`bash` default | `cli`), `RUN_SENSOR` (path of `tests/keel_run_sensor.sh`), `KEEL_BIN`, `KEEL_SUMS`,
-`bash_only DESC CMD...`. Under `cli`: `install_asset … build/assets/gate.sh …` installs a test shim that runs `keel import --force --sums` and then
+**Interfaces — produces:** `KEEL_ENGINE` (`bash` default | `cli`), `RUN_SENSOR` (path of `tests/keel_run_sensor.sh`), `KEEL_BIN`, `KEEL_SUMS`. Under `cli`: `install_asset … build/assets/gate.sh …` installs a test shim that runs `keel import --force --sums` and then
 `keel gate "$@"`; `bash "$RUN_SENSOR" scripts/sensors/<id>.sh` runs `keel gate --sensor <id>` on a freshly imported `keel.yaml`. The wrappers stay
 the files the tests edit (`sed -i` on a repo-specific block still works), so this is the exec adapter under test, not a copy of it.
 
@@ -2221,7 +2225,219 @@ exec bash "$1"
 ````
 
   `chmod +x tests/keel_run_sensor.sh`.
-- [ ] **Step 3: the helpers and the seven tests.** Every direct `bash scripts/sensors/…` becomes `bash "$RUN_SENSOR" scripts/sensors/…`; in `keel_guard_test.sh`, the budget message accepts both keys and the `envparse.sh` dependency becomes `bash_only`.
+- [ ] **Step 3: the helpers and the four sensor tests.** Every direct `bash scripts/sensors/…` becomes `bash "$RUN_SENSOR" scripts/sensors/…`.
+
+Patch:
+
+````diff
+diff --git a/tests/keel_helpers.sh b/tests/keel_helpers.sh
+index 144acc8..7125801 100644
+--- a/tests/keel_helpers.sh
++++ b/tests/keel_helpers.sh
+@@ -4,6 +4,16 @@ KEEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../plugins/keel-harness" && pwd)"
+ STUBS="$(cd "$(dirname "${BASH_SOURCE[0]}")/fixtures/keel/stubs" && pwd)"
+ FIXTURES="$(cd "$(dirname "${BASH_SOURCE[0]}")/fixtures/keel" && pwd)"
+ export KEEL STUBS FIXTURES
++# KEEL_ENGINE=cli runs every gate and sensor through the keel CLI (cli/keel, built by
++# `make -C cli/keel build`) instead of scripts/gate.sh; the default is the bash engine.
++KEEL_ENGINE="${KEEL_ENGINE:-bash}"
++RUN_SENSOR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/keel_run_sensor.sh"
++export KEEL_ENGINE RUN_SENSOR
++if [ "$KEEL_ENGINE" = cli ]; then
++  KEEL_BIN="${KEEL_BIN:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/cli/keel/dist/keel}"
++  KEEL_SUMS="$(dirname "$KEEL_BIN")/SHA256SUMS"
++  export KEEL_BIN KEEL_SUMS
++fi
+ _keel_fail=0
+ check() { if [ "$2" -eq 0 ]; then echo "  ok   $1"; else echo "  FAIL $1"; _keel_fail=1; fi; }
+ fail() { echo "  FAIL $1"; _keel_fail=1; }
+@@ -26,8 +36,14 @@ new_repo() {
+   printf '%s\n' "$d"
+ }
+ # install_asset REPO SRC_REL DEST_REL  (SRC_REL relative to $KEEL/skills/)
++# Under KEEL_ENGINE=cli, gate.sh is replaced by a shim that runs `keel gate` on the same layout.
+ install_asset() {
+   mkdir -p "$(dirname "$1/$3")"
++  if [ "$KEEL_ENGINE" = cli ] && [ "$2" = build/assets/gate.sh ]; then
++    printf '%s\n' '#!/usr/bin/env bash' 'cd "$(dirname "$0")/.." || exit 1' \
++      '"$KEEL_BIN" import --force --sums "$KEEL_SUMS" >/dev/null || exit 3' 'exec "$KEEL_BIN" gate "$@"' > "$1/$3"
++    chmod +x "$1/$3"; return
++  fi
+   cp "$KEEL/skills/$2" "$1/$3" && chmod +x "$1/$3"
+ }
+ # use_stub REPO TOOL DEST_REL
+diff --git a/tests/keel_jvm_sensors_test.sh b/tests/keel_jvm_sensors_test.sh
+index 6a7b656..84f4565 100644
+--- a/tests/keel_jvm_sensors_test.sh
++++ b/tests/keel_jvm_sensors_test.sh
+@@ -9,7 +9,7 @@ mk() {
+   mkdir -p "$r/.agents/baselines" "$r/src/main/kotlin/a" "$r/src/test/kotlin/a"
+   printf '%s\n' "$r"
+ }
+-run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
++run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
+ 
+ for s in compile lint tests; do
+   f="$KEEL/skills/$SD/$s.sh"
+diff --git a/tests/keel_python_sensors_test.sh b/tests/keel_python_sensors_test.sh
+index 371143e..25bec25 100644
+--- a/tests/keel_python_sensors_test.sh
++++ b/tests/keel_python_sensors_test.sh
+@@ -9,7 +9,7 @@ mk() {
+   mkdir -p "$r/.agents/baselines" "$r/pkg" "$r/tests/unit"
+   printf '%s\n' "$r"
+ }
+-run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
++run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
+ 
+ for s in typecheck lint tests; do
+   f="$KEEL/skills/$SD/$s.sh"
+diff --git a/tests/keel_rule_sensors_test.sh b/tests/keel_rule_sensors_test.sh
+index d669aa0..99a69b7 100644
+--- a/tests/keel_rule_sensors_test.sh
++++ b/tests/keel_rule_sensors_test.sh
+@@ -14,7 +14,7 @@ mk() {
+ put() { install_asset "$1" "$RS/$2.sh" "scripts/sensors/$2.sh"; }
+ run() { # run REPO SENSOR [env...] -> out, rc
+   local r="$1" s="$2"; shift 2
+-  out="$(cd "$r" && env "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?
++  out="$(cd "$r" && env "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?
+ }
+ nlines() { seq 1 "$1" | sed 's/.*/x/'; }
+ commit() { (cd "$1" && git add -A && git commit -q -m c); }
+@@ -178,7 +178,7 @@ printf '%s\n' "$out" | grep -qx "$(printf 'src/a.ts\t4')"; check "code-language:
+ printf '%s\n' "$out" | grep -q "^src/b.ts	[1-9]"; check "code-language: non-ASCII identifier flagged" $?
+ run "$r" code-language; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^code-language	heuristic	fail	' && printf '%s\n' "$out" | grep -q '^  guidance: Rename the identifiers'; check "code-language: fails without baseline" $?
+ run "$r" code-language KEEL_MEASURE=1 | cat >/dev/null
+-(cd "$r" && KEEL_MEASURE=1 bash scripts/sensors/code-language.sh > .agents/baselines/code-language.tsv)
++(cd "$r" && KEEL_MEASURE=1 bash "$RUN_SENSOR" scripts/sensors/code-language.sh > .agents/baselines/code-language.tsv)
+ run "$r" code-language; [ $rc -eq 0 ]; check "code-language: baselined passes" $?
+ echo 'const calcula = 1;' >> "$r/src/a.ts"; run "$r" code-language; [ $rc -eq 1 ]; check "code-language: growth fails" $?
+ run "$r" code-language SCOPE=src/b.ts; [ $rc -eq 0 ]; check "code-language: SCOPE honoured" $?
+@@ -210,7 +210,7 @@ structure slow/mutation
+ r="$(mk)"; mkdir -p "$r/scripts/sensors/slow"; install_asset "$r" "$RS/slow/mutation.sh" scripts/sensors/slow/mutation.sh
+ printf "MUTATION_MIN_SCORE=70\n" > "$r/.agents/rules/testing-strategy.env"
+ mkdir -p "$r/src/main/java/a"; echo c > "$r/src/main/java/a/Foo.java"; commit "$r"
+-runm() { local rr="$1"; shift; out="$(cd "$rr" && env STUB_LOG="$rr/stub.log" "$@" bash scripts/sensors/slow/mutation.sh 2>&1)"; rc=$?; }
++runm() { local rr="$1"; shift; out="$(cd "$rr" && env STUB_LOG="$rr/stub.log" "$@" bash "$RUN_SENSOR" scripts/sensors/slow/mutation.sh 2>&1)"; rc=$?; }
+ runm "$r" SCOPE=src/main/java/a/Foo.java; [ $rc -eq 2 ]; check "mutation: tool absent -> skip" $?
+ use_stub "$r" pitest-maven mvnw
+ runm "$r" SCOPE=src/main/java/a/Foo.java STUB_OUT="Generated 10 mutations Killed 6 (60%)" STUB_EXIT=0
+@@ -237,7 +237,7 @@ printf "DIFF_COVERAGE_MIN=80\n" > "$r/.agents/rules/testing-strategy.env"
+ # src/a.ts has 4 lines; the report covers 1-3, not 4 (whole-file coverage 75%)
+ mkdir -p "$r/coverage"; cp "$FIXTURES/coverage/lcov.info" "$r/coverage/lcov.info"; printf 'l1\nl2\nl3\nl4\n' > "$r/src/a.ts"; commit "$r"
+ sed -i 's|^CMD=.*|CMD=(true)|' "$r/scripts/sensors/slow/diff-coverage.sh"
+-rund() { local rr="$1"; shift; out="$(cd "$rr" && env "$@" bash scripts/sensors/slow/diff-coverage.sh 2>&1)"; rc=$?; }
++rund() { local rr="$1"; shift; out="$(cd "$rr" && env "$@" bash "$RUN_SENSOR" scripts/sensors/slow/diff-coverage.sh 2>&1)"; rc=$?; }
+ sed -i '4s/.*/l4 changed/' "$r/src/a.ts"; rund "$r" SCOPE=src/a.ts
+ [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^diff-coverage	correctness	fail	diff coverage 0% .*(0 of 1 changed lines)' && printf '%s\n' "$out" | grep -qF '  src/a.ts: lines 4 not covered'; check "diff-coverage: the changed line 4 is uncovered -> fails and lists it" $?
+ (cd "$r" && git checkout -q src/a.ts); sed -i '2s/.*/l2 changed/' "$r/src/a.ts"; rund "$r" SCOPE=src/a.ts
+diff --git a/tests/keel_ts_sensors_test.sh b/tests/keel_ts_sensors_test.sh
+index 81462bc..81876aa 100644
+--- a/tests/keel_ts_sensors_test.sh
++++ b/tests/keel_ts_sensors_test.sh
+@@ -14,7 +14,7 @@ mk() {
+ }
+ run() { # run REPO SENSOR [env...] -> sets out, rc
+   local r="$1" s="$2"; shift 2
+-  out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?
++  out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?
+ }
+ 
+ # --- structure
+````
+
+- [ ] **Step 4: verify.**
+  - `KEEL_ENGINE=cli KEEL_BIN=/bin/false bash tests/keel_gate_test.sh | grep -c FAIL` → above zero (19 in the prototype): the CLI mode really runs the binary.
+  - `KEEL_ENGINE=cli ./tests/run.sh > /tmp/cli.log; echo rc=$?` → `rc=0`; `grep -cE '^\s+ok ' /tmp/cli.log` → **N + 43** (the same count as the bash engine).
+  - `./tests/run.sh; echo rc=$?` → `rc=0` with **N + 43** `ok` (the bash engine is unchanged).
+  - `shellcheck -S warning tests/keel_helpers.sh tests/keel_run_sensor.sh tests/keel_cli_parity_test.sh` → no output.
+- [ ] **Step 5: commit and push.** `test(keel-cli): run the existing gate and sensor tests through keel gate (KEEL_ENGINE=cli)`
+
+---
+
+## Task 5 — CI on both engines, `make check-cli`, reproducible builds
+
+**Files:** modify `.github/workflows/validate.yml`, `Makefile`.
+
+- [ ] **Step 1: see the gap.** `make check-cli; echo rc=$?` → make reports that it has no rule for `check-cli`, `rc=2`.
+- [ ] **Step 2: apply.** Without the workflow change, CI would now fail: the Validate job runs with `CI=true`, which makes the two new tests require the binary.
+
+Patch:
+
+````diff
+diff --git a/.github/workflows/validate.yml b/.github/workflows/validate.yml
+index 900982d..f2ede63 100644
+--- a/.github/workflows/validate.yml
++++ b/.github/workflows/validate.yml
+@@ -9,8 +9,19 @@ jobs:
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
++      - uses: actions/setup-go@v5
++        with:
++          go-version-file: cli/keel/go.mod
++      - name: Build and unit-test the keel CLI
++        run: make -C cli/keel test build
+       - name: Run tests
+         run: ./tests/run.sh
++      - name: Run tests on the keel CLI engine
++        run: KEEL_ENGINE=cli ./tests/run.sh
++      - name: keel builds are reproducible
++        run: |
++          make -C cli/keel dist && cp cli/keel/dist/engine/SHA256SUMS "$RUNNER_TEMP/sums"
++          go clean -cache && make -C cli/keel dist && diff "$RUNNER_TEMP/sums" cli/keel/dist/engine/SHA256SUMS
+       - name: Install Claude Code
+         run: npm i -g @anthropic-ai/claude-code
+       - name: Validate plugin
+diff --git a/Makefile b/Makefile
+index 8123e46..20444da 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,8 +1,14 @@
+-.PHONY: check validate
++.PHONY: check check-cli validate
+ 
+ check:
+ 	./tests/run.sh
+ 
++# The keel CLI (cli/keel): its unit tests, then the whole suite on both engines.
++check-cli:
++	$(MAKE) -C cli/keel test build
++	./tests/run.sh
++	KEEL_ENGINE=cli ./tests/run.sh
++
+ validate:
+ 	claude plugin validate ./plugins/keel-harness --strict
+ 	claude plugin validate ./plugins/solutions-architect --strict
+````
+
+- [ ] **Step 3: verify.**
+  - `make check-cli > /tmp/cc.log; echo rc=$?` → `rc=0`; `grep -cE '^\s+ok ' /tmp/cc.log` → **2N + 86** (both engines).
+  - `make -C cli/keel dist && cp cli/keel/dist/engine/SHA256SUMS /tmp/sums && go clean -cache && make -C cli/keel dist && diff /tmp/sums cli/keel/dist/engine/SHA256SUMS && echo reproducible` → `reproducible`.
+- [ ] **Step 4: commit and push.** `ci(keel-cli): build the CLI and run the suite on both engines`
+- [ ] **Step 5: CI.** `gh run list --branch "$(git branch --show-current)" --limit 1` → the Validate run of this commit is `completed  success`. This is the only check the workflow file gets; if it fails, read the log (`gh run view --log-failed`) and report.
+
+---
+
+## Task 6 — acceptance and report
+
+- [ ] **Step 1: the F1 acceptance criteria**, each with its evidence:
+  1. **The existing sensor tests run through `keel gate`:** `KEEL_ENGINE=cli ./tests/run.sh` → rc 0, N + 43 `ok`. Every gate test runs `keel gate`, every sensor test runs `keel gate --sensor <id>` (Task 4, Step 4, first bullet proves the binary is used).
+  2. **Byte parity with `gate.sh`:** `CI=1 bash tests/keel_cli_parity_test.sh` → 9 `ok`.
+  3. **Contract kept:** the 34 `keel_cli_test.sh` checks. The guard's F0 conformance suite is F1b, not F1.
+  4. **Nothing in the plugin changed:** `git diff --stat <base> -- plugins/` → no output.
+  5. **Reproducible:** Task 5, Step 3, second bullet.
+- [ ] **Step 2:** `make validate` → `Validation passed` for the three plugins.
+- [ ] **Step 3: report to the owner:** the commit list; the counts of acceptance 1–3; any step whose output differed from this plan; anything skipped and why. Do not open a pull request; do not start F2.
+
+---
+
+## F1b — the guard's conformance suite, once F0 is on `main`
+
+When `main` has F0 (`guard.sh`, `envparse.sh`, `tests/keel_guard_test.sh`, `tests/keel_envparse_test.sh`), merge it into
+`feat/keel-cli` and apply this patch, verified on F0 + F1: the two F0 tests run their sensors through `RUN_SENSOR`, the
+budget message accepts both engines' keys, and the one bash-engine detail becomes `bash_only`.
 
 Patch:
 
@@ -2287,38 +2503,11 @@ index a0043b6..b5d533c 100755
 +r="$(mk)"; rm "$r/scripts/lib/envparse.sh"; run "$r"; bash_only "missing envparse lib: skip" [ $rc -eq 2 ]
  finish
 diff --git a/tests/keel_helpers.sh b/tests/keel_helpers.sh
-index 144acc8..e5feadb 100644
+index 7125801..e5feadb 100644
 --- a/tests/keel_helpers.sh
 +++ b/tests/keel_helpers.sh
-@@ -4,6 +4,16 @@ KEEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../plugins/keel-harness" && pwd)"
- STUBS="$(cd "$(dirname "${BASH_SOURCE[0]}")/fixtures/keel/stubs" && pwd)"
- FIXTURES="$(cd "$(dirname "${BASH_SOURCE[0]}")/fixtures/keel" && pwd)"
- export KEEL STUBS FIXTURES
-+# KEEL_ENGINE=cli runs every gate and sensor through the keel CLI (cli/keel, built by
-+# `make -C cli/keel build`) instead of scripts/gate.sh; the default is the bash engine.
-+KEEL_ENGINE="${KEEL_ENGINE:-bash}"
-+RUN_SENSOR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/keel_run_sensor.sh"
-+export KEEL_ENGINE RUN_SENSOR
-+if [ "$KEEL_ENGINE" = cli ]; then
-+  KEEL_BIN="${KEEL_BIN:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/cli/keel/dist/keel}"
-+  KEEL_SUMS="$(dirname "$KEEL_BIN")/SHA256SUMS"
-+  export KEEL_BIN KEEL_SUMS
-+fi
- _keel_fail=0
- check() { if [ "$2" -eq 0 ]; then echo "  ok   $1"; else echo "  FAIL $1"; _keel_fail=1; fi; }
- fail() { echo "  FAIL $1"; _keel_fail=1; }
-@@ -26,10 +36,23 @@ new_repo() {
-   printf '%s\n' "$d"
- }
- # install_asset REPO SRC_REL DEST_REL  (SRC_REL relative to $KEEL/skills/)
-+# Under KEEL_ENGINE=cli, gate.sh is replaced by a shim that runs `keel gate` on the same layout.
- install_asset() {
-   mkdir -p "$(dirname "$1/$3")"
-+  if [ "$KEEL_ENGINE" = cli ] && [ "$2" = build/assets/gate.sh ]; then
-+    printf '%s\n' '#!/usr/bin/env bash' 'cd "$(dirname "$0")/.." || exit 1' \
-+      '"$KEEL_BIN" import --force --sums "$KEEL_SUMS" >/dev/null || exit 3' 'exec "$KEEL_BIN" gate "$@"' > "$1/$3"
-+    chmod +x "$1/$3"; return
-+  fi
+@@ -46,6 +46,13 @@ install_asset() {
+   fi
    cp "$KEEL/skills/$2" "$1/$3" && chmod +x "$1/$3"
  }
 +# bash_only DESC CMD... -> runs a check that asserts a bash-engine implementation detail; under
@@ -2331,172 +2520,10 @@ index 144acc8..e5feadb 100644
  # use_stub REPO TOOL DEST_REL
  use_stub() {
    mkdir -p "$(dirname "$1/$3")"
-diff --git a/tests/keel_jvm_sensors_test.sh b/tests/keel_jvm_sensors_test.sh
-index 6a7b656..84f4565 100644
---- a/tests/keel_jvm_sensors_test.sh
-+++ b/tests/keel_jvm_sensors_test.sh
-@@ -9,7 +9,7 @@ mk() {
-   mkdir -p "$r/.agents/baselines" "$r/src/main/kotlin/a" "$r/src/test/kotlin/a"
-   printf '%s\n' "$r"
- }
--run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
-+run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
- 
- for s in compile lint tests; do
-   f="$KEEL/skills/$SD/$s.sh"
-diff --git a/tests/keel_python_sensors_test.sh b/tests/keel_python_sensors_test.sh
-index 371143e..25bec25 100644
---- a/tests/keel_python_sensors_test.sh
-+++ b/tests/keel_python_sensors_test.sh
-@@ -9,7 +9,7 @@ mk() {
-   mkdir -p "$r/.agents/baselines" "$r/pkg" "$r/tests/unit"
-   printf '%s\n' "$r"
- }
--run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
-+run() { local r="$1" s="$2"; shift 2; out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?; }
- 
- for s in typecheck lint tests; do
-   f="$KEEL/skills/$SD/$s.sh"
-diff --git a/tests/keel_rule_sensors_test.sh b/tests/keel_rule_sensors_test.sh
-index 9c0da80..f5b5a9d 100644
---- a/tests/keel_rule_sensors_test.sh
-+++ b/tests/keel_rule_sensors_test.sh
-@@ -15,7 +15,7 @@ mk() {
- put() { install_asset "$1" "$RS/$2.sh" "scripts/sensors/$2.sh"; }
- run() { # run REPO SENSOR [env...] -> out, rc
-   local r="$1" s="$2"; shift 2
--  out="$(cd "$r" && env "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?
-+  out="$(cd "$r" && env "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?
- }
- nlines() { seq 1 "$1" | sed 's/.*/x/'; }
- commit() { (cd "$1" && git add -A && git commit -q -m c); }
-@@ -179,7 +179,7 @@ printf '%s\n' "$out" | grep -qx "$(printf 'src/a.ts\t4')"; check "code-language:
- printf '%s\n' "$out" | grep -q "^src/b.ts	[1-9]"; check "code-language: non-ASCII identifier flagged" $?
- run "$r" code-language; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^code-language	heuristic	fail	' && printf '%s\n' "$out" | grep -q '^  guidance: Rename the identifiers'; check "code-language: fails without baseline" $?
- run "$r" code-language KEEL_MEASURE=1 | cat >/dev/null
--(cd "$r" && KEEL_MEASURE=1 bash scripts/sensors/code-language.sh > .agents/baselines/code-language.tsv)
-+(cd "$r" && KEEL_MEASURE=1 bash "$RUN_SENSOR" scripts/sensors/code-language.sh > .agents/baselines/code-language.tsv)
- run "$r" code-language; [ $rc -eq 0 ]; check "code-language: baselined passes" $?
- echo 'const calcula = 1;' >> "$r/src/a.ts"; run "$r" code-language; [ $rc -eq 1 ]; check "code-language: growth fails" $?
- run "$r" code-language SCOPE=src/b.ts; [ $rc -eq 0 ]; check "code-language: SCOPE honoured" $?
-@@ -211,7 +211,7 @@ structure slow/mutation
- r="$(mk)"; mkdir -p "$r/scripts/sensors/slow"; install_asset "$r" "$RS/slow/mutation.sh" scripts/sensors/slow/mutation.sh
- printf "MUTATION_MIN_SCORE=70\n" > "$r/.agents/rules/testing-strategy.env"
- mkdir -p "$r/src/main/java/a"; echo c > "$r/src/main/java/a/Foo.java"; commit "$r"
--runm() { local rr="$1"; shift; out="$(cd "$rr" && env STUB_LOG="$rr/stub.log" "$@" bash scripts/sensors/slow/mutation.sh 2>&1)"; rc=$?; }
-+runm() { local rr="$1"; shift; out="$(cd "$rr" && env STUB_LOG="$rr/stub.log" "$@" bash "$RUN_SENSOR" scripts/sensors/slow/mutation.sh 2>&1)"; rc=$?; }
- runm "$r" SCOPE=src/main/java/a/Foo.java; [ $rc -eq 2 ]; check "mutation: tool absent -> skip" $?
- use_stub "$r" pitest-maven mvnw
- runm "$r" SCOPE=src/main/java/a/Foo.java STUB_OUT="Generated 10 mutations Killed 6 (60%)" STUB_EXIT=0
-@@ -238,7 +238,7 @@ printf "DIFF_COVERAGE_MIN=80\n" > "$r/.agents/rules/testing-strategy.env"
- # src/a.ts has 4 lines; the report covers 1-3, not 4 (whole-file coverage 75%)
- mkdir -p "$r/coverage"; cp "$FIXTURES/coverage/lcov.info" "$r/coverage/lcov.info"; printf 'l1\nl2\nl3\nl4\n' > "$r/src/a.ts"; commit "$r"
- sed -i 's|^CMD=.*|CMD=(true)|' "$r/scripts/sensors/slow/diff-coverage.sh"
--rund() { local rr="$1"; shift; out="$(cd "$rr" && env "$@" bash scripts/sensors/slow/diff-coverage.sh 2>&1)"; rc=$?; }
-+rund() { local rr="$1"; shift; out="$(cd "$rr" && env "$@" bash "$RUN_SENSOR" scripts/sensors/slow/diff-coverage.sh 2>&1)"; rc=$?; }
- sed -i '4s/.*/l4 changed/' "$r/src/a.ts"; rund "$r" SCOPE=src/a.ts
- [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^diff-coverage	correctness	fail	diff coverage 0% .*(0 of 1 changed lines)' && printf '%s\n' "$out" | grep -qF '  src/a.ts: lines 4 not covered'; check "diff-coverage: the changed line 4 is uncovered -> fails and lists it" $?
- (cd "$r" && git checkout -q src/a.ts); sed -i '2s/.*/l2 changed/' "$r/src/a.ts"; rund "$r" SCOPE=src/a.ts
-diff --git a/tests/keel_ts_sensors_test.sh b/tests/keel_ts_sensors_test.sh
-index 81462bc..81876aa 100644
---- a/tests/keel_ts_sensors_test.sh
-+++ b/tests/keel_ts_sensors_test.sh
-@@ -14,7 +14,7 @@ mk() {
- }
- run() { # run REPO SENSOR [env...] -> sets out, rc
-   local r="$1" s="$2"; shift 2
--  out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "scripts/sensors/$s.sh" 2>&1)"; rc=$?
-+  out="$(cd "$r" && env STUB_LOG="$r/stub.log" "$@" bash "$RUN_SENSOR" "scripts/sensors/$s.sh" 2>&1)"; rc=$?
- }
- 
- # --- structure
 ````
 
-- [ ] **Step 4: verify.**
-  - `KEEL_ENGINE=cli KEEL_BIN=/bin/false bash tests/keel_gate_test.sh | grep -c FAIL` → above zero (19 in the prototype): the CLI mode really runs the binary.
-  - `KEEL_ENGINE=cli ./tests/run.sh > /tmp/cli.log; echo rc=$?` → `rc=0`; `grep -cE '^\s+ok ' /tmp/cli.log` → **N + 42**; `grep -c 'skip (cli)' /tmp/cli.log` → `1` (`missing envparse lib: skip`).
-  - `./tests/run.sh; echo rc=$?` → `rc=0` with **N + 43** `ok` (the bash engine is unchanged).
-  - `shellcheck -S warning tests/keel_helpers.sh tests/keel_run_sensor.sh tests/keel_cli_parity_test.sh` → no output.
-- [ ] **Step 5: commit and push.** `test(keel-cli): run the existing gate and sensor tests through keel gate (KEEL_ENGINE=cli)`
-
----
-
-## Task 5 — CI on both engines, `make check-cli`, reproducible builds
-
-**Files:** modify `.github/workflows/validate.yml`, `Makefile`.
-
-- [ ] **Step 1: see the gap.** `make check-cli; echo rc=$?` → make reports that it has no rule for `check-cli`, `rc=2`.
-- [ ] **Step 2: apply.** Without the workflow change, CI would now fail: the Validate job runs with `CI=true`, which makes the two new tests require the binary.
-
-Patch:
-
-````diff
-diff --git a/.github/workflows/validate.yml b/.github/workflows/validate.yml
-index 900982d..f2ede63 100644
---- a/.github/workflows/validate.yml
-+++ b/.github/workflows/validate.yml
-@@ -9,8 +9,19 @@ jobs:
-     runs-on: ubuntu-latest
-     steps:
-       - uses: actions/checkout@v4
-+      - uses: actions/setup-go@v5
-+        with:
-+          go-version-file: cli/keel/go.mod
-+      - name: Build and unit-test the keel CLI
-+        run: make -C cli/keel test build
-       - name: Run tests
-         run: ./tests/run.sh
-+      - name: Run tests on the keel CLI engine
-+        run: KEEL_ENGINE=cli ./tests/run.sh
-+      - name: keel builds are reproducible
-+        run: |
-+          make -C cli/keel dist && cp cli/keel/dist/engine/SHA256SUMS "$RUNNER_TEMP/sums"
-+          go clean -cache && make -C cli/keel dist && diff "$RUNNER_TEMP/sums" cli/keel/dist/engine/SHA256SUMS
-       - name: Install Claude Code
-         run: npm i -g @anthropic-ai/claude-code
-       - name: Validate plugin
-diff --git a/Makefile b/Makefile
-index 8123e46..20444da 100644
---- a/Makefile
-+++ b/Makefile
-@@ -1,8 +1,14 @@
--.PHONY: check validate
-+.PHONY: check check-cli validate
- 
- check:
- 	./tests/run.sh
- 
-+# The keel CLI (cli/keel): its unit tests, then the whole suite on both engines.
-+check-cli:
-+	$(MAKE) -C cli/keel test build
-+	./tests/run.sh
-+	KEEL_ENGINE=cli ./tests/run.sh
-+
- validate:
- 	claude plugin validate ./plugins/keel-harness --strict
- 	claude plugin validate ./plugins/solutions-architect --strict
-````
-
-- [ ] **Step 3: verify.**
-  - `make check-cli > /tmp/cc.log; echo rc=$?` → `rc=0`; `grep -cE '^\s+ok ' /tmp/cc.log` → **2N + 85** (both engines).
-  - `make -C cli/keel dist && cp cli/keel/dist/engine/SHA256SUMS /tmp/sums && go clean -cache && make -C cli/keel dist && diff /tmp/sums cli/keel/dist/engine/SHA256SUMS && echo reproducible` → `reproducible`.
-- [ ] **Step 4: commit and push.** `ci(keel-cli): build the CLI and run the suite on both engines`
-- [ ] **Step 5: CI.** `gh run list --branch "$(git branch --show-current)" --limit 1` → the Validate run of this commit is `completed  success`. This is the only check the workflow file gets; if it fails, read the log (`gh run view --log-failed`) and report.
-
----
-
-## Task 6 — acceptance and report
-
-- [ ] **Step 1: the F1 acceptance criteria**, each with its evidence:
-  1. **The existing sensor tests run through `keel gate`:** `KEEL_ENGINE=cli ./tests/run.sh` → rc 0, N + 42 `ok`, exactly one `skip (cli)`. Every gate test runs `keel gate`, every sensor test runs `keel gate --sensor <id>` (Task 4, Step 4, first bullet proves the binary is used).
-  2. **Byte parity with `gate.sh`:** `CI=1 bash tests/keel_cli_parity_test.sh` → 9 `ok`.
-  3. **Contract kept:** the 34 `keel_cli_test.sh` checks; `guard`'s 24 checks of `tests/keel_guard_test.sh` on the CLI engine (23 `ok` + 1 `skip (cli)`).
-  4. **Nothing in the plugin changed:** `git diff --stat <base> -- plugins/` → no output.
-  5. **Reproducible:** Task 5, Step 3, second bullet.
-- [ ] **Step 2:** `make validate` → `Validation passed` for the three plugins.
-- [ ] **Step 3: report to the owner:** the commit list; the counts of acceptance 1–3; any step whose output differed from this plan; anything skipped and why. Do not open a pull request; do not start F2.
-
----
+Expected: `./tests/run.sh` → N′ + 43 and `KEEL_ENGINE=cli ./tests/run.sh` → N′ + 42 `ok` plus 1 `skip (cli)`, where N′ is the
+count on `main` with F0 (991 when F0 was done). Commit: `test(keel-cli): run guard's F0 conformance suite on the CLI engine`.
 
 ## Later phases (outline; each gets its own executable plan when the previous one is done)
 
@@ -2544,4 +2571,5 @@ the pin when the plugin's engine is newer (the pin follows the plugin). Evals ke
 | Name collision: v0.3 D34 reserves `${CLAUDE_PLUGIN_ROOT}/scripts/keel` for the plugin's phase CLI (`plan | approve | apply | verify | measure | check`), and `measure`/`check` mean something else here | Decide in v0.3 F2 whether the phase CLI becomes subcommands of the engine or is renamed |
 | v0.3 F2 moves run state to `.agents/run/` (D39) | The parity test fails until the CLI follows — the intended alarm; the log path is one function (`gate.LogPath`) |
 | A sensor that depends on locale order | Known difference 1; the contract says `SCOPE` is a list |
+| Until F1b, the native guard has no bash oracle in the branch | Its Go tests and `keel_cli_test.sh` pin it; F1b was verified on F0 + F1 (23 `ok` + 1 `skip (cli)` of 24) and runs as soon as F0 is on `main` |
 | `go.yaml.in/yaml/v3` is a fork | It is the YAML organization's maintained continuation of the archived `gopkg.in/yaml.v3`; one dependency, pinned in `go.sum` |
