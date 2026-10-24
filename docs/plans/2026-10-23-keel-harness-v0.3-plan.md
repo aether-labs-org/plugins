@@ -20,6 +20,10 @@ spec section it implements.
   the one move is v0.2's ephemeral files into `.agents/run/` (D39). A v0.2 install upgrades in place
   under confirmation.
 - keel never writes `.agents/skills/` or `.agents/plugins/` (D39).
+- **Git:** commit once per task, push to the working branch after each commit, and never open a pull
+  request without the owner's explicit approval.
+- **Execution:** each phase gets its own executable plan, written once the previous phase is done and
+  validated (F0: `docs/plans/2026-10-24-keel-harness-v0.3-f0-plan.md`).
 - `make check` and `make validate` stay green after every task; each phase ends with its acceptance
   criteria checked and the README eval table updated where evals ran.
 
@@ -27,7 +31,7 @@ spec section it implements.
 
 | Phase | Deliverables | Impact | Effort | Depends on | Risk | Acceptance |
 | --- | --- | --- | --- | --- | --- | --- |
-| **F0 Fixes** | D-1 `guard` sensor; D-2 parser; D-3; D-4; D-5 | High | S | — | Low | D-1 reproduction is a test: fails without a record, passes with one; no `eval` of config; suite green |
+| **F0 Fixes** | D-1 `guard` sensor; D-2 parser; D-3; D-4; D-5 | High | S | — | Low | D-1 reproduction is a test: fails without an ADR naming the file, passes with one; no `eval` of config; suite green (991 `ok`) |
 | **F1 Measure** | Run the 15 v0.2 evals with/without, with token cost per case | High (the ruler for F2+) | M ($) | F0 | Medium (host) | README table filled; Δ and cost recorded; any Δ ≤ 0 written up |
 | **F2 Refactor** | v0.3 layout; `scripts/keel` phases; `contracts/` (incl. `ENFORCEMENT_LEVEL`); skill template; `disallowed-tools`; skill-size test; form × failure pass; pressure tests; `assess` dimensions; `.agents/run/` + `schema_version: 3` upgrade; LSP proposal and codemap check | High | L | F1 | Medium | Ported tests green; evals not worse than F1; traceability 100 %; `validate --strict` ok; a v0.2 repo upgrades with a green gate and one `.gitignore` line |
 | **F3a CI + pre-commit** | `assets/core/ci`, `assets/core/precommit` | High | S | F2 | Low | A planted defect is red in pre-commit and in CI |
@@ -42,27 +46,14 @@ spec section it implements.
 
 ## F0 — Fixes (spec §6, D32, D33)
 
-- [ ] **D-1 `guard` sensor.** Add `rules/assets/sensors/guard.sh` (class `security`: no baseline of
-  its own). Compare, against `HEAD`: every `.agents/baselines/*.tsv` row count (a row that rises or
-  a new row fails); every numeric `LIMIT|MIN|MAX|THRESHOLD` key in `.agents/rules/*.env` that
-  loosens; `CEILING_SECONDS` / `SLOW_CEILING_SECONDS` in `.agents/gate.env` that grow. A loosening
-  passes only when the same diff adds the file named by `LOOSENED_BY=` in the rule's env file (or a
-  `# loosened_by: <ADR_DIR>/NNNN-*.md` line in the baseline header), and that file exists. Until F2
-  adds `ADR_DIR`, accept the folders listed in D45.
-  Guidance names the record route and says that editing the sensor is the wrong fix.
-- [ ] Turn the reproduction from the review into `tests/keel_guard_test.sh`: 20-line file with
-  `LIMIT=10` → `file-size` fails; baseline row added without a record → `guard` fails; with a
-  record → passes; baseline row removed → passes.
-- [ ] `build` installs `guard` with every harness; `harness-check.sh` warns when it is missing.
-- [ ] **D-2.** Add `lib/envparse.sh` (`KEY=value`, quotes, comments, CRLF, multi-line values the
-  rule files already use) and replace the nine `eval "$(tr -d '\r' < "$RULE_ENV")"` calls. Reject
-  a value containing `$(` or a backtick with a `fail` that names the file.
-- [ ] **D-3.** Replace the two `reasoning-framework.md` references in
-  `assess/references/harness-model.md` with the sections that exist, or drop them.
-- [ ] **D-4.** Reword `build/SKILL.md` §7: `PostToolUse` exit-0 stdout goes to the debug log and exit 2
-  shows only stderr, so the report never reaches Claude intact (as v0.2 spec §14.1 says).
-- [ ] **D-5.** In `tests/keel_assets_test.sh`, report `skip` when `shellcheck` is not installed
-  locally; CI keeps it required.
+Executable plan: **`docs/plans/2026-10-24-keel-harness-v0.3-f0-plan.md`** (tasks 1–7, test first,
+content prototyped and verified). Tick these when it is done:
+
+- [ ] **D-5** — `shellcheck` skipped locally when missing, required in CI.
+- [ ] **D-2** — `lib/envparse.sh`; the nine `eval` calls replaced; `rule-env.md` updated.
+- [ ] **D-1** — `sensors/common/guard.sh` (D32) installed by `build`; `harness-check` warns `guard-missing`;
+  the reproduction is `tests/keel_guard_test.sh`.
+- [ ] **D-3, D-4** — documentation fixes.
 
 **Done when:** the acceptance in the summary holds and `make check` is green.
 
@@ -91,8 +82,8 @@ skill's evals after each step against the F1 numbers.
   `harness-check` warns on a `mandatory` rule without a computational sensor; `AGENTS.md` lists
   `mandatory` rules first; `rules` reads `.specify/memory/constitution.md` when present.
 - [ ] ADR folder (D45): `rules` detects an existing ADR folder or creates `docs/adr/`, stores
-  `ADR_DIR=` in `state.yml`; templates, `DECISION=`, `LOOSENED_BY=`, the `tests` sensor guidance and
-  `harness-check` use it; v0.2 installs keep `docs/decisions/`.
+  `ADR_DIR=` in `state.yml`; templates, `DECISION=`, `guard`'s `ADR_DIRS`, the `tests` sensor guidance
+  and `harness-check` use it; the `docs/adr` exclusions F0 added to `build_test.sh`/`rules_test.sh` go; v0.2 installs keep `docs/decisions/`.
 - [ ] `build` proposes the stack's official LSP plugin; `rules` writes the codemap into
   `docs/architecture.md`; `harness-check` warns `codemap-stale` on cited paths that no longer exist.
 - [ ] Rewrite each SKILL.md on the template in spec §5.5; move each prose self-verify list into
@@ -136,7 +127,7 @@ skill's evals after each step against the F1 numbers.
 - [ ] From it: deny rules merged into `.claude/settings.json`; `assets/adapters/claude/claude-protect.sh`
   (PreToolUse) denying edits to `harness` paths with the approved route in the reason; CODEOWNERS
   entries for consequential paths.
-- [ ] `mandatory` rules (D43): `guard` rejects loosening even with `LOOSENED_BY=`; their env files and
+- [ ] `mandatory` rules (D43): `guard` rejects loosening even when an added ADR names the file; their env files and
   exception lists are protected paths; their sensors are a required CI check; an amendment is a
   superseding ADR approved through CODEOWNERS.
 - [ ] Sandbox / devcontainer as an option for profile L, with the trade-off stated.
