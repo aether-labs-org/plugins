@@ -12,6 +12,13 @@
 > development may proceed without the ADR on the separate branch `feat/keel-cli`, created from
 > `main`; the ADR is required before that branch is merged.
 
+> **Amendment after F1 (owner, 2026-10-24): the binary is named `kh`** (keel harness), in `cli/kh/`
+> (module `github.com/aether-labs-org/plugins/cli/kh`), so it never collides with the plugin's phase
+> CLI `scripts/keel` (v0.3 D34). Product names stay `keel`: `.agents/keel.yaml`, `.agents/keel.lock`,
+> the `KEEL_*` contract variables. F1 was executed as written below (commits `e766c0a`…`535cee0` on
+> `feat/keel-cli`) and then renamed (`49442c2`; `7babacf` also makes `make test` fail on unformatted
+> Go). The code blocks below are the executed F1 and still say `keel` and `cli/keel`; later plans use `kh`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking. Follow the steps in order; each task starts with a failing test.
 
 **Goal:** Phase F1 of the keel CLI: a Go binary, `keel`, that runs the existing sensor files from a
@@ -62,6 +69,7 @@ written here, stop and report instead of improvising.
 | 10 | `run:` of native adapters (F3) | **An argv list, no shell**; `{scope}` expands to one argument per file |
 | 11 | First native adapter (F3) | **`eslint-json`** |
 | 12 | Phases and depth | **F1 core → F2 native entry points → F3 adapters, one at a time → F4 plugin integration**; only F1 is detailed here |
+| 14 | Binary name (after F1) | **`kh`**; `scripts/keel` stays the plugin's phase CLI (D34) |
 | 13 | Base and gate | **A separate branch, `feat/keel-cli`, from `main`** (which has no F0); the plan is adapted to it, and the guard's F0 conformance moves to F1b. The ADR is not needed to develop, only to merge |
 
 ## Builder decisions (revisable; each is pinned by a test)
@@ -2529,8 +2537,8 @@ count on `main` with F0 (991 when F0 was done). Commit: `test(keel-cli): run gua
 
 ### F2 — native entry points
 
-`keel check` (port of `harness-check.sh`; conformance: `tests/keel_harness_check_test.sh` and `tests/doctor_test.sh` on the CLI engine,
-plus `pin` and `sensor-unlisted` findings that `keel validate` already computes) and `keel hook claude-stop` (port of `claude-stop.sh`;
+`kh check` (port of `harness-check.sh`; conformance: `tests/keel_harness_check_test.sh` and `tests/doctor_test.sh` on the CLI engine,
+plus `pin` and `sensor-unlisted` findings that `kh validate` already computes) and `kh hook claude-stop` (port of `claude-stop.sh`;
 conformance: `tests/keel_stop_hook_test.sh` on the CLI engine, the hook's JSON byte for byte). Acceptance: the suite on the CLI engine
 stays green with `harness-check.sh` and `claude-stop.sh` replaced by the CLI in the test shims.
 
@@ -2554,11 +2562,11 @@ adapter's conformance suite:
 
 ### F4 — plugin integration (binary-only)
 
-`make -C cli/keel dist` writes `plugins/keel-harness/engine/<os>-<arch>/keel` and `engine/SHA256SUMS`, committed per release, and CI
+`make -C cli/kh dist` writes `plugins/keel-harness/engine/<os>-<arch>/kh` and `engine/SHA256SUMS`, committed per release, and CI
 rebuilds them and compares bytes; `build` gains the engine choice (bash | CLI) and, after confirmation, copies the binary to
-`~/.local/share/keel/<version>/keel`, links `~/.local/bin/keel`, runs `keel import --sums`, deletes the replaced files (`scripts/gate.sh`,
+`~/.local/share/keel/<version>/kh`, links `~/.local/bin/kh`, runs `kh import --sums`, deletes the replaced files (`scripts/gate.sh`,
 `.agents/gate.env`, wrappers with a native adapter, then `harness-check.sh` and `claude-stop.sh` once F2 is in), writes the one-line
-Makefile aliases, the `AGENTS.md` commands and the Stop hook as `keel hook claude-stop`; `doctor` runs `keel validate` and proposes moving
+Makefile aliases (`gate-fast:` → `kh gate fast`), the `AGENTS.md` commands and the Stop hook as `kh hook claude-stop`; `doctor` runs `kh validate` and proposes moving
 the pin when the plugin's engine is newer (the pin follows the plugin). Evals keep `make gate-fast` through the aliases.
 
 ## Risks
@@ -2568,7 +2576,7 @@ the pin when the plugin's engine is newer (the pin follows the plugin). Evals ke
 | Binary-only contradicts v0.3 §2.3 and D5 | The gating ADR supersedes them for CLI-engine repositories; the bash engine stays available |
 | Engine binaries grow the marketplace's history: measured 2.7–2.9 MB per binary, 1.13–1.25 MB compressed, about **4.7 MB per release** for four platforms, against a 5.8 MB repository today; everyone who adds the marketplace clones it | Release the engine only when it changes; F4 reconsiders Git LFS or a release branch if the history passes an agreed size |
 | The pin follows the plugin: a plugin update fails the gate (exit 3) in every repository still pinned to the old engine | `doctor` names the fix; `build` moves the pin; the failure is loud, never a pass |
-| Name collision: v0.3 D34 reserves `${CLAUDE_PLUGIN_ROOT}/scripts/keel` for the plugin's phase CLI (`plan | approve | apply | verify | measure | check`), and `measure`/`check` mean something else here | Decide in v0.3 F2 whether the phase CLI becomes subcommands of the engine or is renamed |
+| ~~Name collision with the plugin's phase CLI `scripts/keel` (D34)~~ | **Resolved**: the engine binary is `kh` (decision 14) |
 | v0.3 F2 moves run state to `.agents/run/` (D39) | The parity test fails until the CLI follows — the intended alarm; the log path is one function (`gate.LogPath`) |
 | A sensor that depends on locale order | Known difference 1; the contract says `SCOPE` is a list |
 | Until F1b, the native guard has no bash oracle in the branch | Its Go tests and `keel_cli_test.sh` pin it; F1b was verified on F0 + F1 (23 `ok` + 1 `skip (cli)` of 24) and runs as soon as F0 is on `main` |
