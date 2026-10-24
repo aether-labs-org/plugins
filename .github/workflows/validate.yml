@@ -9,8 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/keel/go.mod
+      - name: Build and unit-test the keel CLI
+        run: make -C cli/keel test build
       - name: Run tests
         run: ./tests/run.sh
+      - name: Run tests on the keel CLI engine
+        run: KEEL_ENGINE=cli ./tests/run.sh
+      - name: keel builds are reproducible
+        run: |
+          make -C cli/keel dist && cp cli/keel/dist/engine/SHA256SUMS "$RUNNER_TEMP/sums"
+          go clean -cache && make -C cli/keel dist && diff "$RUNNER_TEMP/sums" cli/keel/dist/engine/SHA256SUMS
       - name: Install Claude Code
         run: npm i -g @anthropic-ai/claude-code
       - name: Validate plugin
