@@ -181,6 +181,7 @@ cmd_language() {
 }${p}"; done
   printf "INCLUDE='%s'\nSTOPLIST='%s'\n" "$inc" "$sl" > "$tmp/language.env"
   RULE_ENV="$tmp/language.env" KEEL_MEASURE=1 KEEL_MEASURE_WORDS=1 KEEL_BASELINE_LIB="$here/../../build/assets/lib/baseline.sh" \
+    KEEL_ENVPARSE_LIB="$here/../../build/assets/lib/envparse.sh" \
     bash "$here/sensors/code-language.sh"
 }
 

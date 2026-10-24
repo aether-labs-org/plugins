@@ -69,4 +69,9 @@ ro tests tests
 
 # --- unknown
 R="$(new_repo)"; m bogus >/dev/null; [ $? -eq 64 ]; check "unknown subcommand rc 64" $?
+# --- language (runs the code-language sensor from the plugin, in a repository without scripts/lib/)
+R="$(new_repo)"; mkdir -p "$R/src"; printf 'const valorTotal = 1; // calcula o total\n' > "$R/src/a.ts"; commit
+out="$(m language pt.txt src)"
+printf '%s\n' "$out" | grep -qx 'files 1' && printf '%s\n' "$out" | grep -qx 'flagged 2'; check "language measures with the bundled stop-list and libraries" $?
+ro language language pt.txt src
 finish
