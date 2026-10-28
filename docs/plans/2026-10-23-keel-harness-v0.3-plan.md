@@ -89,7 +89,7 @@ validated:
   - [x] F2a done.
 - **F2b — state and ADR folder** (`docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`): `.agents/run/`
   and the `run-state` check, `adr_dir` (D45), `schema_version: 3` and the v0.2 upgrade round.
-  - [ ] F2b done.
+  - [x] F2b done.
 - **F2c — skills and flow:** `scripts/keel` phases (moved from F2b: built with the skills that call it), template rewrite, `contracts/`, `disallowed-tools`, skill-size test, traceability,
   pressure tests. Migrate one skill at a time — **doctor, then assess, then build, then rules** — and
   run that skill's evals after each step against the F1 numbers.
