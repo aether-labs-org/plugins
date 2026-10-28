@@ -1,0 +1,10 @@
+# keel-harness: merge this entry into .pre-commit-config.yaml.
+repos:
+  - repo: local
+    hooks:
+      - id: keel-gate
+        name: keel fast gate
+        entry: make gate-fast
+        language: system
+        pass_filenames: false
+        always_run: true
