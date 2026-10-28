@@ -116,6 +116,13 @@ r="$(mkclean)"; printf 'x\n' > "$r/.agents/last-green"; hc "$r"; only run-state 
 r="$(mkclean)"; : > "$r/.gitignore"; commit "$r"; hc "$r"; only run-state .gitignore; check "run-state: .agents/run/ not ignored" $?
 r="$(mkclean)"; mkdir -p "$r/.agents/run"; printf 'x\n' > "$r/.agents/run/last-green"; hc "$r"; [ $rc -eq 0 ]; check "run-state: ignored .agents/run/ is clean" $?
 
+# enforcement-drift
+r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, ci: installed }/' "$r/.agents/state.yml"; commit "$r"; hc "$r"; only enforcement-drift .github/workflows; check "enforcement-drift: ci installed, no workflow runs the gate" $?
+r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, ci: installed }/' "$r/.agents/state.yml"; mkdir -p "$r/.github/workflows"; cp "$KEEL/assets/core/ci/keel.yml" "$r/.github/workflows/keel.yml"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "enforcement-drift: keel.yml installed is clean" $?
+r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, precommit: installed }/' "$r/.agents/state.yml"; printf 'pre-commit:\n  commands:\n    lint:\n      run: npx eslint .\n' > "$r/lefthook.yml"; commit "$r"; hc "$r"; only enforcement-drift state.yml; check "enforcement-drift: precommit installed, hook lost the gate" $?
+r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, precommit: installed }/' "$r/.agents/state.yml"; cp "$KEEL/assets/core/precommit/lefthook.yml" "$r/lefthook.yml"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "enforcement-drift: lefthook entry is clean" $?
+r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, ci: not_installed, precommit: not_installed }/' "$r/.agents/state.yml"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "enforcement-drift: declined layers are not checked" $?
+
 # guard-missing
 r="$(mkclean)"; rm "$r/scripts/sensors/guard.sh"; commit "$r"; hc "$r"; only guard-missing scripts/sensors/guard.sh; check "guard-missing: no guard sensor" $?
 r="$(mkclean)"; rm "$r/scripts/lib/envparse.sh"; commit "$r"; hc "$r"; printf '%s\n' "$out" | grep -q '^warn	guard-missing	'; check "guard-missing: no envparse lib" $?

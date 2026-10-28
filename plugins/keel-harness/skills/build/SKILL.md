@@ -200,6 +200,7 @@ GATES      fast (budget {{N}}s): typecheck [correctness], lint [heuristic, basel
            tests [correctness], secrets [security], guard [security]; left out: {{sensor}} - measured {{N}}s
            scripts/gate.sh, .agents/gate.env, make gate-fast, make gate-slow
 HOOK       scripts/hooks/claude-stop.sh + a Stop entry in .claude/settings.json (fast gate, timeout 120)
+ENFORCE    ci: .github/workflows/keel.yml; precommit: {{lefthook | pre-commit | husky | none}} (references/enforcement.md)
 ```
 
 **Write nothing before the user accepts.** This rule has no exception. The user's own request can
@@ -217,7 +218,7 @@ schema_version: 3
 installed_at: 2026-10-20          # ISO date, today
 harness_review_by: 2027-04-20     # installed_at + 6 months
 mode: brownfield                  # greenfield | brownfield, confirmed by the user
-layers: { bootstrap: installed, guides: installed, fast_gate: installed, slow_gate: not_installed, hook: installed, rules: not_installed }
+layers: { bootstrap: installed, guides: installed, fast_gate: installed, slow_gate: not_installed, hook: installed, ci: installed, precommit: not_installed, rules: not_installed }
 not_installed:                    # layer or sensor -> the reason, in keel's words
   slow_gate: "no mutation or coverage tool configured"
 ```
@@ -234,7 +235,7 @@ Check what the copied assets do not already guarantee:
 - [ ] `.agents/state.yml` parses as YAML and has `schema_version: 3`; `.gitignore` ignores `.agents/run/`.
 - [ ] `make gate-fast` was actually run and its output read; its verdict line reads
       `gate: fast - ...` and each sensor's `cut -f1` is its own id.
-- [ ] `make harness-check` was run and prints `harness is clean`.
+- [ ] `make harness-check` was run and prints `harness is clean` (no `enforcement-drift`).
 - [ ] Each `heuristic` sensor with a baseline has `.agents/baselines/<id>.tsv` from `KEEL_MEASURE=1`.
 - [ ] A sensor that blew the budget is named, with its seconds, under `not_installed`.
 - [ ] `scripts/` has no `${CLAUDE_*}`, plugin path or `claude` call; `scripts/sensors/guard.sh` and `scripts/lib/envparse.sh` exist.

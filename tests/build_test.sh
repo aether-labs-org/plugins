@@ -87,4 +87,7 @@ for c in build-python build-java build-react; do
 done
 grep -q 'ruff' "$root/plugins/keel-harness/evals/build-python/graders/lint-is-ruff.md" 2>/dev/null; check "build-python checks that lint uses ruff" $?
 grep -q 'LINT_PATHS' "$root/plugins/keel-harness/evals/build-react/graders/lint-paths.md" 2>/dev/null; check "build-react checks LINT_PATHS" $?
+E="$root/plugins/keel-harness/skills/build/references/enforcement.md"
+has "$S" 'references/enforcement.md'; check "build proposes the ci and precommit layers (F3a)" $?
+for t in 'assets/core/ci/keel.yml' 'KEEL_GUARD_BASE' 'never a new one' 'required'; do has "$E" "$t"; check "enforcement.md: $t" $?; done
 exit $fail
