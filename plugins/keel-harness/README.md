@@ -87,7 +87,7 @@ Run `claude plugin eval . --scaffold` from `plugins/keel-harness/`. Host prerequ
 | `build-python` | python3 with `venv`, network |
 | `build-java`, `rules-architecture-java` | JDK 17+, network (Gradle wrapper) |
 | `rules-greenfield` | none beyond the tool allow-list |
-| `doctor-finds-drift`, `doctor-agents-not-loaded` | node/npm, network, `gitleaks` (exactly one warning) |
+| `doctor-finds-drift`, `doctor-validator-drift` | node/npm, network, `gitleaks`; `--allow-tools Bash` (the doctor skill runs the validator) |
 
 v0.2 numbers, **partial baseline**: 5 of the 15 cases measured (the read-only ones). `rules-effect-with`
 and `rules-effect-without` are meant to run with `--ablation none` and be compared by hand, since that
@@ -124,7 +124,7 @@ have not run.
 | `rules-architecture-java` | not run | | | host-blocked (nested bwrap) | |
 | `rules-effect-with` / `-without` | not run | | | host-blocked (nested bwrap) | |
 | `doctor-finds-drift` | 1.00 | 0.33 | +0.67 | pass | 1.52 |
-| `doctor-agents-not-loaded` | 1.00 | 1.00 | 0.00 | Δ 0, see findings | 1.51 |
+| `doctor-agents-not-loaded` | 1.00 | 1.00 | 0.00 | retired in E1, see findings | 1.51 |
 
 ### Findings (partial baseline at `cf495ff`)
 
@@ -137,6 +137,15 @@ also named the CLAUDE.md that does not import `AGENTS.md` and the `@AGENTS.md` b
 not separate the two arms in this measurement. It is a candidate for the existence floor (rewrite or
 delete after three consecutive runs with Δ ≤ 0); this is one measurement session, and nothing is deleted
 in F1.
+
+**E1 (2026-10-28): `doctor-agents-not-loaded` retired, `doctor-validator-drift` added.** A model without
+the plugin already knows the `@AGENTS.md` bridge, and `harness-check.sh`'s `agents-not-loaded` check is
+covered by `tests/keel_harness_check_test.sh`. The new case tests what only the plugin's `doctor` adds:
+the repository carries an older `harness-check.sh` that has no `guard-missing` check and reports no
+guard problem, the guard sensor is missing, and only the plugin's current validator names it. Both
+`doctor-*` cases now grant `Bash`, which the skill needs to run the validator: F1's `doctor-*` runs
+could not run it. The scaffold's AGENTS.md also points at `dist/`, which the scaffold never builds, so
+`dangling-pointer` is an extra warning in both cases; the graders do not count warnings.
 
 No case scored below 1.0 in the WITH arm. In the W-OUT arm the failing graders were: `rubric-axes` and
 `rubric-states` (`assess-mature-repo`), `context-partial` (`assess-claude-md`), `names-the-drift`

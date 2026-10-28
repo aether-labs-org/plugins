@@ -19,9 +19,11 @@ for id in agents-size stale-command agents-not-loaded dangling-pointer hook-miss
   has "$id"; check "check id: $id" $?
 done
 ! grep -qi "capture rate" "$f"; check "no history-dependent checks" $?
-ev="$root/plugins/keel-harness/evals/doctor-agents-not-loaded"
-for x in case.yaml prompt.md scaffold.sh; do [ -f "$ev/$x" ]; check "doctor-agents-not-loaded has $x" $?; done
-[ "$(ls "$ev/graders" 2>/dev/null | wc -l)" -ge 2 ]; check "doctor-agents-not-loaded has graders" $?
-bash -n "$ev/scaffold.sh" 2>/dev/null; check "doctor-agents-not-loaded scaffold parses" $?
+ev="$root/plugins/keel-harness/evals/doctor-validator-drift"
+for x in case.yaml prompt.md scaffold.sh; do [ -f "$ev/$x" ]; check "doctor-validator-drift has $x" $?; done
+[ "$(ls "$ev/graders" 2>/dev/null | wc -l)" -ge 3 ]; check "doctor-validator-drift has graders" $?
+bash -n "$ev/scaffold.sh" 2>/dev/null; check "doctor-validator-drift scaffold parses" $?
+[ ! -e "$root/plugins/keel-harness/evals/doctor-agents-not-loaded" ]; check "doctor-agents-not-loaded retired (E1)" $?
+for c in doctor-finds-drift doctor-validator-drift; do grep -q "allowed_tools: \[.*Bash" "$root/plugins/keel-harness/evals/$c/prompt.md"; check "$c grants Bash (doctor runs the validator)" $?; done
 ! grep -rq 'sensors:' "$root/plugins/keel-harness/evals/gate-catches-defect/fixtures/harness/.agents/state.yml"; check "eval fixture state has no sensors list" $?
 exit $fail
