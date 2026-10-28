@@ -61,6 +61,15 @@ content prototyped and verified). Tick these when it is done:
 
 Executable plan: **`docs/plans/2026-10-24-keel-harness-v0.3-f1-plan.md`** (owner's machine; budget hard stop; measures the fixed commit `cf495ff`, so F2a can run in parallel).
 
+F1 measured the 5 read-only cases (README, partial baseline); the owner's host blocks the nested sandbox
+the 10 tool cases need. **F1b** (`docs/plans/2026-10-28-keel-harness-v0.3-f1b-plan.md`) measures them at
+`cf495ff` in a cloud session, where the nested sandbox works (checked 2026-10-28). **E1**
+(`docs/plans/2026-10-28-keel-harness-v0.3-e1-plan.md`) fixes the two `doctor` cases F1 showed were not
+measuring the skill and measures them again.
+
+- [ ] F1b done.
+- [ ] E1 done.
+
 - [ ] Pick a host without the nested user-namespace restriction documented in the README.
 - [ ] Run every case in `evals/` with and without the plugin, three runs per arm; record WITH,
   W-OUT, Δ and **token cost per case**.
@@ -78,8 +87,10 @@ validated:
   `assets/adapters/claude/`, `scripts/`, `${CLAUDE_PLUGIN_ROOT}` paths, layout test; no behaviour
   change except the F0 `measure.sh language` regression fix. Runs in parallel with F1.
   - [x] F2a done.
-- **F2b — state and flow:** `.agents/run/`, `ADR_DIR` (D45), `schema_version: 3` upgrade, `scripts/keel` phases.
-- **F2c — skills:** template rewrite, `contracts/`, `disallowed-tools`, skill-size test, traceability,
+- **F2b — state and ADR folder** (`docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`): `.agents/run/`
+  and the `run-state` check, `adr_dir` (D45), `schema_version: 3` and the v0.2 upgrade round.
+  - [ ] F2b done.
+- **F2c — skills and flow:** `scripts/keel` phases (moved from F2b: built with the skills that call it), template rewrite, `contracts/`, `disallowed-tools`, skill-size test, traceability,
   pressure tests. Migrate one skill at a time — **doctor, then assess, then build, then rules** — and
   run that skill's evals after each step against the F1 numbers.
 - **F2d — assess and context:** new `assess` dimensions, LSP proposal, codemap check, triggering evals.
