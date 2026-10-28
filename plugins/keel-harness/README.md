@@ -89,27 +89,69 @@ Run `claude plugin eval . --scaffold` from `plugins/keel-harness/`. Host prerequ
 | `rules-greenfield` | none beyond the tool allow-list |
 | `doctor-finds-drift`, `doctor-agents-not-loaded` | node/npm, network, `gitleaks` (exactly one warning) |
 
-v0.2 numbers (WITH / W-OUT / Δ) are **not yet measured**: the implementation run did not spend eval
-budget. The owner runs them; `rules-effect-with` and `rules-effect-without` run with `--ablation none`
-and their scores are compared by hand, since that pair is the only test of whether rules proposed by
-keel and approved by a human help an agent.
+v0.2 numbers, **partial baseline**: 5 of the 15 cases measured (the read-only ones). `rules-effect-with`
+and `rules-effect-without` are meant to run with `--ablation none` and be compared by hand, since that
+pair is the only test of whether rules proposed by keel and approved by a human help an agent; they
+have not run.
 
-| Case | WITH | W-OUT | Δ | Verdict |
-| --- | --- | --- | --- | --- |
-| `assess-mature-repo` | not run | | | owner to run |
-| `assess-claude-md` | not run | | | owner to run |
-| `should-not-trigger` | not run | | | owner to run |
-| `build-typescript` | not run | | | owner to run |
-| `build-python` | not run | | | owner to run |
-| `build-java` | not run | | | owner to run |
-| `build-react` | not run | | | owner to run |
-| `gate-catches-defect` | not run | | | owner to run |
-| `rules-brownfield` | not run | | | owner to run |
-| `rules-greenfield` | not run | | | owner to run |
-| `rules-architecture-java` | not run | | | owner to run |
-| `rules-effect-with` / `-without` | not run | | | owner to run (compare by hand) |
-| `doctor-finds-drift` | not run | | | owner to run |
-| `doctor-agents-not-loaded` | not run | | | owner to run |
+- Dates: 2026-10-25 (smoke run) and 2026-10-28 (the measured runs).
+- Claude Code: 2.1.310 for the smoke run, 2.1.312 for all measured runs (the CLI updated between the two
+  dates). The result files do not record the model.
+- Measured at commit `cf495ff`, each case 3 runs per arm (with-without ablation).
+- Host: Ubuntu 26.04.1 LTS, kernel 7.0.0-42-generic.
+- Not run: the 10 tool cases (`build-typescript`, `build-python`, `build-java`, `build-react`,
+  `gate-catches-defect`, `rules-brownfield`, `rules-greenfield`, `rules-architecture-java`,
+  `rules-effect-with`, `rules-effect-without`). On this host AppArmor
+  `apparmor_restrict_unprivileged_userns=1` blocks nested bwrap (`bwrap: No permissions to create a new
+  namespace`), which Claude Code's Bash sandbox needs. The owner chose to measure only the 5 read-only
+  cases here, and the sandbox was not weakened.
+- Total spent: USD 5.18 (smoke 0.12, `should-not-trigger` 0.36, `assess-*` 1.68, `doctor-*` 3.03).
+- Cost (USD) is each case's total `costUsd` over 3 runs x 2 arms (judge cost was 0). The smoke run is not
+  included in the per-case costs. Raw results: `docs/evals/keel-v0.3-f0/`.
+
+| Case | WITH | W-OUT | Δ | Verdict | Cost (USD) |
+| --- | --- | --- | --- | --- | --- |
+| `assess-mature-repo` | 1.00 | 0.33 | +0.67 | pass | 0.82 |
+| `assess-claude-md` | 1.00 | 0.60 | +0.40 | pass | 0.85 |
+| `should-not-trigger` | 1.00 | 1.00 | 0.00 | pass (correct result) | 0.36 |
+| `build-typescript` | not run | | | host-blocked (nested bwrap) | |
+| `build-python` | not run | | | host-blocked (nested bwrap) | |
+| `build-java` | not run | | | host-blocked (nested bwrap) | |
+| `build-react` | not run | | | host-blocked (nested bwrap) | |
+| `gate-catches-defect` | not run | | | host-blocked (nested bwrap) | |
+| `rules-brownfield` | not run | | | host-blocked (nested bwrap) | |
+| `rules-greenfield` | not run | | | host-blocked (nested bwrap) | |
+| `rules-architecture-java` | not run | | | host-blocked (nested bwrap) | |
+| `rules-effect-with` / `-without` | not run | | | host-blocked (nested bwrap) | |
+| `doctor-finds-drift` | 1.00 | 0.33 | +0.67 | pass | 1.52 |
+| `doctor-agents-not-loaded` | 1.00 | 1.00 | 0.00 | Δ 0, see findings | 1.51 |
+
+### Findings (partial baseline at `cf495ff`)
+
+**`should-not-trigger` (Δ 0.00).** This is the negative control: the skill must stay silent on an
+unrelated git question, so Δ 0 is its expected result, and v0.1 recorded it the same way. All 3 runs in
+both arms scored 1.00. Whether the existence floor applies to a control case is left to the owner.
+
+**`doctor-agents-not-loaded` (Δ 0.00).** WITH 1.00 and W-OUT 1.00 in all 3 runs each: the no-plugin arm
+also named the CLAUDE.md that does not import `AGENTS.md` and the `@AGENTS.md` bridge, so this case does
+not separate the two arms in this measurement. It is a candidate for the existence floor (rewrite or
+delete after three consecutive runs with Δ ≤ 0); this is one measurement session, and nothing is deleted
+in F1.
+
+No case scored below 1.0 in the WITH arm. In the W-OUT arm the failing graders were: `rubric-axes` and
+`rubric-states` (`assess-mature-repo`), `context-partial` (`assess-claude-md`), `names-the-drift`
+(`doctor-finds-drift`), each in all 3 runs.
+
+**Confounders.**
+- All five cases allow only `[Read, Glob, Grep, Skill]`. The `doctor` skill's first step runs
+  `harness-check.sh` through Bash, which these cases do not grant. The WITH arm still scored 1.00 on both
+  `doctor-*` cases, but the result files keep no transcripts (the trace files were not retained), so
+  whether the validator ran or the agent read the files by hand is not known from this data.
+- The recorded turns of the `doctor-*` runs (WITH 12 to 21, W-OUT 16 to 23) go above the `max_turns: 20` in
+  their prompts; the result files do not say how turns are counted.
+- The `doctor-*` run exceeded its USD 3 ceiling by USD 0.03 through runs already in flight; no run was
+  skipped and the exit code was 0.
+- Claude Code changed from 2.1.310 to 2.1.312 between the smoke run and the measured runs.
 
 ## v0.1 eval baseline (historical)
 

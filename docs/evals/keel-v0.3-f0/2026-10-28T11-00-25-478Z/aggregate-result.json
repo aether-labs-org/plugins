@@ -1,0 +1,538 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.312",
+  "startedAt": "2026-10-28T11:00:25.478Z",
+  "durationSeconds": 485,
+  "costUsd": 3.0314068,
+  "partial": false,
+  "suite": {
+    "root": "/home/igors/Code/aether-labs/keel-f1-measure/plugins/keel-harness",
+    "ablation": "with-without",
+    "caseFilter": "doctor-*",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "keel-harness",
+        "version": "0.2.0",
+        "path": "/home/igors/Code/aether-labs/keel-f1-measure/plugins/keel-harness"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "doctor-agents-not-loaded",
+      "dir": "evals/doctor-agents-not-loaded",
+      "source": "mixed",
+      "promptMarkdown": "Is the agent harness in this repository still up to date?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 20,
+      "graders": [
+        {
+          "name": "names-claude-md",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "CLAUDE\\.md[\\s\\S]{0,200}(import|skip|not loaded|ignor)",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "names-the-bridge",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "@AGENTS\\.md",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "writes-nothing",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "**/*",
+            "exists": false
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 14,
+            "costUsd": 0.148044,
+            "judgeCostUsd": 0,
+            "durationSeconds": 32,
+            "startedAt": "2026-10-28T11:00:25.539Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-QGnzIU/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-claude-md",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched CLAUDE\\.md[\\s\\S]{0,200}(import|skip|not loaded|ignor)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 17,
+            "costUsd": 0.27240620000000004,
+            "judgeCostUsd": 0,
+            "durationSeconds": 44,
+            "startedAt": "2026-10-28T11:00:57.719Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-p5kUc0/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-claude-md",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched CLAUDE\\.md[\\s\\S]{0,200}(import|skip|not loaded|ignor)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 21,
+            "costUsd": 0.29883319999999997,
+            "judgeCostUsd": 0,
+            "durationSeconds": 49,
+            "startedAt": "2026-10-28T11:01:41.301Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-GZpb5w/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-claude-md",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched CLAUDE\\.md[\\s\\S]{0,200}(import|skip|not loaded|ignor)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 16,
+            "costUsd": 0.2371974,
+            "judgeCostUsd": 0,
+            "durationSeconds": 41,
+            "startedAt": "2026-10-28T11:02:30.552Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-9a7YDp/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-claude-md",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched CLAUDE\\.md[\\s\\S]{0,200}(import|skip|not loaded|ignor)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 23,
+            "costUsd": 0.27607479999999995,
+            "judgeCostUsd": 0,
+            "durationSeconds": 38,
+            "startedAt": "2026-10-28T11:03:11.913Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-fmPOvS/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-claude-md",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched CLAUDE\\.md[\\s\\S]{0,200}(import|skip|not loaded|ignor)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 22,
+            "costUsd": 0.2788928,
+            "judgeCostUsd": 0,
+            "durationSeconds": 47,
+            "startedAt": "2026-10-28T11:03:50.381Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-xmcGxf/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-claude-md",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched CLAUDE\\.md[\\s\\S]{0,200}(import|skip|not loaded|ignor)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 1,
+        "passRateWithout": 1,
+        "delta": 0
+      }
+    },
+    {
+      "name": "doctor-finds-drift",
+      "dir": "evals/doctor-finds-drift",
+      "source": "mixed",
+      "promptMarkdown": "Is the agent harness in this repository still up to date?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 20,
+      "graders": [
+        {
+          "name": "names-the-drift",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "writes-nothing",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "**/*",
+            "exists": false
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 16,
+            "costUsd": 0.2078128,
+            "judgeCostUsd": 0,
+            "durationSeconds": 41,
+            "startedAt": "2026-10-28T11:04:37.658Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-ox3Yku/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 12,
+            "costUsd": 0.22274059999999998,
+            "judgeCostUsd": 0,
+            "durationSeconds": 37,
+            "startedAt": "2026-10-28T11:05:18.229Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-fPhVE7/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 14,
+            "costUsd": 0.2548572,
+            "judgeCostUsd": 0,
+            "durationSeconds": 40,
+            "startedAt": "2026-10-28T11:05:55.650Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-DwgwGp/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.3333333333333333,
+            "passed": false,
+            "turns": 20,
+            "costUsd": 0.2808946,
+            "judgeCostUsd": 0,
+            "durationSeconds": 39,
+            "startedAt": "2026-10-28T11:06:35.224Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-UTmnly/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.3333333333333333,
+            "passed": false,
+            "turns": 16,
+            "costUsd": 0.25689700000000004,
+            "judgeCostUsd": 0,
+            "durationSeconds": 34,
+            "startedAt": "2026-10-28T11:07:13.940Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-ozzTAE/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.3333333333333333,
+            "passed": false,
+            "turns": 22,
+            "costUsd": 0.2967562,
+            "judgeCostUsd": 0,
+            "durationSeconds": 43,
+            "startedAt": "2026-10-28T11:07:47.861Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-neqJcT/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 0.3333333333333333,
+        "passRateWithout": 0,
+        "delta": 0.6666666666666667
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 2,
+    "casesPassed": 2,
+    "overallScore": 1,
+    "overallPassRate": 1,
+    "meanDelta": 0.33333333333333337
+  }
+}

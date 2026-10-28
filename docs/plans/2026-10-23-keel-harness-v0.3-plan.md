@@ -67,6 +67,7 @@ Executable plan: **`docs/plans/2026-10-24-keel-harness-v0.3-f1-plan.md`** (owner
 - [ ] Run `rules-effect-with` / `-without` with `--ablation none` and compare by hand.
 - [ ] Fill the README table. Write up every case with Δ ≤ 0 as a finding; v0.2's existence floor
   (rewrite or delete after three runs with Δ ≤ 0) still applies.
+  Partial baseline (2026-10-28): 5 read-only cases measured at cf495ff on a host with the nested-userns restriction; the 10 tool cases and the rules-effect comparison wait for a host without it.
 
 ## F2 — Refactor (spec §4, §5, D29, D34–D38)
 
