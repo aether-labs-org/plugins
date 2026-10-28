@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.312",
+  "startedAt": "2026-10-28T12:28:32.752Z",
+  "durationSeconds": 562,
+  "costUsd": 0,
+  "partial": false,
+  "suite": {
+    "root": "/home/user/keel-f1b-measure/plugins/keel-harness",
+    "ablation": "with-without",
+    "caseFilter": "gate-catches-defect",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "keel-harness",
+        "version": "0.2.0",
+        "path": "/home/user/keel-f1b-measure/plugins/keel-harness"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "gate-catches-defect",
+      "dir": "evals/gate-catches-defect",
+      "source": "mixed",
+      "promptMarkdown": "Run `make gate-fast` and write its complete output to gate-output.txt. Do not fix anything.",
+      "runsPerCase": 3,
+      "timeoutSeconds": 600,
+      "maxTurns": 15,
+      "graders": [
+        {
+          "name": "gate-failed",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "gate-output.txt"
+            },
+            "pattern": "(✗|FAILED)",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "gate-guidance",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "gate-output.txt"
+            },
+            "pattern": "guidance:",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "ran-gate",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Bash",
+            "input_match": "make\\s+gate-fast"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 0,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 281,
+            "startedAt": "2026-10-28T12:28:32.924Z",
+            "error": "scaffold failed (exit null): ",
+            "tracePath": "",
+            "skippedPaidGraders": false,
+            "graders": []
+          }
+        ],
+        "without": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 0,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 281,
+            "startedAt": "2026-10-28T12:33:13.997Z",
+            "error": "scaffold failed (exit null): ",
+            "tracePath": "",
+            "skippedPaidGraders": false,
+            "graders": []
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0,
+        "passRate": 0,
+        "scoreWithout": 0,
+        "passRateWithout": 0,
+        "delta": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 0,
+    "overallScore": 0,
+    "overallPassRate": 0,
+    "meanDelta": 0
+  }
+}

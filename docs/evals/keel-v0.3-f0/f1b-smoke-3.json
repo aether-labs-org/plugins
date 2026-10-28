@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.312",
+  "startedAt": "2026-10-28T13:03:43.685Z",
+  "durationSeconds": 72,
+  "costUsd": 0.10911509999999999,
+  "partial": false,
+  "suite": {
+    "root": "/home/user/keel-f1b-measure/plugins/keel-harness",
+    "ablation": "with-without",
+    "caseFilter": "gate-catches-defect",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "keel-harness",
+        "version": "0.2.0",
+        "path": "/home/user/keel-f1b-measure/plugins/keel-harness"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "gate-catches-defect",
+      "dir": "evals/gate-catches-defect",
+      "source": "mixed",
+      "promptMarkdown": "Run `make gate-fast` and write its complete output to gate-output.txt. Do not fix anything.",
+      "runsPerCase": 3,
+      "timeoutSeconds": 600,
+      "maxTurns": 15,
+      "graders": [
+        {
+          "name": "gate-failed",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "gate-output.txt"
+            },
+            "pattern": "(✗|FAILED)",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "gate-guidance",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": {
+              "source": "file",
+              "path": "gate-output.txt"
+            },
+            "pattern": "guidance:",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "ran-gate",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Bash",
+            "input_match": "make\\s+gate-fast"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0.2,
+            "passed": false,
+            "turns": 3,
+            "costUsd": 0.057451699999999994,
+            "judgeCostUsd": 0,
+            "durationSeconds": 42,
+            "startedAt": "2026-10-28T13:03:44.098Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-jAGrRd/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "gate-failed",
+                "passed": false,
+                "weight": 2,
+                "explanation": "grader threw: case \"gate-catches-defect\" grader focus file \"gate-output.txt\": path \"gate-output.txt\" does not exist",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "gate-guidance",
+                "passed": false,
+                "weight": 2,
+                "explanation": "grader threw: case \"gate-catches-defect\" grader focus file \"gate-output.txt\": path \"gate-output.txt\" does not exist",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "ran-gate",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 2x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.2,
+            "passed": false,
+            "turns": 3,
+            "costUsd": 0.0516634,
+            "judgeCostUsd": 0,
+            "durationSeconds": 30,
+            "startedAt": "2026-10-28T13:04:26.015Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-qKIPdc/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "gate-failed",
+                "passed": false,
+                "weight": 2,
+                "explanation": "grader threw: case \"gate-catches-defect\" grader focus file \"gate-output.txt\": path \"gate-output.txt\" does not exist",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "gate-guidance",
+                "passed": false,
+                "weight": 2,
+                "explanation": "grader threw: case \"gate-catches-defect\" grader focus file \"gate-output.txt\": path \"gate-output.txt\" does not exist",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "ran-gate",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Bash called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.2,
+        "passRate": 0,
+        "scoreWithout": 0.2,
+        "passRateWithout": 0,
+        "delta": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 0,
+    "overallScore": 0.2,
+    "overallPassRate": 0,
+    "meanDelta": 0
+  }
+}
