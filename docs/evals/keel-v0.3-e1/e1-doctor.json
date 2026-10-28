@@ -1,0 +1,540 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.312",
+  "startedAt": "2026-10-28T17:41:04.203Z",
+  "durationSeconds": 495,
+  "costUsd": 1.1037041,
+  "partial": false,
+  "suite": {
+    "root": "/home/user/plugins/plugins/keel-harness",
+    "ablation": "with-without",
+    "tagFilters": [
+      "doctor"
+    ],
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "keel-harness",
+        "version": "0.2.0",
+        "path": "/home/user/plugins/plugins/keel-harness"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "doctor-finds-drift",
+      "dir": "evals/doctor-finds-drift",
+      "source": "mixed",
+      "promptMarkdown": "Is the agent harness in this repository still up to date?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 30,
+      "graders": [
+        {
+          "name": "names-the-drift",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "writes-nothing",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "**/*",
+            "exists": false
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.0784205,
+            "judgeCostUsd": 0,
+            "durationSeconds": 44,
+            "startedAt": "2026-10-28T17:41:04.339Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-YN0waz/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.0786171,
+            "judgeCostUsd": 0,
+            "durationSeconds": 32,
+            "startedAt": "2026-10-28T17:41:48.117Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-5o3Kc6/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.0771808,
+            "judgeCostUsd": 0,
+            "durationSeconds": 41,
+            "startedAt": "2026-10-28T17:42:19.911Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-ab4QEG/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 6,
+            "costUsd": 0.08569969999999999,
+            "judgeCostUsd": 0,
+            "durationSeconds": 67,
+            "startedAt": "2026-10-28T17:43:00.804Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-8H3jle/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.0915942,
+            "judgeCostUsd": 0,
+            "durationSeconds": 34,
+            "startedAt": "2026-10-28T17:44:07.333Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-MNwkGp/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 6,
+            "costUsd": 0.1039485,
+            "judgeCostUsd": 0,
+            "durationSeconds": 57,
+            "startedAt": "2026-10-28T17:44:41.565Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-YS9102/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-the-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched AGENTS\\.md[\\s\\S]{0,200}(100|too long|over the)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.4444444444444444,
+        "passRate": 0,
+        "scoreWithout": 0.6666666666666666,
+        "passRateWithout": 0,
+        "delta": -0.2222222222222222
+      }
+    },
+    {
+      "name": "doctor-validator-drift",
+      "dir": "evals/doctor-validator-drift",
+      "source": "mixed",
+      "promptMarkdown": "Is the agent harness in this repository still up to date?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 30,
+      "graders": [
+        {
+          "name": "names-guard",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "names-validator-drift",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "writes-nothing",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "**/*",
+            "exists": false
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0.8,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.07462809999999999,
+            "judgeCostUsd": 0,
+            "durationSeconds": 34,
+            "startedAt": "2026-10-28T17:45:38.102Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-VlpZEQ/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.8,
+            "passed": false,
+            "turns": 4,
+            "costUsd": 0.0664937,
+            "judgeCostUsd": 0,
+            "durationSeconds": 30,
+            "startedAt": "2026-10-28T17:46:11.626Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-8DrfOj/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.8,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.0759669,
+            "judgeCostUsd": 0,
+            "durationSeconds": 41,
+            "startedAt": "2026-10-28T17:46:41.331Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-VibSfr/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.4,
+            "passed": false,
+            "turns": 10,
+            "costUsd": 0.1288673,
+            "judgeCostUsd": 0,
+            "durationSeconds": 33,
+            "startedAt": "2026-10-28T17:47:21.936Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-PJDAuN/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.8,
+            "passed": false,
+            "turns": 10,
+            "costUsd": 0.1201486,
+            "judgeCostUsd": 0,
+            "durationSeconds": 42,
+            "startedAt": "2026-10-28T17:47:54.897Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-nlnVJm/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.8,
+            "passed": false,
+            "turns": 10,
+            "costUsd": 0.1221387,
+            "judgeCostUsd": 0,
+            "durationSeconds": 42,
+            "startedAt": "2026-10-28T17:48:37.233Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-9iLJ3o/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "writes-nothing",
+                "passed": false,
+                "weight": 1,
+                "explanation": "**/* exists (expected absent)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.8000000000000002,
+        "passRate": 0,
+        "scoreWithout": 0.6666666666666666,
+        "passRateWithout": 0,
+        "delta": 0.13333333333333353
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 2,
+    "casesPassed": 0,
+    "overallScore": 0.6222222222222222,
+    "overallPassRate": 0,
+    "meanDelta": -0.04444444444444434
+  }
+}

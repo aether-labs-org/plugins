@@ -87,7 +87,7 @@ Run `claude plugin eval . --scaffold` from `plugins/keel-harness/`. Host prerequ
 | `build-python` | python3 with `venv`, network |
 | `build-java`, `rules-architecture-java` | JDK 17+, network (Gradle wrapper) |
 | `rules-greenfield` | none beyond the tool allow-list |
-| `doctor-finds-drift`, `doctor-agents-not-loaded` | node/npm, network, `gitleaks` (exactly one warning) |
+| `doctor-finds-drift`, `doctor-validator-drift` | node/npm, network, `gitleaks`; `--allow-tools Bash` (the doctor skill runs the validator) |
 
 v0.2 numbers, **partial baseline**: 5 of the 15 cases measured (the read-only ones). `rules-effect-with`
 and `rules-effect-without` are meant to run with `--ablation none` and be compared by hand, since that
@@ -129,7 +129,8 @@ have not run.
 | `rules-architecture-java` | not run | | | host-blocked (nested bwrap) | |
 | `rules-effect-with` / `-without` | not run | | | host-blocked (nested bwrap) | |
 | `doctor-finds-drift` | 1.00 | 0.33 | +0.67 | pass | 1.52 |
-| `doctor-agents-not-loaded` | 1.00 | 1.00 | 0.00 | Δ 0, see findings | 1.51 |
+| `doctor-agents-not-loaded` | 1.00 | 1.00 | 0.00 | retired in E1, see findings | 1.51 |
+| `doctor-validator-drift` (E1) | 0.80 | 0.67 | +0.13 | weak; `writes-nothing` confounded, see E1 results | 0.59 |
 
 ### Findings (partial baseline at `cf495ff`)
 
@@ -142,6 +143,45 @@ also named the CLAUDE.md that does not import `AGENTS.md` and the `@AGENTS.md` b
 not separate the two arms in this measurement. It is a candidate for the existence floor (rewrite or
 delete after three consecutive runs with Δ ≤ 0); this is one measurement session, and nothing is deleted
 in F1.
+
+**E1 (2026-10-28): `doctor-agents-not-loaded` retired, `doctor-validator-drift` added.** A model without
+the plugin already knows the `@AGENTS.md` bridge, and `harness-check.sh`'s `agents-not-loaded` check is
+covered by `tests/keel_harness_check_test.sh`. The new case tests what only the plugin's `doctor` adds:
+the repository carries an older `harness-check.sh` that has no `guard-missing` check and reports no
+guard problem, the guard sensor is missing, and only the plugin's current validator names it. Both
+`doctor-*` cases now grant `Bash`, which the skill needs to run the validator: F1's `doctor-*` runs
+could not run it. The scaffold's AGENTS.md also points at `dist/`, which the scaffold never builds, so
+`dangling-pointer` is an extra warning in both cases; the graders do not count warnings.
+
+**E1 results (2026-10-28, commit `c8b71ca`).** Both `doctor-*` cases, 3 runs per arm (with-without),
+`--allow-tools Bash`, in a Claude Code cloud container (Ubuntu 24.04, Claude Code 2.1.312, `gitleaks`
+8.24.2, nested bwrap working). Spent USD 1.17 of the approved USD 8 (measured run 1.10, plus a 0.06
+diagnostic run; a first attempt died in every scaffold before any agent turn and cost 0). Raw results:
+`docs/evals/keel-v0.3-e1/`.
+
+| Case | WITH | W-OUT | Δ | WITH / W-OUT without `writes-nothing` | Cost (USD) |
+| --- | --- | --- | --- | --- | --- |
+| `doctor-finds-drift` | 0.44 | 0.67 | -0.22 | 0.67 / 1.00 | 0.52 |
+| `doctor-validator-drift` | 0.80 | 0.67 | +0.13 | 1.00 / 0.83 | 0.59 |
+
+- **Not comparable with F1.** F1's `doctor-finds-drift` row (1.00 / 0.33) ran without Bash; these runs
+  grant it, so the WITH arm can run the validator and the W-OUT arm can run any command.
+- **`writes-nothing` failed in all 12 runs, in both arms.** Whenever Claude Code's Bash tool runs, it
+  creates an empty directory `.claude/.cc-writes/` in the working directory (reproduced with a one-`ls`
+  case and `--keep-temp`), and the grader's `**/*` matches it. It measures the Bash tool, not the agent,
+  and costs every run 1/3 (`doctor-finds-drift`) or 1/5 (`doctor-validator-drift`) of its score. The
+  grader was not changed in E1; the column above shows the scores without it. Running
+  `harness-check.sh` itself writes nothing.
+- **`doctor-validator-drift` separates the arms only weakly.** WITH named the missing guard and the
+  validator drift in 3 of 3 runs; W-OUT named the guard in 3 of 3 and the drift in 2 of 3. The Δ comes
+  from that one W-OUT run. WITH needed 4 to 5 turns, W-OUT 10.
+- **`doctor-finds-drift` has Δ ≤ 0.** W-OUT named the AGENTS.md size drift in 3 of 3 runs, WITH in 2 of
+  3. The trace files were not retained, so why the one WITH run missed it is not known. With Bash, the
+  no-plugin arm can find the drift itself.
+- **Host fix.** The eval strips the proxy and CA variables from the scaffold's environment, so `npm
+  install` failed with `SELF_SIGNED_CERT_IN_CHAIN` in this container. Setting `cafile` in npm's global
+  config (`/opt/node22/etc/npmrc`, pointing at the container's proxy CA bundle) fixed it; the sandbox
+  was not changed.
 
 No case scored below 1.0 in the WITH arm. In the W-OUT arm the failing graders were: `rubric-axes` and
 `rubric-states` (`assess-mature-repo`), `context-partial` (`assess-claude-md`), `names-the-drift`
