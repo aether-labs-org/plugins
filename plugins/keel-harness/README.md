@@ -105,6 +105,11 @@ have not run.
   `apparmor_restrict_unprivileged_userns=1` blocks nested bwrap (`bwrap: No permissions to create a new
   namespace`), which Claude Code's Bash sandbox needs. The owner chose to measure only the 5 read-only
   cases here, and the sandbox was not weakened.
+- F1b attempt (2026-10-28, stopped by the owner): a Claude Code cloud container (Ubuntu 24.04.5 LTS,
+  Claude Code 2.1.312, running as root) passed the nested-bwrap check, but no tool case qualified. Under
+  `claude plugin eval` the Bash sandbox mounted the working directory, `.git`, `.claude` and `$TMPDIR`
+  read-only, so `gate-catches-defect` could not write `gate-output.txt` (WITH 0.20, W-OUT 0.20, one run
+  per arm). Spent USD 0.22. See findings.
 - Total spent: USD 5.18 (smoke 0.12, `should-not-trigger` 0.36, `assess-*` 1.68, `doctor-*` 3.03).
 - Cost (USD) is each case's total `costUsd` over 3 runs x 2 arms (judge cost was 0). The smoke run is not
   included in the per-case costs. Raw results: `docs/evals/keel-v0.3-f0/`.
@@ -152,6 +157,26 @@ No case scored below 1.0 in the WITH arm. In the W-OUT arm the failing graders w
 - The `doctor-*` run exceeded its USD 3 ceiling by USD 0.03 through runs already in flight; no run was
   skipped and the exit code was 0.
 - Claude Code changed from 2.1.310 to 2.1.312 between the smoke run and the measured runs.
+
+**F1b attempt: the 10 tool cases are still not measured.** F1b
+(`docs/plans/2026-10-28-keel-harness-v0.3-f1b-plan.md`) tried a cloud container and stopped at its smoke
+run (`gate-catches-defect`, one run per arm). Raw results: `docs/evals/keel-v0.3-f0/f1b-smoke*.json`.
+- Host checks passed: `bwrap` inside `bwrap` (including a writable bind), `gitleaks` 8.24.2
+  (checksum-verified), OpenJDK 21, node 22 / npm 10, python3 `venv`, `validate --strict`.
+- Scaffold: `claude plugin eval` runs scaffolds with a minimal environment that drops
+  `NODE_EXTRA_CA_CERTS`. The container's egress proxy re-signs TLS, so `npm install` retried until the
+  scaffold was killed (`scaffold failed (exit null)` after about 281 s, USD 0). pip, Java and curl were
+  not affected. Fixed on the host with `cafile=/root/.ccr/ca-bundle.crt` in npm's global `npmrc`
+  (`/opt/node22/etc/npmrc`); no plugin, eval or sandbox setting changed.
+- Bash sandbox: with the scaffold fixed, both arms scored 0.20. The agent ran `make gate-fast` (`ran-gate`
+  passed), but every write from Bash failed with `Read-only file system`: the trace shows the working
+  directory, `.git`, `.claude` and `$TMPDIR` mounted `ro`, and `scripts/gate.sh` itself could not write
+  `.agents/last-run.log`. No `apply-seccomp` or `setgroups` error appeared. Outside the eval, a nested
+  `bwrap` with a writable bind works on the same host, so the read-only mounts come from how the eval
+  sets up the sandbox there. The likely cause is that the eval ran as root; the eval warns "the harness is
+  running as root, which a directory mode does not bind". This is not confirmed.
+- The owner stopped F1b here instead of running the eval as a non-root user, which would need that user
+  to get the Claude Code login.
 
 ## v0.1 eval baseline (historical)
 

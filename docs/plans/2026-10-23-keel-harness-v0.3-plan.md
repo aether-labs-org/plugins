@@ -67,7 +67,10 @@ the 10 tool cases need. **F1b** (`docs/plans/2026-10-28-keel-harness-v0.3-f1b-pl
 (`docs/plans/2026-10-28-keel-harness-v0.3-e1-plan.md`) fixes the two `doctor` cases F1 showed were not
 measuring the skill and measures them again.
 
-- [ ] F1b done.
+- [ ] F1b done. Attempted 2026-10-28 and stopped by the owner at the smoke run: under
+  `claude plugin eval` in the cloud container (running as root), the Bash sandbox mounted the working
+  directory read-only, so no tool case could qualify (README, "F1b attempt"). The 10 tool cases still
+  need a host.
 - [ ] E1 done.
 
 - [ ] Pick a host without the nested user-namespace restriction documented in the README.
