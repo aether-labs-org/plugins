@@ -15,31 +15,33 @@ spec section it implements.
 
 Last reviewed **2026-10-28**, on `claude/harness-engineering-autonomous-agents-d8xhvx`, after F2b and E1
 were merged. Suite at that point: `./tests/run.sh` gives **1031** `ok`, and `make validate` passes for
-the three plugins.
+the three plugins. The same day, a round of questions with the owner reversed D49 (D50: the tool cases
+run on the owner's machine), folded `doctor` into `assess` (D51), and tied profile L to evidence (D52).
 
 | Phase | Status | Executable plan | Evidence | Next action |
 | --- | --- | --- | --- | --- |
 | F0 Fixes | ✅ done 2026-10-24 | `2026-10-24-…-f0-plan.md` | `cf495ff`; 991 `ok`; CI green; the D-1 reproduction fails on `guard` | — |
-| F1 Measure | ◐ closed partial 2026-10-28 | `2026-10-24-…-f1-plan.md`, `2026-10-28-…-f1b-plan.md` | 5 read-only cases at `cf495ff` (USD 5.18); F1b stopped at its smoke run (USD 0.22); the 10 tool cases are **not measured** (D49) | — |
+| F1 Measure | ◐ closed partial 2026-10-28 | `2026-10-24-…-f1-plan.md`, `2026-10-28-…-f1b-plan.md` | 5 read-only cases at `cf495ff` (USD 5.18); F1b stopped at its smoke run (USD 0.22); the 10 tool cases move to E3 (D50) | — |
 | E1 Doctor evals | ✅ done 2026-10-28 | `2026-10-28-…-e1-plan.md` | `c8b71ca`, `823458f`; `doctor-validator-drift` Δ +0.13; `writes-nothing` confounded | E2 |
-| E2 Eval graders | ☐ next | to write | — | fix `writes-nothing`; declare tool needs |
+| E2 Eval graders | ☐ **next** (parallel with F3a) | `2026-10-28-…-e2-plan.md` | prototyped: 1080 `ok` | execute; Task 4 is paid (≤ USD 6) |
+| E3 Tool cases | ☐ after E2 | `2026-10-28-…-e3-plan.md` | — | owner's machine; AppArmor profile for `bwrap`, removed after (D50) |
 | F2a Layout | ✅ done 2026-10-24 | `2026-10-24-…-f2a-plan.md` | `13af4a2`; 1020 `ok`; 56 files, as planned | — |
 | F2b State + ADR folder | ✅ done 2026-10-28 | `2026-10-28-…-f2b-plan.md` | `6d16fe3`; 1028 `ok` (1031 with E1) | — |
-| F2c Skills and flow | ☐ next, after E2 | to write | — | decide first whether `doctor` stays a skill (§F2c) |
+| F2c Skills and flow | ☐ after E2 | to write | — | `doctor` folds into `assess` (D51) |
 | F2d Assess and context | ☐ | — | — | after F2c |
-| F3a CI + pre-commit | ☐ can start now | to write | — | independent of F2c |
+| F3a CI + pre-commit | ☐ **next** (parallel with E2) | `2026-10-28-…-f3a-plan.md` | prototyped: 1063 `ok`; 1112 with E2 | execute |
 | F3b Versioned plans | ☐ | — | — | after F2c (`scripts/keel verify`) |
 | F3c Authority | ☐ | — | — | after F3a |
 | F3d Exemplars + catalog | ☐ | — | — | after F2c |
 | F4 Codex | backlog (D5) | — | — | — |
-| F5 Profile L | ☐ | — | — | after F3 |
+| F5 Profile L | ☐ | — | — | after F3; ships only with Δ > 0 per component, else v0.4 (D52) |
 | F6 Feedback → infrastructure | ☐ | — | — | after F2c |
 | R Release v0.3.0 | ☐ | to write | — | last |
 | CLI (`feat/keel-cli`) | ❄ frozen, outside v0.3 | `docs/keel-cli-plan` branch | 7 commits on an old base, not reviewed | revisit after R, or when a D48 trigger occurs |
 
 Legend: ✅ done · ◐ done with a documented gap · ☐ not started · ❄ frozen.
 
-**Order from here:** E2 → F2c → F2d; F3a any time; F3b, F3d and F6 after F2c; F3c after F3a; F5 after F3; R last.
+**Order from here:** E2 and F3a in parallel → E3 (owner's machine) and F2c → F2d; F3b, F3d and F6 after F2c; F3c after F3a; F5 after F3; R last. E3 can run beside F2c, but F2c's acceptance for `build` and `rules` waits for E3's numbers.
 
 ## Global constraints
 
@@ -57,29 +59,31 @@ Legend: ✅ done · ◐ done with a documented gap · ☐ not started · ❄ fro
 - **Execution:** each phase gets its own executable plan, written once the previous phase is done and
   validated. Content is prototyped and run before it goes into a plan.
 - `make check` and `make validate` stay green after every task.
-- **Evals (D49):** only the read-only cases are run (`assess-*`, `doctor-*`, `should-not-trigger`).
-  Where an acceptance criterion below needed a tool case, it is met by deterministic tests instead,
-  and says so.
+- **Evals (D50):** cases run by grant group (`--tag readonly | bash | tools | effect`, README). The
+  read-only groups run in a cloud session; `tools` and `effect` run on the owner's machine (E3).
+  Until E3 reports, an acceptance criterion that needs a tool case is met by deterministic tests and
+  the item is marked *unproven*; E3's numbers then become the ruler.
 
 ## Summary
 
 | Phase | Deliverables | Impact | Effort | Depends on | Risk | Acceptance |
 | --- | --- | --- | --- | --- | --- | --- |
 | **F0** ✅ | D-1 `guard`; D-2 parser; D-3; D-4; D-5 | High | S | — | Low | D-1 reproduction fails without an ADR naming the file; no `eval` of config; 991 `ok` |
-| **F1** ◐ | Baseline of the eval suite at `cf495ff` | High | M ($) | F0 | Medium (host) | Read-only cases recorded with Δ and cost; tool cases not measured (D49) |
+| **F1** ◐ | Baseline of the eval suite at `cf495ff` | High | M ($) | F0 | Medium (host) | Read-only cases recorded with Δ and cost; tool cases moved to E3 (D50) |
 | **E1** ✅ | `doctor-*` grant Bash; `doctor-validator-drift` | Medium | S | F1 | Low | Both cases measured; 1023 `ok` |
-| **E2** | `writes-nothing` → `tool_used` graders; tool needs declared in every case | Medium | S | E1 | Low | No grader counts harness artifacts; `doctor-*` re-measured (≤ USD 8) |
+| **E2** | `tool_used` write graders; tool lists; grant-group tags; `should-not-trigger` covers `rules` | Medium | S | E1 | Low | No `file_exists **/*` grader; every case in one group; read-only and `bash` groups re-measured (≤ USD 6) |
+| **E3** | The 10 tool cases measured on the owner's machine | High | M ($) | E2 | Medium (host) | Nested-sandbox check passes; every tool case recorded with Δ and cost; `rules-effect` compared; AppArmor profile removed |
 | **F2a** ✅ | v0.3 layout, `${CLAUDE_PLUGIN_ROOT}` paths | High | M | F0 | Medium | 1020 `ok`; layout test |
 | **F2b** ✅ | `.agents/run/`, `adr_dir`, schema 3, v0.2 upgrade | High | M | F2a | Medium | 1028 `ok`; end-to-end run-state check |
-| **F2c** | `scripts/keel` phases; skill template; `contracts/`; `disallowed-tools`; size test; traceability; pressure tests | High | L | E2 | Medium | Ported tests green; read-only evals not worse than E1/E2; traceability 100 % |
+| **F2c** | `doctor` folded into `assess` (D51); `scripts/keel` phases; skill template; `contracts/`; `disallowed-tools`; size test; traceability; pressure tests | High | L | E2 (E3 for `build`/`rules` acceptance) | Medium | Ported tests green; merged `assess` not worse than E2 on `doctor-*` and F1 on `assess-*`; `build`/`rules` not worse than E3; traceability 100 % |
 | **F2d** | `assess` dimensions; LSP; codemap check; triggering evals | Medium | M | F2c | Low | Tests for each new signal; triggering evals pass |
 | **F3a** | CI workflow + pre-commit assets | High | S | F2b | Low | A planted defect is red in pre-commit and in CI |
 | **F3b** | Versioned plans, lifecycle, progress file, spec traceability | Medium | S | F2c | Low | `keel verify` rejects a plan without Acceptance; a `done` plan is removed |
-| **F3c** | Consequence map, deny rules, `claude-protect.sh`, CODEOWNERS, `mandatory` | High | M | F3a | Medium | Hook tests: editing a baseline is denied; `mandatory` cannot be loosened (D49: tests, not evals) |
-| **F3d** | Exemplars; D44 catalog; pattern sensor | Medium | L | F2c | Medium | Each entry has sensor tests; **no ablation evidence** (D49), so each entry is marked *unproven* in the catalog |
+| **F3c** | Consequence map, deny rules, `claude-protect.sh`, CODEOWNERS, `mandatory` | High | M | F3a | Medium | Hook tests: editing a baseline is denied; `mandatory` cannot be loosened |
+| **F3d** | Exemplars; D44 catalog; pattern sensor | Medium | L | F2c | Medium | Each entry has sensor tests and a with/without run as in E3 (D44); an entry without one is marked *unproven* in the catalog |
 | **F4** | Codex adapter | Medium | M | F2 | Medium | backlog |
-| **F5** | C3 reviewer; C8 journey sensor; C10 documented | Medium | L | F3 | High | Sensor tests; read-only ablation where possible; otherwise *unproven* |
-| **F6** | History, lessons inbox, auto-memory coherence, adherence diagnosis | Medium | M | F2c | Low | Fixture tests for each `doctor` report |
+| **F5** | C3 reviewer; C8 journey sensor; C10 documented | Medium | L | F3 | High | Sensor tests; Δ > 0 per component, or it moves to v0.4 (D52) |
+| **F6** | History, lessons inbox, auto-memory coherence, adherence diagnosis | Medium | M | F2c | Low | Fixture tests for each `assess` report |
 | **R** | v0.3.0 release | High | S | all above | Low | Version 0.3.0; spec status; README; tests updated; `make validate` |
 
 ---
@@ -103,9 +107,8 @@ Plans: `docs/plans/2026-10-24-keel-harness-v0.3-f1-plan.md` (owner's machine) an
 - [x] The 5 read-only cases were measured at `cf495ff`, with Δ and cost (README, "partial baseline").
 - [x] F1b attempted the 10 tool cases in a cloud container. Running there as root, the Bash sandbox
   mounted the workspace read-only (README, "F1b attempt").
-- [x] **Closed by owner decision (D49, 2026-10-28):** the 10 tool cases are not measured. The
-  `rules-effect` comparison, the only test of whether approved rules help an agent, therefore has no
-  data.
+- [x] **Closed by owner decision (D49, 2026-10-28):** the 10 tool cases were left unmeasured.
+- [x] **Reversed the same day (D50):** they move to E3, on the owner's machine.
 
 ## E1 — Doctor evals ✅
 
@@ -116,13 +119,27 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-e1-plan.md`.
 
 ## E2 — Eval graders (next)
 
-- [ ] Replace each `writes-nothing` grader (`file_exists **/*`) with `tool_used` graders: `Write`, `Edit`
-  and `NotebookEdit` with `min: 0` and `max: 0`, plus `Bash` whose input matches a write
-  (`>`, `tee`, `rm`, `mv`, `sed -i`, `git add|commit`) with `max: 0`. Claude Code's Bash tool creates
-  `.claude/.cc-writes/`, which `file_exists` counts (E1).
-- [ ] Every case declares in `allowed_tools` the tools its prompt needs. For example,
-  `gate-catches-defect` asks for `make` and a file but lists `[Read, Glob, Grep]`.
-- [ ] Re-measure both `doctor-*` cases, with an approved ceiling (≤ USD 8).
+Plan: `docs/plans/2026-10-28-keel-harness-v0.3-e2-plan.md`.
+
+- [ ] Each "writes nothing" grader (`file_exists **/*`) becomes four `tool_used` graders, weight 0.25
+  each: `Write`, `Edit` and `NotebookEdit` with `max: 0`, plus `Bash` whose input matches a write
+  command. Claude Code's Bash tool creates `.claude/.cc-writes/`, which `file_exists` counts (E1).
+- [ ] Every case lists in `allowed_tools` the tools its prompt needs. `allowed_tools` grants only
+  read-only tools; gated ones come from `--allow-tools`, and a missing grant shows as `not granted`.
+- [ ] Every case gets one grant-group tag: `readonly`, `bash`, `tools` or `effect`.
+- [ ] `should-not-trigger` also checks the `rules` skill.
+- [ ] Re-measure the `readonly` and `bash` groups, with an approved ceiling (≤ USD 6).
+
+## E3 — Tool cases on the owner's machine (D50)
+
+Plan: `docs/plans/2026-10-28-keel-harness-v0.3-e3-plan.md`.
+
+- [ ] A temporary AppArmor profile lets only `/usr/bin/bwrap` create user namespaces. It is checked
+  before any paid run and removed after.
+- [ ] The `tools` group (8 cases) runs with/without; the `effect` pair runs with `--ablation none`,
+  and the two are compared.
+- [ ] Results go to the README and `docs/evals/keel-v0.3-e3/`. They become the ruler for `build`
+  and `rules` in F2c, and the starting point for F3d's catalog ablations.
 
 ## F2 — Refactor (spec §4, §5, D29, D34–D38)
 
@@ -143,12 +160,12 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
 
 ### F2c — skills and flow
 
-- [ ] **Decision first: does `doctor` stay a skill?**
-  - E1 measured little added value: `doctor-finds-drift` Δ −0.22 once Bash was granted, and
-    `doctor-validator-drift` Δ +0.13.
-  - Options: keep it; fold it into `assess`; or reduce it to "run the plugin's validator, compare it
-    with the installed copy, and explain".
-  - The owner decides, with E2's numbers.
+- [ ] **Fold `doctor` into `assess` (D51, decided 2026-10-28).**
+  - With an installed harness, `assess` runs the plugin's own `harness-check.sh`, compares it with
+    the repository's copy and explains each warning.
+  - The validator and its tests stay unchanged.
+  - The `doctor-*` eval cases move to `assess`.
+  - The README names the removed `/keel-harness:doctor` as a breaking change.
 - [ ] `scripts/keel` with `plan | approve | apply | verify | measure | check`; approvals in
   `.agents/run/flow/`; `apply` refuses without an approval matching the proposal hash.
 - [ ] `contracts/` (`sensor.md`, `rule-env.md`, `state.md`, `flow.md`, `plan.md`), moved from the skills'
@@ -156,20 +173,21 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
 - [ ] `contracts/rule-env.md` gains `ENFORCEMENT_LEVEL=mandatory|ratchet` (default `ratchet`).
   `harness-check` warns on a `mandatory` rule without a computational sensor. `AGENTS.md` lists the
   `mandatory` rules first. `rules` reads `.specify/memory/constitution.md` when it is present.
-- [ ] Rewrite each SKILL.md on the template in spec §5.5, one skill at a time: **doctor (or its
-  replacement), then assess, then build, then rules**. Each prose self-verify list moves into
+- [ ] Rewrite each SKILL.md on the template in spec §5.5, one skill at a time: **assess (with
+  doctor folded in), then build, then rules**. Each prose self-verify list moves into
   `keel verify <skill>`.
-- [ ] `disallowed-tools: Write Edit NotebookEdit` on `assess` and `doctor`.
+- [ ] `disallowed-tools: Write Edit NotebookEdit` on `assess`.
 - [ ] `tests/keel_skill_size_test.sh`: every SKILL.md under 20,000 bytes.
 - [ ] Traceability matrix (`contracts/flow.md`): every `never`/`always` in a skill maps to a test, a
   `keel verify` item or an eval grader, classified by form (recipe / slot / discipline).
 - [ ] Pressure tests for the discipline rules.
-  - `assess` and `doctor` are read-only, so with/without evals can test them.
+  - `assess` is read-only, so with/without evals in a cloud session can test it.
   - For `build` and `rules`, "write nothing before the user accepts" is enforced by `keel apply` and
-    covered by its tests (D49).
+    covered by its tests; the `tools` group (E3) measures the effect.
 - [ ] Acceptance:
   - ported tests green;
-  - read-only evals not worse than E2;
+  - merged `assess` not worse than E2 on `doctor-*` and F1 on `assess-*`;
+  - `build-*` and `rules-*` not worse than E3 (re-run on the owner's machine);
   - `validate --strict` ok;
   - a v0.2 repository upgrades through `build` with a green gate.
 
@@ -183,11 +201,21 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
 
 ## F3a — CI and pre-commit (D7 revised)
 
-- [ ] `assets/core/ci/keel.yml`: on pull request, `make gate-fast`, `make harness-check`, and `guard`
-  over the PR diff (`KEEL_GUARD_BASE` set to the target branch); `gate-slow` behind an opt-in input.
-- [ ] `assets/core/precommit/`: lefthook, pre-commit and husky variants; `build` proposes the one the
-  repository already uses, or none.
-- [ ] `harness-check.sh` warns when local and CI commands diverge.
+Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f3a-plan.md`.
+
+- [ ] `assets/core/ci/keel.yml`, run on every pull request:
+  - `make gate-fast`, with `guard` compared against the target branch (`KEEL_GUARD_BASE`,
+    `fetch-depth: 0`);
+  - `make harness-check`, advisory only;
+  - actions pinned to a commit SHA;
+  - no slow gate: its sensors are diff-scoped, and a clean checkout has no diff.
+- [ ] `assets/core/precommit/`: lefthook, pre-commit and husky snippets. `build` proposes the one the
+  repository already uses, or declines the layer (`references/enforcement.md`).
+- [ ] New optional `layers` keys `ci` and `precommit`. `harness-check` warns `enforcement-drift` when
+  an installed layer no longer runs the gate.
+- [ ] Acceptance: a planted defect is red in a real git pre-commit hook and in the workflow's gate step
+  run on a pull request clone; so is a baseline loosened without an ADR. A run on GitHub is the
+  owner's call (plan Task 4).
 
 ## F3b — Versioned plans and progress (D6 revised, D40)
 
@@ -216,7 +244,7 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
   - an amendment is a superseding ADR approved through CODEOWNERS.
 - [ ] Sandbox / devcontainer as an option for profile L, with the trade-off stated.
 - [ ] Hook and `guard` tests show that editing a baseline is denied and that a `mandatory` rule
-  cannot be loosened. Tests, not evals (D49).
+  cannot be loosened.
 
 ## F3d — Exemplars and catalog
 
@@ -228,7 +256,8 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
   Each comes with sensor tests.
 - [ ] A generic `pattern` sensor (ast-grep / semgrep / grep) for a team's own approved rules.
 - [ ] `rules` proposes an entry only when `measure.sh` shows a problem or the user asks for it.
-- [ ] Each entry is marked **unproven** in `catalog.md` until a with/without measurement exists (D49).
+- [ ] Each entry gets a with/without run as in E3 (D44); until it has one, it is marked **unproven** in
+  `catalog.md`.
 
 ## F4 — Codex adapter (backlog, D5)
 
@@ -241,12 +270,13 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
   calibration fixture; never in the fast gate.
 - [ ] C8: a journey sensor (Playwright) for web stacks, plus structured-log guidance.
 - [ ] C10: documentation only. The D47 recipe goes in `.agents/README.md` and the plugin README.
-- [ ] Each component has tests; where no read-only ablation applies, it is marked **unproven** (D49).
+- [ ] Each component has tests and a with/without measurement with Δ > 0. Without one, it moves to
+  v0.4, and the release marks profile L as partial (D52).
 
 ## F6 — Feedback into infrastructure
 
 - [ ] Each gate run's per-sensor status goes to `.agents/run/history/`, keeping the last 50 runs
-  (adjustable). The validator (or `doctor`) reports sensors that are always green or always red.
+  (adjustable). The validator (through `assess`, D51) reports sensors that are always green or always red.
 - [ ] Lessons inbox `.agents/run/learnings/`, with promotion proposals written only with approval.
 - [ ] Auto-memory coherence report; never edits memory.
 - [ ] Transcript adherence diagnosis (did the flow's phases happen, in order).
@@ -257,8 +287,11 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
 
 - [ ] `plugin.json` version `0.3.0`. `tests/structure_test.sh` checks `0.3.0` and the v0.3 spec status
   `implemented in v0.3.0`. The v0.2 spec keeps its own status.
-- [ ] README: the skills section, the v0.3 eval table (read-only cases), and the D49 note on the
-  unmeasured tool cases.
+- [ ] README:
+  - the skills section without `doctor`;
+  - a breaking-change note: `/keel-harness:doctor` is now part of `assess` (D51);
+  - the v0.3 eval table with every group (E2 and E3 rulers, the F2c re-run);
+  - profile L marked partial if any F5 component moved to v0.4 (D52).
 - [ ] Marketplace description, if it changed.
 - [ ] `make check` and `make validate` green; a pull request to `main` opened only with the owner's
   approval.
