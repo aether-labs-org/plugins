@@ -71,7 +71,8 @@ measuring the skill and measures them again.
   `claude plugin eval` in the cloud container (running as root), the Bash sandbox mounted the working
   directory read-only, so no tool case could qualify (README, "F1b attempt"). The 10 tool cases still
   need a host.
-- [ ] E1 done.
+- [x] E1 done (2026-10-28): both `doctor-*` cases grant Bash; `doctor-validator-drift` replaced
+  `doctor-agents-not-loaded`. Results and the `writes-nothing` confounder: README, "E1 results".
 
 - [ ] Pick a host without the nested user-namespace restriction documented in the README.
 - [ ] Run every case in `evals/` with and without the plugin, three runs per arm; record WITH,
