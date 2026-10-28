@@ -14,7 +14,7 @@ Sections, in this order. Each is omitted when empty:
 2. `## Commands`: purpose, command, pass signal;
 3. `## Before you finish`: the exact copy below, unchanged;
 4. `## Rules`: one line per rule, each pointing at `docs/<topic>.md#<id>` (filled by the `rules` skill);
-5. `## Decisions`: a pointer to `docs/decisions/` when ADRs exist;
+5. `## Decisions`: a pointer to the ADR folder (`adr_dir` in `.agents/state.yml`) when ADRs exist;
 6. `## Reading tool output`: at most 4 bullets.
 
 ---
@@ -42,7 +42,7 @@ Before opening a pull request, also run `make gate-slow`.
 - {{rule statement, one verifiable sentence}} → docs/{{topic}}.md#{{id}}
 
 ## Decisions
-Why things are the way they are → docs/decisions/
+Why things are the way they are → {{adr_dir}}/
 
 ## Reading tool output
 - The first error in a chain is the root cause; the rest cascade. Fix top-down.

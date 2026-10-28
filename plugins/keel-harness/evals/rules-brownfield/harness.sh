@@ -56,7 +56,7 @@ Run `make gate-fast` and read it before you say you are done:
 Before opening a pull request, also run `make gate-slow`.
 MD
   printf '@AGENTS.md\n' > CLAUDE.md
-  printf '.agents/last-run.log\n.agents/last-run-slow.log\n.agents/last-green\n.agents/last-seen\n.agents/last-fail\n.agents/.gate-lock/\n' >> .gitignore
+  printf '.agents/run/\n' >> .gitignore
 }
 
 # install_rule_sensors <id>...  copies rule sensors from the rules skill (slow ones into slow/)

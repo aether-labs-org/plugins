@@ -66,7 +66,7 @@ grep -l '@AGENTS.md' CLAUDE.md .claude/CLAUDE.md 2>/dev/null
 
 # Architecture tool configs, mutation tooling, rules and decisions
 ls .dependency-cruiser.cjs .dependency-cruiser.js .importlinter stryker.conf.* mutmut_config.py \
-   docs/architecture.md docs/conventions.md docs/testing.md docs/decisions .husky lefthook.yml 2>/dev/null
+   docs/architecture.md docs/conventions.md docs/testing.md docs/adr doc/adr docs/decisions .husky lefthook.yml 2>/dev/null
 grep -lE 'archunit|pitest|info.solidsoft.pitest' pom.xml build.gradle build.gradle.kts 2>/dev/null
 ```
 

@@ -11,12 +11,13 @@ one `warn` line per broken condition, or `harness is clean`.
 | `AGENTS.md`, `<dir>/AGENTS.md` | Instructions every agent reads: commands, "Before you finish", one line per rule. At most 100 lines each | Yes |
 | `CLAUDE.md` | Contains `@AGENTS.md` so Claude Code loads the same instructions | Keep the import |
 | `docs/architecture.md`, `docs/conventions.md`, `docs/testing.md` | Rule prose, one anchored section per rule (`<a id="rule-id"></a>`). At most 300 lines each | Yes |
-| `docs/decisions/NNNN-*.md` | ADRs: why a rule is the way it is. Never edit an accepted one; supersede it | Add new ones |
+| `<adr_dir>/NNNN-*.md` (`adr_dir` in `.agents/state.yml`, default `docs/adr/`) | ADRs: why a rule is the way it is. Never edit an accepted one; supersede it | Add new ones |
 | `.agents/rules/<rule-id>.env` | A rule's metadata and parameters (`LIMIT`, `INCLUDE`, ...), read by its sensor | Yes |
 | `.agents/baselines/<id>.tsv` | Violations that existed when a rule was adopted, per file | Only shrink |
 | `.agents/baselines/archunit/`, `depcruise-known-violations.json` | Native architecture baselines (ArchUnit freeze store, dependency-cruiser known violations); import-linter's is `IGNORE_IMPORTS` in `architecture.env` | Only shrink |
 | `.agents/gate.env` | `CEILING_SECONDS` and `SLOW_CEILING_SECONDS` | Yes |
-| `.agents/state.yml` | Metadata only (`schema_version`, `mode`, `harness_review_by`) | Rarely |
+| `.agents/state.yml` | Metadata only (`schema_version`, `mode`, `harness_review_by`, `adr_dir`) | Rarely |
+| `.agents/run/` | Run state (logs, fingerprints, lock), git-ignored | Never: delete it to reset |
 | `.agents/plans/` | Local migration plans (gitignored) | Yes |
 | `scripts/gate.sh` | Runs `make gate-fast` / `make gate-slow` | No (managed) |
 | `scripts/lib/` | Helpers sourced by sensors (`baseline.sh`, `junit.sh`) | No (managed) |
@@ -37,7 +38,7 @@ Installed scripts start with a "Managed by keel-harness" line. Edit only between
 1. Edit the value in `.agents/rules/<rule-id>.env` (for example `LIMIT=400`).
 2. Edit the same number in the rule's section in its topic file.
 3. Run `make harness-check`; it flags a number that differs between the two.
-4. Write an ADR in `docs/decisions/` if the change is a real trade-off. Loosening the limit (raising a
+4. Write an ADR in the ADR folder (`adr_dir`) if the change is a real trade-off. Loosening the limit (raising a
    `LIMIT`/`MAX`, lowering a `MIN`) always needs one: `guard` fails until an ADR added in the same
    change names `.agents/rules/<rule-id>.env`.
 
@@ -74,7 +75,7 @@ re-running `depcruise-baseline`; for import-linter, delete the fixed edge from `
 4. Run `make harness-check`.
 
 ### Record a decision
-Copy an existing ADR in `docs/decisions/` (MADR: context, decision drivers, considered options,
+Copy an existing ADR in the ADR folder (`adr_dir`; MADR: context, decision drivers, considered options,
 outcome, consequences, evidence), number it `NNNN`, and link it from the rule's **Decision.** line
 and `DECISION=` key. To change a decision, write a new ADR that supersedes the old one.
 

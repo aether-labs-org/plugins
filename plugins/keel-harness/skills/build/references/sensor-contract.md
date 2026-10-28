@@ -22,7 +22,7 @@ regenerate a wrapper from this document; this document explains the contract tho
 | 2 | **guidance** | On failure, what to do next **in the repository's own terms** - which file, which decision, what action. Never a restatement of the tool's error. | the `guidance: ` block on `fail` |
 | 3 | **scope** | What the sensor looked at: the changed files (`SCOPE`) or the whole repository. A sensor whose tool has no file-level mode says so. | `SCOPE` in, the summary out |
 | 4 | **cost** | Wall time in milliseconds, measured by `gate.sh` from outside. The money cost of the gates is **US$0.00**: no sensor calls a language model. | `gate.sh` report |
-| 5 | **bounded verbosity** | At most 5 detail lines per sensor, indented two spaces; `gate.sh` truncates its stdout at 40 lines and keeps the full run in `.agents/last-run.log` (`last-run-slow.log` for the slow gate). | the sensor, then `gate.sh` |
+| 5 | **bounded verbosity** | At most 5 detail lines per sensor, indented two spaces; `gate.sh` truncates its stdout at 40 lines and keeps the full run in `.agents/run/last-run.log` (`.agents/run/last-run-slow.log` for the slow gate). | the sensor, then `gate.sh` |
 | 6 | **class** | `security`, `correctness` or `heuristic` (section 2). | line 1 |
 | 7 | **ceiling** | `CEILING_SECONDS` (default 30) and `SLOW_CEILING_SECONDS` (default 600) in `.agents/gate.env`. The total over the budget is flagged `(over ceiling)`; a sensor that alone blows the fast budget is left out or moved to the slow gate, and `.agents/state.yml` says which and why. | `.agents/gate.env` |
 

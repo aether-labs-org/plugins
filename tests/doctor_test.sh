@@ -14,7 +14,7 @@ has 'prompt-audit'; check "points at /doctor prompt-audit" $?
 grep -qi "writes nothing" "$f"; check "doctor writes nothing" $?
 grep -qi "exactly one warning" "$f"; check "one condition produces one warning" $?
 has 'cmp'; check "proposes updating scripts/harness-check.sh when it differs (cmp)" $?
-for id in agents-size stale-command agents-not-loaded dangling-pointer hook-missing guard-missing sensor-malformed sensor-unavailable \
+for id in agents-size stale-command agents-not-loaded dangling-pointer hook-missing run-state guard-missing sensor-malformed sensor-unavailable \
           rule-inconsistent topic-size baseline-malformed baseline-stale review-due; do
   has "$id"; check "check id: $id" $?
 done

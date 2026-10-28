@@ -168,23 +168,24 @@ continues only while the gate fails, up to its loop guard.
 Claude Code sets when it runs the hook; never replace it with this repository's absolute path. The
 hook is the item most worth declining on its own, so it is a separate line in the proposal.
 
-Add these to `.gitignore` (fresh installs and upgrades alike): `.agents/last-run.log`,
-`.agents/last-run-slow.log`, `.agents/last-green`, `.agents/last-seen`, `.agents/last-fail`, `.agents/.gate-lock/`,
-`.agents/plans/`. Propose ignoring the tools' caches too when they are not (`.mypy_cache/`,
+Add `.agents/run/` (all run state: logs, fingerprints, lock) and `.agents/plans/` to `.gitignore`,
+fresh installs and upgrades alike. Propose ignoring the tools' caches too when they are not (`.mypy_cache/`,
 `.pytest_cache/`, `.ruff_cache/`, `.gradle/`, `build/`, `coverage/`): untracked, they enter `SCOPE`.
 
-## 7b. Upgrading a v0.1 install
+## 7b. Upgrading an earlier install
 
-A repository whose `.agents/state.yml` lacks `schema_version: 2`, or whose `.claude/settings.json`
-has a `PostToolUse` entry running `make gate-fast`, gets one round that proposes, each item
-accept-or-drop:
+A `schema_version: 2` state (v0.2) gets one round, each item accept-or-drop: delete `.agents/last-*` and
+`.agents/.gate-lock/`, replace their seven `.gitignore` lines with `.agents/run/`, install `scripts/lib/envparse.sh`,
+`scripts/sensors/guard.sh` and current copies of every asset (outside the repo-specific markers), set
+`schema_version: 3`; then `make harness-check` reports no `run-state` or `guard-missing`. A state without
+`schema_version`, or a `PostToolUse` entry running `make gate-fast` (v0.1), gets that round plus:
 
 1. The Stop hook of section 7 replaces the v0.1 PostToolUse entry (remove that entry, keep other keys).
 2. The sensor list in the old state is dropped: each entry already has its file; the gate
    discovers files now.
 3. A v0.1 `snapshot` entry becomes a TSV baseline, re-measured with `KEEL_MEASURE=1`, never copied, and named in one upgrade ADR so `guard` accepts it.
 4. The v0.1 model-baseline key is replaced by `harness_review_by` (today + 6 months); state becomes section 9.
-5. The `.gitignore` entries above are added.
+5. The `.gitignore` entries of section 7 are added.
 
 ## 8. Propose, then write
 
@@ -212,7 +213,7 @@ State is **metadata only**; it does not configure the gate (budgets are in `.age
 sensors are the files in `scripts/sensors/`).
 
 ```yaml
-schema_version: 2
+schema_version: 3
 installed_at: 2026-10-20          # ISO date, today
 harness_review_by: 2027-04-20     # installed_at + 6 months
 mode: brownfield                  # greenfield | brownfield, confirmed by the user
@@ -230,7 +231,7 @@ Check what the copied assets do not already guarantee:
 - [ ] `AGENTS.md` is 100 lines or fewer; deep content is `→ docs/X.md` pointers; no `{{...}}` left.
 - [ ] Every command cited in `AGENTS.md` really exists and runs here (re-check by hand).
 - [ ] `Last updated: YYYY-MM-DD` is set; nothing was written before the user confirmed.
-- [ ] `.agents/state.yml` parses as YAML and has `schema_version: 2`.
+- [ ] `.agents/state.yml` parses as YAML and has `schema_version: 3`; `.gitignore` ignores `.agents/run/`.
 - [ ] `make gate-fast` was actually run and its output read; its verdict line reads
       `gate: fast - ...` and each sensor's `cut -f1` is its own id.
 - [ ] `make harness-check` was run and prints `harness is clean`.

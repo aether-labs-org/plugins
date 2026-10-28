@@ -32,9 +32,11 @@ run yet; a gate with zero sensors is valid). Continue only when the user agrees 
 
 ## 1. Context interview
 
-One round before any measurement, in at most 4 questions, from `references/interview.md`. Record the
-answers in `docs/decisions/0001-agent-harness-context.md` (the first ADR, `adr-template.md`) and let
-them steer every proposal.
+One round before any measurement, in at most 4 questions, from `references/interview.md`. First pick
+the **ADR folder**: an existing one (`docs/adr/`, `doc/adr/`, `docs/decisions/`, `docs/architecture/decisions/`,
+in that order), else `docs/adr/`. Record it as `adr_dir: <folder>` in `.agents/state.yml`; every ADR path
+below is in that folder. Record the answers in `<adr_dir>/0001-agent-harness-context.md` (the first ADR,
+`adr-template.md`) and let them steer every proposal.
 
 ## 2. Mode
 
@@ -84,7 +86,7 @@ option of each question and say so. Group by topic: architecture, then testing, 
 
 Write only what was approved, in this order:
 
-1. The ADR in `docs/decisions/`, when the round had a real trade-off, the rule is breaking, or the
+1. The ADR in `<adr_dir>/`, when the round had a real trade-off, the rule is breaking, or the
    user overrode your recommendation (`adr-template.md`). Never edit an accepted ADR: supersede it.
    The ADR names, by path, every baseline it introduces and every env file it loosens: `guard` accepts
    a new or grown baseline, or a relaxed limit, only when an ADR added in the same change names it.

@@ -45,13 +45,13 @@ r="$(mkrepo --no-commit)"; echo a > "$r/u.txt"; g1="$(cd "$r" && tree_fingerprin
 
 # --- skip when equal to last-green
 r="$(mkrepo)"; echo a > "$r/t.txt"; rm -f "$W/ran"
-(cd "$r" && tree_fingerprint > .agents/last-green)
+(cd "$r" && mkdir -p .agents/run && tree_fingerprint > .agents/run/last-green)
 hook "$r" '{}'; [ -z "$out" ] && [ $rc -eq 0 ] && [ "$(ran)" = 0 ]; check "fingerprint == last-green: silent, gate not run" $?
 
 # --- pass
 r="$(mkrepo)"; echo a > "$r/t.txt"; rm -f "$W/ran"
 hook "$r" '{}' STUB_RC=0
-[ -z "$out" ] && [ $rc -eq 0 ] && [ -s "$r/.agents/last-green" ] && [ "$(ran)" = 1 ]; check "pass: silent, last-green written" $?
+[ -z "$out" ] && [ $rc -eq 0 ] && [ -s "$r/.agents/run/last-green" ] && [ "$(ran)" = 1 ]; check "pass: silent, last-green written" $?
 hook "$r" '{}' STUB_RC=0; [ "$(ran)" = 1 ]; check "second run on same tree skips the gate" $?
 
 # --- fail
@@ -68,7 +68,7 @@ assert c.startswith("keel gate failed after your changes. Fix each failing senso
 assert "guidance:" in c
 assert "decision" not in d
 '; check "fail: valid Stop JSON with header and guidance" $?
-[ ! -e "$r/.agents/last-green" ]; check "fail: last-green not written" $?
+[ ! -e "$r/.agents/run/last-green" ]; check "fail: last-green not written" $?
 
 # --- loop guard
 echo b >> "$r/t.txt"
@@ -103,12 +103,12 @@ assert d["systemMessage"] == "keel gate could not run (scripts/gate.sh exited 12
 '; check "gate crash -> systemMessage" $?
 
 # --- lock
-r="$(mkrepo)"; echo a > "$r/t.txt"; rm -f "$W/ran"; mkdir -p "$r/.agents/.gate-lock"
+r="$(mkrepo)"; echo a > "$r/t.txt"; rm -f "$W/ran"; mkdir -p "$r/.agents/run/.gate-lock"
 hook "$r" '{}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
 [ -z "$out" ] && [ "$(ran)" = 0 ]; check "fresh lock: silent, gate not run" $?
-touch -d '20 minutes ago' "$r/.agents/.gate-lock"
+touch -d '20 minutes ago' "$r/.agents/run/.gate-lock"
 hook "$r" '{}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
-[ -n "$out" ] && [ "$(ran)" = 1 ] && [ ! -d "$r/.agents/.gate-lock" ]; check "stale lock: removed, gate runs, lock released" $?
+[ -n "$out" ] && [ "$(ran)" = 1 ] && [ ! -d "$r/.agents/run/.gate-lock" ]; check "stale lock: removed, gate runs, lock released" $?
 
 # --- no changes (RF5)
 r="$(mkrepo)"; rm -f "$W/ran"; (cd "$r" && git add -A && git commit -q -m h)
@@ -118,7 +118,7 @@ hook "$r" '{}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
 # --- a commit made during the turn is still checked
 r="$(mkrepo)"; echo a > "$r/t.txt"; (cd "$r" && git add -A && git commit -q -m a); rm -f "$W/ran"
 hook "$r" '{}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
-[ -z "$out" ] && [ "$(ran)" = 0 ] && [ -s "$r/.agents/last-seen" ]; check "first look at a clean tree: recorded, silent, gate not run" $?
+[ -z "$out" ] && [ "$(ran)" = 0 ] && [ -s "$r/.agents/run/last-seen" ]; check "first look at a clean tree: recorded, silent, gate not run" $?
 fa="$(cd "$r" && tree_fingerprint)"; echo b >> "$r/t.txt"; (cd "$r" && git commit -q -am b); fb="$(cd "$r" && tree_fingerprint)"
 [ "$fa" != "$fb" ]; check "fingerprint changes after a commit (clean tree, new HEAD)" $?
 hook "$r" '{}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
@@ -136,7 +136,7 @@ out="$(cd "$d" && printf '{}' | GATE_RAN="$W/ran" bash scripts/hooks/claude-stop
 # --- never exit 2
 r="$(mkrepo)"; echo z > "$r/t.txt"
 for rcv in 0 1 2 5 127; do
-  rm -rf "$r/.agents/last-green" "$r/.agents/last-fail" "$r/.agents/last-seen"
+  rm -rf "$r/.agents/run/last-green" "$r/.agents/run/last-fail" "$r/.agents/run/last-seen"
   hook "$r" '{}' STUB_RC=$rcv STUB_OUT_FILE="$FAILOUT"; [ $rc -eq 0 ]; check "gate rc $rcv -> hook rc 0" $?
 done
 

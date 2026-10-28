@@ -33,7 +33,7 @@ tree_fingerprint() {
     git rev-parse -q --verify HEAD 2>/dev/null
     git diff HEAD --binary 2>/dev/null || git diff --cached --binary 2>/dev/null
     git ls-files --others --exclude-standard -z 2>/dev/null | while IFS= read -r -d '' f; do
-      case "$f" in .agents/last-green | .agents/last-seen | .agents/last-fail | .agents/last-run*.log | .agents/.gate-lock/*) continue ;; esac
+      case "$f" in .agents/run/* | .agents/last-green | .agents/last-seen | .agents/last-fail | .agents/last-run*.log | .agents/.gate-lock/*) continue ;; esac
       printf '%s %s\n' "$f" "$(git hash-object -- "$f" 2>/dev/null)"
     done
   } | git hash-object --stdin
@@ -53,27 +53,27 @@ _claude_stop_main() {
   input="$(cat)"
   cd "$(dirname "$0")/../.." || return 0
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
-  mkdir -p .agents
+  mkdir -p .agents/run
   printf '%s' "$input" | grep -Eq '"stop_hook_active"[[:space:]]*:[[:space:]]*true' && active=1
 
-  # .agents/last-green: the tree the gate last passed on. .agents/last-seen: the tree the hook last
+  # .agents/run/last-green: the tree the gate last passed on. .agents/run/last-seen: the tree the hook last
   # looked at, whatever the result. Both include HEAD, so a commit made this turn is a change.
   fp="$(tree_fingerprint)"
-  if [ -f .agents/last-green ] && [ "$(cat .agents/last-green)" = "$fp" ]; then
+  if [ -f .agents/run/last-green ] && [ "$(cat .agents/run/last-green)" = "$fp" ]; then
     return 0
   fi
-  if [ -f .agents/last-seen ] && [ "$(cat .agents/last-seen)" = "$fp" ]; then
+  if [ -f .agents/run/last-seen ] && [ "$(cat .agents/run/last-seen)" = "$fp" ]; then
     # Nothing changed since a failing run that was already reported.
     [ "$active" = 1 ] && loop_guard_message
     return 0
   fi
-  if [ ! -f .agents/last-seen ] && [ -z "$(git status --porcelain --untracked-files=all 2>/dev/null | grep -vE ' \.agents/(last-green|last-seen|last-fail|last-run[^/]*\.log|\.gate-lock/)')" ]; then
+  if [ ! -f .agents/run/last-seen ] && [ -z "$(git status --porcelain --untracked-files=all 2>/dev/null | grep -vE ' \.agents/(run/|last-green|last-seen|last-fail|last-run[^/]*\.log|\.gate-lock/)')" ]; then
     # First look, nothing uncommitted: nothing this session changed. Remember the tree and stay quiet.
-    printf '%s\n' "$fp" > .agents/last-seen
+    printf '%s\n' "$fp" > .agents/run/last-seen
     return 0
   fi
 
-  lock=".agents/.gate-lock"
+  lock=".agents/run/.gate-lock"
   if [ -d "$lock" ] && [ -n "$(find "$lock" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then
     rmdir "$lock" 2>/dev/null
   fi
@@ -82,11 +82,11 @@ _claude_stop_main() {
   trap "rmdir '$lock' 2>/dev/null" EXIT
 
   out="$(bash scripts/gate.sh fast 2>&1)"; rc=$?
-  printf '%s\n' "$fp" > .agents/last-seen
+  printf '%s\n' "$fp" > .agents/run/last-seen
   case "$rc" in
     0)
-      printf '%s\n' "$fp" > .agents/last-green
-      rm -f .agents/last-fail
+      printf '%s\n' "$fp" > .agents/run/last-green
+      rm -f .agents/run/last-fail
       return 0 ;;
     1) ;;
     *)
@@ -97,8 +97,8 @@ _claude_stop_main() {
   report="$(printf '%s\n' "$out" | head -40)"
   norm="$(printf '%s\n' "$report" | normalise_report)"
   last=""
-  [ -f .agents/last-fail ] && last="$(cat .agents/last-fail)"
-  printf '%s\n' "$norm" > .agents/last-fail
+  [ -f .agents/run/last-fail ] && last="$(cat .agents/run/last-fail)"
+  printf '%s\n' "$norm" > .agents/run/last-fail
   if [ "$active" = 1 ] && [ "$norm" = "$last" ]; then
     loop_guard_message
     return 0

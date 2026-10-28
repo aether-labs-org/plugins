@@ -128,6 +128,19 @@ check_hook_missing() {
   warn hook-missing .claude/settings.json "no Stop hook pointing at an executable scripts/hooks/claude-stop.sh" "Run /keel-harness:build to install the Stop hook, or see .agents/README.md"
 }
 
+# --- run-state
+check_run_state() {
+  local f legacy=""
+  for f in .agents/last-run.log .agents/last-run-slow.log .agents/last-green .agents/last-seen .agents/last-fail .agents/.gate-lock; do
+    [ -e "$f" ] && legacy="$legacy $f"
+  done
+  [ -n "$legacy" ] && warn run-state .agents "run state from an earlier keel outside .agents/run/:$legacy" "Run /keel-harness:build to upgrade, or delete those files; keel now keeps run state in .agents/run/"
+  if ! git check-ignore -q .agents/run/last-run.log 2>/dev/null || [ -n "$(git ls-files .agents/run 2>/dev/null)" ]; then
+    warn run-state .gitignore ".agents/run/ is not ignored, so run state can be committed" "Add .agents/run/ to .gitignore (and git rm -r --cached .agents/run if it is tracked)"
+  fi
+  return 0
+}
+
 # --- guard-missing
 check_guard_missing() {
   [ -f scripts/sensors/guard.sh ] && [ -f scripts/lib/envparse.sh ] && return 0
@@ -284,6 +297,7 @@ check_stale_command
 check_agents_not_loaded
 check_dangling_pointer
 check_hook_missing
+check_run_state
 check_guard_missing
 check_sensor_malformed
 check_sensor_unavailable

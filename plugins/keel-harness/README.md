@@ -35,12 +35,12 @@ what the user approved and never migrates production code.
 
 - **Reads:** the code (read-only measurements), instruction files, existing ADRs
 - **Writes:** rule sections in `docs/architecture.md`, `docs/conventions.md`, `docs/testing.md`;
-  `docs/decisions/` ADRs; `.agents/rules/<id>.env`; rule sensors, baselines and generated tool config
+  ADRs in the repository's ADR folder (`docs/adr/` by default); `.agents/rules/<id>.env`; rule sensors, baselines and generated tool config
   (ArchUnit test, `.dependency-cruiser.cjs`, `.importlinter`); local plans in `.agents/plans/`
 
 ### `/keel-harness:doctor`
 
-Runs the repository's own validator (`harness-check.sh`, 13 checks), explains each warning and proposes
+Runs the repository's own validator (`harness-check.sh`, 14 checks), explains each warning and proposes
 the fix. Writes nothing.
 
 ## The v0.2 rule

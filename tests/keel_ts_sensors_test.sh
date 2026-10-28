@@ -79,7 +79,7 @@ run "$r" tests SCOPE=src/a.ts STUB_OUT="      Tests  3 passed (3)"
 printf '%s\n' "$out" | head -1 | grep -q '^tests	correctness	pass	Tests  3 passed (3)$'; check "tests pass line 1" $?
 : > "$r/stub.log"; run "$r" tests; grep -qx 'run' "$r/stub.log"; check "tests empty SCOPE -> run" $?
 run "$r" tests SCOPE=src/a.ts STUB_EXIT=1 STUB_OUT=$'      Tests  1 failed (1)\n FAIL  src/a.test.ts > x\nAssertionError: expected 1 to be 2'
-[ $rc -eq 1 ] && printf '%s\n' "$out" | grep -q '^  guidance: .*docs/decisions/'; check "tests fail + guidance cites docs/decisions" $?
+[ $rc -eq 1 ] && printf '%s\n' "$out" | grep -q '^  guidance: .*adr_dir'; check "tests fail + guidance cites adr_dir" $?
 r2="$(mk)"; use_stub "$r2" jest node_modules/.bin/jest; echo 1 > "$r2/src/a.ts"
 sed -i 's/^RUNNER="vitest"/RUNNER="jest"/; s#node_modules/.bin/vitest#node_modules/.bin/jest#' "$r2/scripts/sensors/tests.sh"
 run "$r2" tests SCOPE=src/a.ts; grep -qx -- '--passWithNoTests --findRelatedTests src/a.ts' "$r2/stub.log"; check "tests jest findRelatedTests, passing when no test is related" $?

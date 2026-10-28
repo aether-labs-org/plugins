@@ -39,6 +39,10 @@ if ! git cat-file -e "$base:.agents/state.yml" 2>/dev/null; then
   exit 0
 fi
 
+# The ADR folder the rules skill recorded wins over the default list.
+adr_dir="$(sed -n 's/^adr_dir:[[:space:]]*\([^#[:space:]]*\).*/\1/p' .agents/state.yml 2>/dev/null | head -1)"
+[ -n "$adr_dir" ] && ADR_DIRS="$adr_dir"
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 : > "$tmp/loose"

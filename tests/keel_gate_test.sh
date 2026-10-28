@@ -72,7 +72,7 @@ stub_sensor "$r" scripts/sensors/slow/s.sh s correctness pass "slow one" 0
 out="$(cd "$r" && bash scripts/gate.sh slow 2>&1)"; rc=$?
 [ $rc -eq 0 ] && printf '%s\n' "$out" | grep -qE 'gate: slow - PASSED \(1 of 1\) \| ceiling 600s'; check "slow verdict and ceiling" $?
 [ ! -e "$r/.marker_fast" ]; check "slow does not run fast sensors" $?
-[ -f "$r/.agents/last-run-slow.log" ]; check "slow log written" $?
+[ -f "$r/.agents/run/last-run-slow.log" ]; check "slow log written" $?
 (cd "$r" && bash scripts/gate.sh bogus >/dev/null 2>&1); [ $? -eq 64 ]; check "bogus mode rc 64" $?
 (cd /tmp && bash "$r/scripts/gate.sh" >/dev/null 2>&1); [ $? -eq 0 ]; check "runs from any cwd" $?
 
@@ -80,7 +80,7 @@ out="$(cd "$r" && bash scripts/gate.sh slow 2>&1)"; rc=$?
 r="$(mkrepo)"
 echo 1 > "$r/x.ts"; echo 1 > "$r/z.ts"; (cd "$r" && git add x.ts z.ts && git commit -q -m x)
 rm "$r/x.ts"; echo 2 > "$r/y.ts"; echo 2 >> "$r/z.ts"; echo 3 > "$r/my file ação.ts"
-mkdir -p "$r/.agents/.gate-lock"; echo f > "$r/.agents/last-seen"; echo f > "$r/.agents/last-fail"; echo n > "$r/.agents/notes.md"
+mkdir -p "$r/.agents/run/.gate-lock"; echo f > "$r/.agents/run/last-seen"; echo f > "$r/.agents/run/last-fail"; echo n > "$r/.agents/notes.md"
 stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0 "printf '%s\\n' \"\$SCOPE\" > \"\$PWD/scope.out\""
 (cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
 grep -qx 'y.ts' "$r/scope.out" && grep -qx 'z.ts' "$r/scope.out" && ! grep -qx 'x.ts' "$r/scope.out"; check "SCOPE excludes deleted, includes untracked" $?
@@ -98,5 +98,5 @@ out="$(cd "$r" && bash scripts/gate.sh 2>&1)"; rc=$?
 r="$(mkrepo)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness fail "many" 1 "for i in \$(seq 1 60); do echo \"  line \$i\"; done"
 out="$(cd "$r" && bash scripts/gate.sh 2>&1)"
-[ "$(printf '%s\n' "$out" | tail -1)" = "output truncated at 40 lines - full log in .agents/last-run.log" ]; check "truncation notice" $?
+[ "$(printf '%s\n' "$out" | tail -1)" = "output truncated at 40 lines - full log in .agents/run/last-run.log" ]; check "truncation notice" $?
 finish

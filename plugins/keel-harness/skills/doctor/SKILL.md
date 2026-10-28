@@ -4,7 +4,7 @@ description: >
   Checks whether an installed harness has drifted from the repository it guards, by running the
   same portable validator the repository carries: AGENTS.md over 100 lines, commands cited there
   that no longer resolve, a CLAUDE.md that hides AGENTS.md, dangling rule pointers, a missing Stop
-  hook, a missing guard sensor, malformed or unavailable sensors, rules that disagree with their env files, oversize topic
+  hook, misplaced or unignored run state, a missing guard sensor, malformed or unavailable sensors, rules that disagree with their env files, oversize topic
   files, malformed or stale baselines, and an overdue harness review. Explains each warning and
   proposes the fix; writes nothing. Use when someone asks whether their harness is out of date,
   stale or still valid, or wants a harness health check.
@@ -29,7 +29,7 @@ then `harness-check: N warning(s)` or `harness-check: harness is clean`. Exit 0 
 2 no harness: with no `.agents/state.yml`, say so and point at `/keel-harness:build`; that is a
 precondition, not a warning.
 
-## 2. The thirteen checks
+## 2. The fourteen checks
 
 | Check id | Condition | Fix goes through |
 | --- | --- | --- |
@@ -38,6 +38,7 @@ precondition, not a warning.
 | `agents-not-loaded` | `CLAUDE.md` or `.claude/CLAUDE.md` exists without `@AGENTS.md` | `build` (it proposes the import line) |
 | `dangling-pointer` | a `→ path#anchor` target, file or anchor, is missing or still a TODO stub | `rules` |
 | `hook-missing` | no Stop hook pointing at an executable `scripts/hooks/claude-stop.sh` | `build` (hook) |
+| `run-state` | v0.2 run state outside `.agents/run/`, or `.agents/run/` not ignored | `build` (upgrade, section 7b) |
 | `guard-missing` | no `scripts/sensors/guard.sh` or no `scripts/lib/envparse.sh` | `build` (gates) |
 | `sensor-malformed` | a sensor whose `id=` differs from its file name, whose `class=` is invalid, or that is not executable | edit the file, or `build` |
 | `sensor-unavailable` | a fast sensor exits 2 for a tracked file it covers (tool missing) | `build` (gates) |

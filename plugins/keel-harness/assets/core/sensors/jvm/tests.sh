@@ -13,7 +13,7 @@ class=correctness
 BUILD="gradle"
 CMD=(./gradlew -q)
 # Maven: BUILD="maven" CMD=(./mvnw -q -o)
-GUIDANCE='a test that passed before now fails, so behaviour changed. Read the failing assertion above (expected vs actual), then look at what changed in the source class it exercises - git diff shows it. If that behaviour change was NOT intended, revert it in the source; do not edit the test to match the new value. If it WAS intended, update the test and record the decision in docs/decisions/ as a new ADR - never edit an accepted one.'
+GUIDANCE='a test that passed before now fails, so behaviour changed. Read the failing assertion above (expected vs actual), then look at what changed in the source class it exercises - git diff shows it. If that behaviour change was NOT intended, revert it in the source; do not edit the test to match the new value. If it WAS intended, update the test and record the decision as a new ADR in the folder adr_dir names in .agents/state.yml (docs/adr/ by default) - never edit an accepted one.'
 # --- keel:repo-specific end ---
 
 case "${CMD[0]}" in

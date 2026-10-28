@@ -8,11 +8,11 @@ set -uo pipefail
 mode="${1:-fast}"
 case "$mode" in fast | slow) ;; *) echo "usage: gate.sh [fast|slow]" >&2; exit 64 ;; esac
 cd "$(dirname "$0")/.." || exit 1
-mkdir -p .agents
+mkdir -p .agents/run
 if [ "$mode" = slow ]; then
-  dir="scripts/sensors/slow"; log=".agents/last-run-slow.log"; key=SLOW_CEILING_SECONDS; default=600
+  dir="scripts/sensors/slow"; log=".agents/run/last-run-slow.log"; key=SLOW_CEILING_SECONDS; default=600
 else
-  dir="scripts/sensors"; log=".agents/last-run.log"; key=CEILING_SECONDS; default=30
+  dir="scripts/sensors"; log=".agents/run/last-run.log"; key=CEILING_SECONDS; default=30
 fi
 
 # Millisecond clock, portable: `date +%s%N` is GNU-only. Bash 5+ has $EPOCHREALTIME (its decimal
@@ -42,12 +42,13 @@ fi
 : "${ceiling:=$default}"
 
 # SCOPE = files changed since the last commit (tracked, not deleted, plus untracked), minus
-# keel's own run state (.agents/last-*, .agents/.gate-lock/) in case .gitignore misses it.
+# keel's own run state (.agents/run/, and v0.2's .agents/last-* and .agents/.gate-lock/) in case
+# .gitignore misses it.
 # Empty means the whole repository, which is also the case before the first commit.
 if git rev-parse --verify -q HEAD >/dev/null 2>&1; then
   SCOPE="$({ git -c core.quotepath=off diff --name-only --diff-filter=d HEAD 2>/dev/null
     git -c core.quotepath=off ls-files --others --exclude-standard 2>/dev/null; } | sed '/^$/d' |
-    grep -vE '^\.agents/(last-[^/]*|\.gate-lock/.*)$' | sort -u)"
+    grep -vE '^\.agents/(run/.*|last-[^/]*|\.gate-lock/.*)$' | sort -u)"
   empty_scope_note="no uncommitted changes"
 else
   SCOPE=""

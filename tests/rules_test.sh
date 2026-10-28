@@ -42,7 +42,8 @@ has "$R/plan-template.md" 'review_by' && has "$R/plan-template.md" 'make gate-fa
 [ -f "$R/nested-agents-md-template.md" ] && has "$R/nested-agents-md-template.md" '## Rules' && has "$R/nested-agents-md-template.md" '100 lines'; check "nested-agents-md-template.md" $?
 [ -f "$R/interview.md" ] && has "$R/interview.md" 'at most 4 questions'; check "interview.md" $?
 has "$sk/../build/SKILL.md" '/keel-harness:rules'; check "build SKILL.md offers /keel-harness:rules" $?
-! grep -rq --exclude=guard.sh 'docs/adr' "$root/plugins/keel-harness"; check "docs/adr appears nowhere (guard.sh reads it)" $?
+has "$sk/SKILL.md" 'adr_dir:'; check "rules records adr_dir in state.yml (D45)" $?
+has "$sk/SKILL.md" 'docs/adr/'; check "rules defaults the ADR folder to docs/adr/" $?
 ! grep -rq "docs/""rules" "$root/plugins" "$root/tests"; check "per-rule doc path is gone (D28)" $?
 
 # --- Task 17: rules evals

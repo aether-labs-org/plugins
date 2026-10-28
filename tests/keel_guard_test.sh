@@ -67,6 +67,14 @@ run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'CEILING_SECONDS raised
 r="$(mk)"; mkdir -p "$r/scripts/sensors/disabled"; (cd "$r" && git mv scripts/sensors/file-size.sh scripts/sensors/disabled/file-size.sh)
 run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'scripts/sensors/file-size.sh: sensor removed or disabled'; check "disabling a sensor fails" $?
 
+# adr_dir in state.yml (D45): only that folder's ADRs count
+r="$(mk)"; printf 'adr_dir: docs/decisions\n' >> "$r/.agents/state.yml"; mkdir -p "$r/docs/decisions"; (cd "$r" && git add -A && git commit -q -m adr-dir)
+sed -i.bak 's/LIMIT=10/LIMIT=50/' "$r/.agents/rules/file-size.env"; rm -f "$r/.agents/rules/file-size.env.bak"
+printf 'Raise .agents/rules/file-size.env\n' > "$r/docs/adr/0009-raise.md"
+run "$r"; [ $rc -eq 1 ]; check "adr_dir: an ADR outside the recorded folder does not count" $?
+mv "$r/docs/adr/0009-raise.md" "$r/docs/decisions/0009-raise.md"
+run "$r"; [ $rc -eq 0 ]; check "adr_dir: an ADR in the recorded folder counts" $?
+
 # committed loosening is still caught against the merge-base with origin/HEAD
 r="$(mk)"; (cd "$r" && git update-ref refs/remotes/origin/main HEAD && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main)
 sed -i.bak 's/LIMIT=10/LIMIT=99/' "$r/.agents/rules/file-size.env"; rm -f "$r/.agents/rules/file-size.env.bak"; (cd "$r" && git commit -qam loosen)

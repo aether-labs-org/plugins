@@ -56,5 +56,5 @@ printf '%s\n' "$out" | head -1 | grep -q '^tests	correctness	pass	3 passed in 0.
 : > "$r/stub.log"; run "$r" tests SCOPE=tests/unit/test_mod.py; grep -q 'tests/unit/test_mod.py' "$r/stub.log"; check "tests: changed test file runs itself" $?
 : > "$r/stub.log"; run "$r" tests; [ -s "$r/stub.log" ] && ! grep -q 'test_mod' "$r/stub.log"; check "tests: empty SCOPE -> whole suite" $?
 run "$r" tests SCOPE=pkg/mod.py STUB_EXIT=1 STUB_OUT=$'FAILED tests/unit/test_mod.py::test_x - assert 1 == 2\n1 failed, 2 passed in 0.2s'
-[ $rc -eq 1 ] && printf '%s\n' "$out" | grep -q '^  FAILED tests/unit/test_mod.py' && printf '%s\n' "$out" | grep -q '^  guidance: .*docs/decisions/'; check "tests fail + guidance" $?
+[ $rc -eq 1 ] && printf '%s\n' "$out" | grep -q '^  FAILED tests/unit/test_mod.py' && printf '%s\n' "$out" | grep -q '^  guidance: .*adr_dir'; check "tests fail + guidance" $?
 finish

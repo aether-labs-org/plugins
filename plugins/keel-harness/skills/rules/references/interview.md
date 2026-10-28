@@ -5,7 +5,7 @@ available: recommended option first, each option with its trade-off, plus a free
 non-interactive run, ask in plain text; when the user's request pre-authorised proceeding, take the
 recommended option of each question and say so.
 
-The answers are recorded in `docs/decisions/0001-agent-harness-context.md` (the first ADR, from
+The answers are recorded in `<adr_dir>/0001-agent-harness-context.md` (the first ADR, from
 `adr-template.md`) and steer every later proposal. Do not interrogate: if the repository already
 answers a question, state what you found and ask only for confirmation.
 

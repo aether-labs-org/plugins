@@ -60,8 +60,8 @@ has "$S" '@AGENTS.md' && has "$S" '.claude/CLAUDE.md'; check "SKILL.md has the C
 CE="$sk/references/context-engineering.md"
 ! has "$CE" '150–200'; check "context-engineering drops the unsourced instruction count" $?
 has "$CE" '2602.11988'; check "context-engineering cites arXiv 2602.11988" $?
-# guard.sh only reads ADR folders (D45); keel writes ADRs to docs/decisions/ until F2.
-! grep -rq --exclude=guard.sh 'docs/adr' "$root/plugins/keel-harness"; check "docs/adr appears nowhere in the plugin (guard.sh reads it)" $?
+has "$S" '.agents/run/'; check "build ignores .agents/run/" $?
+has "$S" 'schema_version: 3'; check "build writes schema_version: 3" $?
 g="$root/plugins/keel-harness/evals/build-typescript/graders"
 [ -f "$g/claude-md-import.md" ] && [ -f "$g/linecount-measured.md" ]; check "claude-md-import and linecount-measured graders exist" $?
 ! grep -q "PreToolUse" "$S"; check "SKILL.md installs no blocking hook" $?

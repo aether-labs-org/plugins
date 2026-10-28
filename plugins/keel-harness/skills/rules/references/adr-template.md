@@ -1,6 +1,6 @@
 # ADR template (MADR)
 
-ADRs live in `docs/decisions/NNNN-<slug>.md`, numbered `NNNN` from `0001`. Write one when a round had
+ADRs live in `<adr_dir>/NNNN-<slug>.md` (`adr_dir` in `.agents/state.yml`, default `docs/adr/`), numbered `NNNN` from `0001`. Write one when a round had
 a real trade-off (more than one viable option), when a rule is breaking, or when the user overrides
 your recommendation. **Never edit an accepted ADR; supersede it** with a new one that links back,
 and set the old one's status to `superseded by NNNN`.

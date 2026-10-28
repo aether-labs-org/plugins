@@ -7,7 +7,7 @@ file. keel never executes it; any agent or person can pick it up later.
 ```markdown
 # Migration plan: {{rule-id}}
 Written: {{YYYY-MM-DD}} · review_by: {{YYYY-MM-DD, six months out}}
-Rule: {{docs/<topic>.md#<rule-id>}} · Decision: {{docs/decisions/NNNN-slug.md}}
+Rule: {{docs/<topic>.md#<rule-id>}} · Decision: {{<adr_dir>/NNNN-slug.md}}
 Goal: {{baseline today, e.g. "file-size baseline: 12 files"}} -> {{target, e.g. 0 files}}
 
 ## Steps
