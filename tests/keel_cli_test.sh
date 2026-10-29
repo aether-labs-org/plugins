@@ -135,9 +135,10 @@ kr "$c" check pre rules; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -qF 'mis
 
 # assess snapshot
 a="$(new_repo)"; echo dirty > "$a/untracked.txt"
-kr "$a" check pre assess; [ "$rc" -eq 0 ] && [ -f "$a/.agents/run/flow/assess.pre" ]; check "check pre assess: 0 and writes .agents/run/flow/assess.pre" $?
-grep -qF 'untracked.txt' "$a/.agents/run/flow/assess.pre"; check "assess.pre holds the status lines of the repository" $?
-! grep -q '\.agents/run' "$a/.agents/run/flow/assess.pre"; check "assess.pre leaves .agents/run/ out" $?
+kr "$a" check pre assess; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qE '^snapshot [0-9a-f]{40}$'; check "check pre assess: 0 and prints snapshot <token>" $?
+[ ! -e "$a/.agents" ]; check "check pre assess writes nothing (no .agents/ appears)" $?
+t1="$(printf '%s\n' "$out" | sed -n 's/^snapshot //p')"; echo more > "$a/untracked.txt"; kr "$a" check pre assess
+[ "$(printf '%s\n' "$out" | sed -n 's/^snapshot //p')" != "$t1" ]; check "the token changes with the status of the repository" $?
 
 # ------------------------------------------------------------------ plan / approve / apply
 r="$(new_repo)"
@@ -304,22 +305,24 @@ kr "$c" verify rules; [ "$rc" -eq 0 ]; check "verify rules: no env files at all 
 
 # ------------------------------------------------------------------ verify assess
 a="$(new_repo)"; echo base > "$a/tracked.txt"; commit "$a"
-kr "$a" verify assess; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -qF 'run keel check pre assess first'; check "verify assess: without a snapshot fails with 'run keel check pre assess first'" $?
-kr "$a" check pre assess
-kr "$a" verify assess; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^ok '; check "verify assess: untouched repository exits 0 (the snapshot was taken on a repository with no .agents/)" $?
+kr "$a" verify assess; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -qF 'pass the token'; check "verify assess: without a token fails and asks for it" $?
+kr "$a" check pre assess; tok="$(printf '%s\n' "$out" | sed -n 's/^snapshot //p')"
+kr "$a" verify assess "$tok"; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^ok '; check "verify assess: untouched repository exits 0" $?
+[ ! -e "$a/.agents" ]; check "check pre and verify assess wrote nothing" $?
 mkdir -p "$a/.agents/run"; echo noise > "$a/.agents/run/noise.log"
-kr "$a" verify assess; [ "$rc" -eq 0 ]; check "verify assess: changes under .agents/run/ are ignored" $?
+kr "$a" verify assess "$tok"; [ "$rc" -eq 0 ]; check "verify assess: changes under .agents/run/ are ignored" $?
 echo "changed" >> "$a/tracked.txt"
-kr "$a" verify assess; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail '; check "verify assess: a modified tracked file fails" $?
+kr "$a" verify assess "$tok"; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail '; check "verify assess: a modified tracked file fails" $?
 git -C "$a" checkout -q -- tracked.txt
 echo new > "$a/new.txt"
-kr "$a" verify assess; [ "$rc" -eq 1 ]; check "verify assess: a new untracked file fails" $?
+kr "$a" verify assess "$tok"; [ "$rc" -eq 1 ]; check "verify assess: a new untracked file fails" $?
 rm "$a/new.txt"
-kr "$a" verify assess; [ "$rc" -eq 0 ]; check "verify assess: back to the snapshot exits 0" $?
+kr "$a" verify assess "$tok"; [ "$rc" -eq 0 ]; check "verify assess: back to the snapshot exits 0" $?
 d="$(new_repo)"; echo pre-existing > "$d/wip.txt"
-kr "$d" check pre assess; kr "$d" verify assess; [ "$rc" -eq 0 ]; check "verify assess: work in progress that predates the snapshot is not a failure" $?
+kr "$d" check pre assess; tokd="$(printf '%s\n' "$out" | sed -n 's/^snapshot //p')"; kr "$d" verify assess "$tokd"; [ "$rc" -eq 0 ]; check "verify assess: work in progress that predates the snapshot is not a failure" $?
 echo more >> "$d/wip.txt"; echo more > "$d/wip2.txt"
-kr "$d" verify assess; [ "$rc" -eq 1 ]; check "verify assess: a new file next to pre-existing work in progress fails" $?
+kr "$d" verify assess "$tokd"; [ "$rc" -eq 1 ]; check "verify assess: a new file next to pre-existing work in progress fails" $?
+rm "$d/wip2.txt"; kr "$d" verify assess "$tokd"; [ "$rc" -eq 1 ]; check "verify assess: a second edit to a file that was already modified fails" $?
 
 # ------------------------------------------------------------------ H1: no stray temp files, no write outside the repository
 r="$(new_repo)"
@@ -348,7 +351,7 @@ grep -q "agent itself runs .keel approve." "$KEEL/README.md"; check "README stat
 # ------------------------------------------------------------------ contracts/flow.md documents what the script does
 F="$KEEL/contracts/flow.md"
 for s in 'keel check pre <skill>' 'keel plan <skill> <file>' 'keel approve <skill> <hash>' 'keel apply <skill>' 'keel verify <skill>' \
-         'keel measure' 'keel render' '.agents/run/flow/' '<skill>.approved' '<skill>.proposal' 'assess.pre' \
+         'keel measure' 'keel render' '.agents/run/flow/' '<skill>.approved' '<skill>.proposal' 'snapshot <token>' \
          'No write before `keel apply <skill>` exits 0' 'Done means `keel verify <skill>` exits 0' 'Known limit' \
          'runs `keel approve`' 'PreToolUse' '## Traceability'; do
   grep -qF -- "$s" "$F"; check "contracts/flow.md contains: $s" $?

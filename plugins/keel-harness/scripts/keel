@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # keel - the flow of a keel-harness skill, in code (spec section 5.1). Run from the target repository root:
-#   keel check pre <skill>        preconditions; `assess` also snapshots `git status` for `verify assess`
+#   keel check pre <skill>        preconditions; `assess` also prints `snapshot <token>` of `git status`
 #   keel plan <skill> <file>      record <file> as the proposal; prints `proposal <skill> <hash>`
 #   keel approve <skill> <hash>   record the user's approval of exactly that proposal
 #   keel apply <skill>            the gate before any write: exit 0 only for an approved, unchanged proposal
 #   keel verify <skill>           the self-verification, one line per item: `ok <item>` or `fail <item>: <why>`
+#                                 (`keel verify assess <token>` takes the token `check pre assess` printed)
 #   keel measure ... | render ... run scripts/measure.sh / scripts/render.sh with the same arguments
 #   keel check                    run the plugin's assets/core/harness-check.sh in this repository
 # <skill> is assess, build or rules. State lives in .agents/run/flow/ (git-ignored). Exit 64 on bad usage.
-# bash 3.2, no jq, no network. It makes no temporary file; everything it writes is under .agents/run/flow/.
+# bash 3.2, no jq, no network. It makes no temporary file; everything it writes is under .agents/run/flow/,
+# and the assess commands write nothing at all (assess is read-only).
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -22,7 +24,8 @@ usage: keel check pre <assess|build|rules>
        keel plan <assess|build|rules> <file>
        keel approve <assess|build|rules> <hash>
        keel apply <assess|build|rules>
-       keel verify <assess|build|rules>
+       keel verify <build|rules>
+       keel verify assess <token>
        keel measure <args...>
        keel render <args...>
        keel check
@@ -36,6 +39,15 @@ now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 need_flow() { mkdir -p "$flow" 2>/dev/null || { echo "keel: cannot create $flow" >&2; exit 1; }; }
 # the status of the work tree, without keel's own ignored state
 status_now() { git status --porcelain --untracked-files=all 2>/dev/null | grep -v '^.. \.agents/run/' || true; }
+# a token for that status and the content of every file it lists, so a second edit to a file that
+# was already modified also changes it. assess keeps the token in the conversation, not the repository.
+status_token() {
+  local line path
+  status_now | while IFS= read -r line; do
+    path="${line#???}"; path="${path##* -> }"
+    printf '%s\t%s\n' "$line" "$( [ -f "$path" ] && git hash-object -- "$path" 2>/dev/null)"
+  done | git hash-object --stdin
+}
 
 # ------------------------------------------------------------------ check
 cmd_check() {
@@ -47,8 +59,7 @@ cmd_check() {
     build) in_git || missing "a git work tree" ;;
     assess)
       if in_git; then
-        need_flow
-        status_now > "$flow/assess.pre" || exit 1
+        echo "snapshot $(status_token)"
       else
         missing "a git work tree"
       fi ;;
@@ -276,22 +287,20 @@ verify_rules() {
   verify_applied rules
 }
 
-verify_assess() {
-  local now_status snap
-  if [ ! -f "$flow/assess.pre" ]; then bad status "run keel check pre assess first"; return; fi
+verify_assess() { # verify_assess TOKEN
+  if [ -z "${1:-}" ]; then bad status "pass the token keel check pre assess printed: keel verify assess <token>"; return; fi
   if ! in_git; then bad status "not inside a git work tree"; return; fi
-  now_status="$(status_now)"
-  snap="$(cat "$flow/assess.pre")"
-  if [ "$now_status" = "$snap" ]; then ok status "(git status is what it was before assess)"
+  if [ "$(status_token)" = "$1" ]; then ok status "(git status is what it was before assess)"
   else bad status "git status changed since keel check pre assess - assess writes nothing"; fi
 }
 
 cmd_verify() {
-  [ $# -eq 1 ] && skill_ok "$1" || usage
+  skill_ok "${1:-}" || usage
+  if [ "$1" = assess ]; then [ $# -le 2 ] || usage; else [ $# -eq 1 ] || usage; fi
   case "$1" in
     build) verify_build ;;
     rules) verify_rules ;;
-    assess) verify_assess ;;
+    assess) verify_assess "${2:-}" ;;
   esac
   exit "$verify_bad"
 }

@@ -11,7 +11,7 @@ bash 3.2, needs no `jq` and no network. `<skill>` is `assess`, `build` or `rules
 
 | Command | Behaviour | Exit |
 | --- | --- | --- |
-| `keel check pre <skill>` | Preconditions (below). For `assess` it also snapshots `git status --porcelain` (minus `.agents/run/`) into `.agents/run/flow/assess.pre` | 0 met; 1 unmet, one `missing: …` line per item |
+| `keel check pre <skill>` | Preconditions (below). For `assess` it also prints `snapshot <token>`, a `git hash-object` of `git status --porcelain` (minus `.agents/run/`); it writes nothing | 0 met; 1 unmet, one `missing: …` line per item |
 | `keel plan <skill> <file>` | Copies `<file>` to `.agents/run/flow/<skill>.proposal`, deletes `<skill>.approved` and `<skill>.applied`, prints `proposal <skill> <hash>` | 0; 1 if `<file>` is missing |
 | `keel approve <skill> <hash>` | Writes `<skill>.approved` as `<hash><TAB><UTC ISO time>`. Run it only after the user accepted that proposal in the conversation | 0; 1 with no proposal or a hash that is not the current proposal's |
 | `keel apply <skill>` | The gate before any write: `<skill>.approved` must name the current proposal's hash; then writes `<skill>.applied` | 0 approved; 1 with `no approval for the current proposal - show it to the user, then run keel approve` |
@@ -31,7 +31,6 @@ All under `.agents/run/flow/`, which is git-ignored (D39).
 | `<skill>.proposal` | `plan` | The proposal exactly as shown to the user |
 | `<skill>.approved` | `approve` | `<hash><TAB><UTC ISO time>` of the proposal the user accepted |
 | `<skill>.applied` | `apply` | The time the writes were allowed to start |
-| `assess.pre` | `check pre assess` | `git status --porcelain --untracked-files=all` before `assess` ran, without `.agents/run/` |
 
 `plan` removes `.approved` and `.applied`, so a changed proposal can never run on an old approval, and
 `verify` then fails its `applied` item until the new proposal goes through `approve` and `apply`. `apply`
@@ -92,8 +91,9 @@ really runs, and deep content is `→ docs/X.md` pointers rather than prose.
 | `rule-doc` | Every `DOC=<file>#<anchor>` names an existing file with an `<a id="<anchor>">` |
 | `applied` | `.agents/run/flow/rules.applied` exists |
 
-**`verify assess`:** `git status --porcelain` minus `.agents/run/` equals the `assess.pre` snapshot
-(item `status`). Without a snapshot it fails with `run keel check pre assess first`.
+**`verify assess <token>`:** the token of `git status --porcelain` minus `.agents/run/` equals the one
+`check pre assess` printed (item `status`). Without a token it fails and asks for it. `assess` writes
+nothing, so neither command writes a file.
 
 ## Traceability
 

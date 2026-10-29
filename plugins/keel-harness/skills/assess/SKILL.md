@@ -22,8 +22,8 @@ healthy.
 
 ## 0. Which question
 
-First run `${CLAUDE_PLUGIN_ROOT}/scripts/keel check pre assess` from the repository root. It records the
-repository's status for the check at the end; when it exits non-zero (not a git work tree), show its
+First run `${CLAUDE_PLUGIN_ROOT}/scripts/keel check pre assess` from the repository root. It prints
+`snapshot <token>`, the repository's status for the check at the end; keep the token. It writes nothing; when it exits non-zero (not a git work tree), show its
 `missing:` line and stop. Then look for `.agents/state.yml`.
 
 - **Absent: the readiness question.** No harness is installed. Follow sections 2 to 5: the rubric,
@@ -46,8 +46,8 @@ repository would otherwise not have (e.g. do not let it write a cache file into 
 directory — redirect elsewhere or discard).
 
 Running `harness-check.sh` (section 6) is allowed: the validator is read-only, and its only possible
-write is git-ignored temporary state under `.agents/run/tmp/`. So is `scripts/keel`, whose only write is
-the snapshot in `.agents/run/flow/`, which `keel verify assess` leaves out of its comparison.
+write is git-ignored temporary state under `.agents/run/tmp/`. So is `scripts/keel`: its assess commands
+write nothing (the snapshot is a token in this conversation).
 
 ## 2. Discovery (readiness)
 
@@ -174,5 +174,5 @@ List the warnings (check id, file, what is wrong, the proposed fix), then the va
 Report and propose, then stop. The health check looks once, not across time: checks that need run
 history (how often a sensor's failures are real) are not part of it.
 
-Last, run `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify assess`. It exits 1 when the repository's status
+Last, run `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify assess <token>`. It exits 1 when the repository's status
 differs from the snapshot, which means this run wrote something: say so and name what changed.
