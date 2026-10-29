@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+# keel - the flow of a keel-harness skill, in code (spec section 5.1). Run from the target repository root:
+#   keel check pre <skill>        preconditions; `assess` also snapshots `git status` for `verify assess`
+#   keel plan <skill> <file>      record <file> as the proposal; prints `proposal <skill> <hash>`
+#   keel approve <skill> <hash>   record the user's approval of exactly that proposal
+#   keel apply <skill>            the gate before any write: exit 0 only for an approved, unchanged proposal
+#   keel verify <skill>           the self-verification, one line per item: `ok <item>` or `fail <item>: <why>`
+#   keel measure ... | render ... run scripts/measure.sh / scripts/render.sh with the same arguments
+#   keel check                    run the plugin's assets/core/harness-check.sh in this repository
+# <skill> is assess, build or rules. State lives in .agents/run/flow/ (git-ignored). Exit 64 on bad usage.
+# bash 3.2, no jq, no network. It makes no temporary file; everything it writes is under .agents/run/flow/.
+set -uo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+plugin="$(cd "$here/.." && pwd)"
+flow=.agents/run/flow
+TAB="$(printf '\t')"
+
+usage() {
+  cat >&2 <<'U'
+usage: keel check pre <assess|build|rules>
+       keel plan <assess|build|rules> <file>
+       keel approve <assess|build|rules> <hash>
+       keel apply <assess|build|rules>
+       keel verify <assess|build|rules>
+       keel measure <args...>
+       keel render <args...>
+       keel check
+U
+  exit 64
+}
+
+skill_ok() { case "${1:-}" in assess | build | rules) return 0 ;; *) return 1 ;; esac; }
+in_git() { git rev-parse --is-inside-work-tree >/dev/null 2>&1; }
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+need_flow() { mkdir -p "$flow" 2>/dev/null || { echo "keel: cannot create $flow" >&2; exit 1; }; }
+# the status of the work tree, without keel's own ignored state
+status_now() { git status --porcelain --untracked-files=all 2>/dev/null | grep -v '^.. \.agents/run/' || true; }
+
+# ------------------------------------------------------------------ check
+cmd_check() {
+  if [ $# -eq 0 ]; then exec bash "$plugin/assets/core/harness-check.sh"; fi
+  [ "$1" = pre ] && [ $# -eq 2 ] && skill_ok "$2" || usage
+  local skill="$2" bad=0 f t
+  missing() { echo "missing: $1"; bad=1; }
+  case "$skill" in
+    build) in_git || missing "a git work tree" ;;
+    assess)
+      if in_git; then
+        need_flow
+        status_now > "$flow/assess.pre" || exit 1
+      else
+        missing "a git work tree"
+      fi ;;
+    rules)
+      for f in scripts/gate.sh scripts/lib/baseline.sh scripts/lib/envparse.sh scripts/sensors/guard.sh .agents/state.yml; do
+        [ -f "$f" ] || missing "$f"
+      done
+      for t in gate-fast gate-slow; do
+        grep -qE "^${t}[[:space:]]*:" Makefile 2>/dev/null || missing "$t (Makefile target)"
+      done ;;
+  esac
+  exit "$bad"
+}
+
+# ------------------------------------------------------------------ plan / approve / apply
+proposal_hash() { git hash-object "$flow/$1.proposal" 2>/dev/null; }
+
+cmd_plan() {
+  [ $# -eq 2 ] && skill_ok "$1" || usage
+  local skill="$1" file="$2" h
+  [ -f "$file" ] || { echo "keel: no such file: $file" >&2; exit 1; }
+  need_flow
+  cp "$file" "$flow/$skill.proposal" || exit 1
+  rm -f "$flow/$skill.approved" "$flow/$skill.applied"
+  h="$(proposal_hash "$skill")" || exit 1
+  [ -n "$h" ] || { echo "keel: cannot hash the proposal" >&2; exit 1; }
+  printf 'proposal %s %s\n' "$skill" "$h"
+}
+
+cmd_approve() {
+  [ $# -eq 2 ] && skill_ok "$1" || usage
+  local skill="$1" given="$2" cur
+  [ -f "$flow/$skill.proposal" ] || { echo "keel: no proposal for $skill - run keel plan first" >&2; exit 1; }
+  cur="$(proposal_hash "$skill")"
+  if [ -z "$cur" ] || [ "$cur" != "$given" ]; then
+    echo "keel: $given is not the current $skill proposal (it is $cur)" >&2
+    exit 1
+  fi
+  printf '%s\t%s\n' "$cur" "$(now)" > "$flow/$skill.approved" || exit 1
+}
+
+cmd_apply() {
+  [ $# -eq 1 ] && skill_ok "$1" || usage
+  local skill="$1" cur ah=""
+  cur="$(proposal_hash "$skill")"
+  if [ -n "$cur" ] && [ -f "$flow/$skill.approved" ]; then
+    IFS="$TAB" read -r ah _ < "$flow/$skill.approved" || true
+  fi
+  if [ -z "$cur" ] || [ "$ah" != "$cur" ]; then
+    echo "no approval for the current proposal - show it to the user, then run keel approve" >&2
+    exit 1
+  fi
+  now > "$flow/$skill.applied" || exit 1
+}
+
+# ------------------------------------------------------------------ verify
+verify_bad=0
+ok() { if [ $# -gt 1 ]; then echo "ok $1 $2"; else echo "ok $1"; fi; }
+bad() { echo "fail $1: $2"; verify_bad=1; }
+# add_why VAR TEXT -> appends TEXT to the reason in VAR, separated by "; "
+add_why() { eval "$1=\"\${$1:+\${$1}; }\$2\""; }
+# item NAME WHY -> ok when WHY is empty, else fail
+item() { if [ -z "$2" ]; then ok "$1"; else bad "$1" "$2"; fi; }
+
+last_line_of() { tail -n 1 "$1" 2>/dev/null; }
+
+verify_harness_check() {
+  local o rc first
+  if [ ! -f scripts/harness-check.sh ]; then bad harness-check "scripts/harness-check.sh is missing"; return; fi
+  o="$(bash scripts/harness-check.sh 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ]; then ok harness-check; return; fi
+  first="$(printf '%s\n' "$o" | grep -m1 '^warn' | cut -f2-4 | tr '\t' ' ')"
+  [ -n "$first" ] || first="$(printf '%s\n' "$o" | tail -n 1)"
+  bad harness-check "scripts/harness-check.sh exits $rc ($first)"
+}
+
+verify_applied() {
+  if [ -f "$flow/$1.applied" ]; then ok applied; else bad applied "$flow/$1.applied is missing - the install did not go through keel apply"; fi
+}
+
+verify_build() {
+  local why n f list
+
+  # 1. AGENTS.md
+  why=""
+  if [ ! -f AGENTS.md ]; then
+    why="AGENTS.md is missing"
+  else
+    n="$(wc -l < AGENTS.md | tr -d ' ')"
+    [ "$n" -le 100 ] || add_why why "has $n lines (limit 100)"
+    ! grep -qF '{{' AGENTS.md || add_why why "has an unfilled {{...}}"
+    grep -qE 'Last updated: [0-9]{4}-[0-9]{2}-[0-9]{2}' AGENTS.md || add_why why "no 'Last updated: YYYY-MM-DD' line"
+  fi
+  item agents-md "$why"
+
+  # 2. state schema and the ignored run state
+  if grep -qE '^schema_version:[[:space:]]*3([[:space:]]|#|$)' .agents/state.yml 2>/dev/null; then ok state-schema
+  else bad state-schema ".agents/state.yml does not say schema_version: 3"; fi
+  if git check-ignore -q .agents/run/x 2>/dev/null; then ok run-ignored
+  else bad run-ignored ".gitignore does not ignore .agents/run/"; fi
+
+  # 3. the gate ran
+  if [ ! -f .agents/run/last-run.log ]; then bad gate-ran ".agents/run/last-run.log is missing - run make gate-fast"
+  else
+    case "$(last_line_of .agents/run/last-run.log)" in
+      'gate: fast - '*) ok gate-ran ;;
+      *) bad gate-ran "the last line of .agents/run/last-run.log is not a 'gate: fast - ' verdict" ;;
+    esac
+  fi
+
+  # 4. the validator
+  verify_harness_check
+
+  # 5. baselines
+  why=""
+  for f in .agents/baselines/*.tsv; do
+    [ -e "$f" ] || continue
+    case "$(head -n 1 "$f")" in '# measured_at:'*) ;; *) add_why why "$f does not start with '# measured_at:'" ;; esac
+  done
+  item baselines "$why"
+
+  # 6. what is installed runs with the plugin absent
+  why=""
+  list="$(
+    [ -f scripts/gate.sh ] && echo scripts/gate.sh
+    find scripts/sensors scripts/lib -type f 2>/dev/null
+  )"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if grep -qF '${CLAUDE_' "$f"; then add_why why "$f uses \${CLAUDE_...}"; fi
+    if grep -vE '^[[:space:]]*#' "$f" | grep -qE '(^|[;&|({`]|\$\(|[[:space:]](then|do|else))[[:space:]]*claude[[:space:]]'; then
+      add_why why "$f calls claude"
+    fi
+  done <<EOF
+$list
+EOF
+  item portable-scripts "$why"
+  why=""
+  [ -f scripts/sensors/guard.sh ] || add_why why "scripts/sensors/guard.sh is missing"
+  [ -f scripts/lib/envparse.sh ] || add_why why "scripts/lib/envparse.sh is missing"
+  item guard-installed "$why"
+
+  # 7. the Stop hook, when the state says it is installed
+  if grep -qE '(^|[^a-z_])hook:[[:space:]]*installed' .agents/state.yml 2>/dev/null; then
+    why=""
+    if [ ! -f .claude/settings.json ]; then
+      why=".claude/settings.json is missing"
+    else
+      grep -q '"Stop"' .claude/settings.json || add_why why "no Stop entry"
+      grep -qF 'scripts/hooks/claude-stop.sh' .claude/settings.json || add_why why "no entry names scripts/hooks/claude-stop.sh"
+      grep -qF '${CLAUDE_PROJECT_DIR}' .claude/settings.json || add_why why "the command lacks the literal \${CLAUDE_PROJECT_DIR}"
+      if grep -q '"PostToolUse"' .claude/settings.json && grep -q 'gate' .claude/settings.json; then
+        add_why why "a PostToolUse entry runs the gate"
+      fi
+    fi
+    item hook-settings "$why"
+    if [ -x scripts/hooks/claude-stop.sh ]; then ok hook-executable
+    else bad hook-executable "scripts/hooks/claude-stop.sh is missing or not executable"; fi
+    if [ ! -f .claude/settings.json ]; then bad hook-json ".claude/settings.json is missing"
+    elif command -v python3 >/dev/null 2>&1; then
+      if python3 -I -m json.tool .claude/settings.json >/dev/null 2>&1; then ok hook-json
+      else bad hook-json ".claude/settings.json is not valid JSON"; fi
+    else
+      ok hook-json "skip (no python3)"
+    fi
+  else
+    ok hook-settings "skip (hook is not installed)"
+    ok hook-executable "skip (hook is not installed)"
+    ok hook-json "skip (hook is not installed)"
+  fi
+
+  # 8. the install went through keel apply
+  verify_applied build
+}
+
+# env_report FILE -> one line: `err<TAB>text`, `missing<TAB>KEYS`, or `doc<TAB>DOC` for a readable file
+env_report() {
+  (
+    unset RULE_ID KIND ORIGIN DOC
+    # shellcheck disable=SC1091
+    . scripts/lib/envparse.sh 2>/dev/null || { printf 'err\t%s\n' "scripts/lib/envparse.sh cannot be loaded"; exit 0; }
+    if ! keel_env_load "$1"; then printf 'err\t%s\n' "$KEEL_ENV_ERROR"; exit 0; fi
+    m=""
+    [ -n "${RULE_ID:-}" ] || m="$m RULE_ID"
+    [ -n "${KIND:-}" ] || m="$m KIND"
+    [ -n "${ORIGIN:-}" ] || m="$m ORIGIN"
+    [ -n "${DOC:-}" ] || m="$m DOC"
+    if [ -n "$m" ]; then printf 'missing\t%s\n' "${m# }"; else printf 'doc\t%s\n' "$DOC"; fi
+  )
+}
+
+verify_rules() {
+  local f rep kind val why_env="" why_doc="" file anchor
+
+  verify_harness_check
+
+  if [ ! -f .agents/run/last-run.log ]; then bad gate-passed ".agents/run/last-run.log is missing - run make gate-fast"
+  else
+    case "$(last_line_of .agents/run/last-run.log)" in
+      'gate: fast - PASSED'*) ok gate-passed ;;
+      *) bad gate-passed "the last line of .agents/run/last-run.log is not 'gate: fast - PASSED'" ;;
+    esac
+  fi
+
+  for f in .agents/rules/*.env; do
+    [ -e "$f" ] || continue
+    rep="$(env_report "$f")"
+    kind="${rep%%"$TAB"*}"; val="${rep#*"$TAB"}"
+    case "$kind" in
+      err) add_why why_env "$val" ;;
+      missing) add_why why_env "$f lacks $val" ;;
+      doc)
+        case "$val" in
+          *'#'*)
+            file="${val%%#*}"; anchor="${val#*#}"
+            if [ ! -f "$file" ]; then add_why why_doc "$f: DOC file $file does not exist"
+            elif ! grep -qF "<a id=\"$anchor\">" "$file"; then add_why why_doc "$f: no <a id=\"$anchor\"> in $file"; fi ;;
+          *) add_why why_doc "$f: DOC '$val' has no #anchor" ;;
+        esac ;;
+    esac
+  done
+  item rule-env "$why_env"
+  item rule-doc "$why_doc"
+
+  verify_applied rules
+}
+
+verify_assess() {
+  local now_status snap
+  if [ ! -f "$flow/assess.pre" ]; then bad status "run keel check pre assess first"; return; fi
+  if ! in_git; then bad status "not inside a git work tree"; return; fi
+  now_status="$(status_now)"
+  snap="$(cat "$flow/assess.pre")"
+  if [ "$now_status" = "$snap" ]; then ok status "(git status is what it was before assess)"
+  else bad status "git status changed since keel check pre assess - assess writes nothing"; fi
+}
+
+cmd_verify() {
+  [ $# -eq 1 ] && skill_ok "$1" || usage
+  case "$1" in
+    build) verify_build ;;
+    rules) verify_rules ;;
+    assess) verify_assess ;;
+  esac
+  exit "$verify_bad"
+}
+
+# ------------------------------------------------------------------ dispatch
+[ $# -ge 1 ] || usage
+cmd="$1"; shift
+case "$cmd" in
+  check) cmd_check "$@" ;;
+  plan) cmd_plan "$@" ;;
+  approve) cmd_approve "$@" ;;
+  apply) cmd_apply "$@" ;;
+  verify) cmd_verify "$@" ;;
+  measure) exec bash "$here/measure.sh" "$@" ;;
+  render) exec bash "$here/render.sh" "$@" ;;
+  *) usage ;;
+esac
