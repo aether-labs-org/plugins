@@ -103,3 +103,29 @@ must print a `deny` decision outside an approved flow, and nothing for `src/anyt
 
 **Known limit.** The hook does not see Bash commands that write harness paths; `guard` in the gate,
 pre-commit and CI still catches loosenings (`${CLAUDE_PLUGIN_ROOT}/contracts/consequence.md`).
+
+## 6. Long autonomous sessions (profile L): the sandbox or a devcontainer
+
+**Documentation only. keel installs nothing for this.** A long unattended session is the case where the
+hook and the deny rules are not enough on their own, because they cover Claude's file tools and nothing
+else. Two options isolate the rest; the user picks one, or neither. Facts read on 2026-10-29 from the
+pages linked below.
+
+| | Claude Code's sandbox | A devcontainer |
+| --- | --- | --- |
+| What it isolates | The Bash tool (also PowerShell and Monitor) and the processes it starts, enforced by the operating system: writes limited to the working directory, a temp directory and added directories; network only through a proxy to allowed domains, which start empty | The whole session: Claude Code runs inside the container, so commands, language servers and build tools run there; the repository is bind-mounted, so edits appear on the host |
+| What it does not isolate | "The sandbox covers shell commands only. Claude's file tools, MCP servers, and hooks run outside it." Reads stay broad (`~/.ssh`, `~/.aws/credentials`) until you add `sandbox.filesystem.denyRead`. Command hooks and local MCP servers run with full access | Anything the container can reach: Claude can modify any file in the bind-mounted workspace, and the network policy decides what it can reach. With `--dangerously-skip-permissions` a malicious project can exfiltrate anything inside the container, `~/.claude` credentials included |
+| Turn on | `/sandbox`, or `sandbox.enabled: true` in settings; Linux and WSL2 need `bubblewrap` and `socat` | The Claude Code Dev Container Feature in `.devcontainer/devcontainer.json`; add the reference `init-firewall.sh` to limit egress |
+| Trade-offs | Off by default and fail-open: without a dependency Claude Code runs commands unsandboxed unless `sandbox.failIfUnavailable` is `true`. A failing command may be retried outside it (`dangerouslyDisableSandbox`) unless `sandbox.allowUnsandboxedCommands` is `false`. `docker` and `watchman` are incompatible; native Windows is unsandboxed | An image to build and maintain, Docker on every machine, a firewall that needs `NET_ADMIN` and `NET_RAW`; mount no host secrets, and use trusted repositories only |
+| Docs | `https://code.claude.com/docs/en/sandboxing` | `https://code.claude.com/docs/en/devcontainer`; comparison: `https://code.claude.com/docs/en/sandbox-environments` |
+
+How it fits this layer:
+
+- The protect hook guards `Write`, `Edit` and `NotebookEdit`; the sandbox guards Bash. Together they close
+  most of the known limit above, but the sandbox only keeps Bash inside the working directory, and the
+  harness files are inside it. To keep Bash from writing them, `sandbox.filesystem.denyWrite` lists paths
+  (`.agents/`, `scripts/sensors/`, `scripts/lib/`, `scripts/hooks/`, `scripts/gate.sh`); that also blocks
+  `/keel-harness:build` and `rules` from writing them with Bash, so lift it for those runs.
+- For profile L, suggest at least: the sandbox on with `allowUnsandboxedCommands: false` and
+  `failIfUnavailable: true`, or a devcontainer with the egress firewall. Say that the choice, the
+  settings and the maintenance are the user's; keel proposes nothing, writes nothing and checks nothing.

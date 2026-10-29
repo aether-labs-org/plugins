@@ -122,6 +122,10 @@ for t in 'assets/core/consequence.yml' 'settings-protect.json' 'claude-protect.s
          'a line they do not answer stays out' 'Require review from Code Owners' 'git ls-files'; do
   grep -qiF -- "$t" "$AU"; check "authority.md: $t" $?
 done
+for t in 'Long autonomous sessions (profile L)' 'keel installs nothing for this' 'https://code.claude.com/docs/en/sandboxing' 'https://code.claude.com/docs/en/devcontainer' \
+         'covers shell commands only' 'sandbox.filesystem.denyWrite' 'allowUnsandboxedCommands' 'failIfUnavailable' 'init-firewall.sh' 'dangerously-skip-permissions'; do
+  grep -qF -- "$t" "$AU"; check "authority.md sandbox section: $t" $?
+done
 ! grep -q 'PostToolUse' "$sk/references/authority.md"; check "authority.md installs no PostToolUse hook" $?
 ! grep -qE '@[A-Za-z][A-Za-z0-9_-]+' "$AU" || ! grep -E '@[A-Za-z][A-Za-z0-9_-]+' "$AU" | grep -vE '@(user|org/team)|@\{\{' | grep -q .; check "authority.md names no real owner (only @user, @org/team placeholders)" $?
 grep -q 'authority' "$root/plugins/keel-harness/skills/assess/references/checks.md" && grep -q 'protect-missing' "$root/plugins/keel-harness/skills/assess/references/checks.md"; check "checks.md lists protect-missing" $?
