@@ -433,8 +433,82 @@ r="$(mkclean)"; mandrule "$r" "EXCEPTIONS='src/a.ts soon'"; hc "$r" KEEL_TODAY=2
 r="$(mkclean)"; mandrule "$r"; hc "$r"; ! has exception-expired; check "exception-expired: no EXCEPTIONS -> silent" $?
 before="$(cd "$r" && git status --porcelain)"; hc "$r" KEEL_TODAY=2027-01-01; [ "$before" = "$(cd "$r" && git status --porcelain)" ]; check "mandatory checks are read-only" $?
 
+# --- F6: checks that read .agents/run/history/ (sensor-always-green, sensor-always-red, sensor-flaky, failure-recurring)
+# mkhist REPO MODE SENSOR STATUS... -> appends one history line per status (p=pass, f=fail, s=skip), oldest first
+mkhist() {
+  local r="$1" mode="$2" id="$3" i=0 c st; shift 3
+  mkdir -p "$r/.agents/run/history"
+  for c in "$@"; do
+    case "$c" in p) st=pass ;; f) st=fail ;; *) st=skip ;; esac
+    i=$((i + 1))
+    printf '2026-10-%02dT10:%02d:00Z\t%s\t%s\t%s\n' "$((i / 60 + 1))" "$((i % 60))" "$id" "$st" 7 >> "$r/.agents/run/history/$mode.tsv"
+  done
+}
+rep() { # rep CHAR COUNT -> CHAR repeated COUNT times, space separated
+  local i out=""
+  for ((i = 0; i < $2; i++)); do out="$out $1"; done
+  printf '%s' "$out"
+}
+has() { printf '%s\n' "$out" | grep -q "^warn	$1	"; } # has <check-id>
+
+# sensor-always-green
+r="$(mkclean)"; mkhist "$r" fast lint $(rep p 30); hc "$r"; only sensor-always-green scripts/sensors/lint.sh && printf '%s\n' "$out" | grep -q 'carry load'; check "sensor-always-green: 30 passes in a row warns" $?
+printf '%s\n' "$out" | grep "^warn	sensor-always-green" | grep -q "review it; remove it or move it to the slow gate$"; check "sensor-always-green: the fix is review, remove or move to the slow gate" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep p 29); hc "$r"; [ $rc -eq 0 ]; check "sensor-always-green: 29 passes is below the threshold, silent" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep p 15) f $(rep p 20); hc "$r"; ! has sensor-always-green; check "sensor-always-green: a single failure in the window silences it" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep p 15) s $(rep p 20); hc "$r"; ! has sensor-always-green; check "sensor-always-green: a skipped run is not a pass" $?
+r="$(mkclean)"; mkhist "$r" fast guard $(rep p 40); hc "$r"; [ $rc -eq 0 ]; check "sensor-always-green: a security sensor that always passes is doing its job, silent" $?
+r="$(mkclean)"; mkhist "$r" fast gone-sensor $(rep p 40); hc "$r"; [ $rc -eq 0 ]; check "history: a sensor with no script left is ignored" $?
+r="$(mkclean)"; cp "$r/scripts/sensors/lint.sh" "$r/scripts/sensors/slow/mut.sh"; sed -i 's/^id=lint/id=mut/' "$r/scripts/sensors/slow/mut.sh"; mkhist "$r" slow mut $(rep p 30); commit "$r"; hc "$r"; only sensor-always-green scripts/sensors/slow/mut.sh; check "sensor-always-green: slow.tsv maps to scripts/sensors/slow/" $?
+
+# sensor-always-red
+r="$(mkclean)"; mkhist "$r" fast lint $(rep f 10); hc "$r"; only sensor-always-red scripts/sensors/lint.sh; check "sensor-always-red: 10 failures in a row is one warning (not also failure-recurring)" $?
+printf '%s\n' "$out" | grep "^warn	sensor-always-red" | grep -q "fix the cause or re-baseline with an ADR$"; check "sensor-always-red: the fix is the cause or an ADR" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep f 9); hc "$r"; ! has sensor-always-red; check "sensor-always-red: 9 failures is below the threshold" $?
+r="$(mkclean)"; mkhist "$r" fast lint p $(rep f 9); hc "$r"; ! has sensor-always-red; check "sensor-always-red: a pass inside the last 10 silences it" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep p 12) $(rep f 10); hc "$r"; only sensor-always-red lint.sh; check "sensor-always-red: only the last 10 runs count" $?
+
+# sensor-flaky
+r="$(mkclean)"; mkhist "$r" fast lint p f p f p f p f p f; hc "$r"; only sensor-flaky scripts/sensors/lint.sh && printf '%s\n' "$out" | grep -q 'heuristic'; check "sensor-flaky: alternating pass and fail warns and says it is a heuristic" $?
+printf '%s\n' "$out" | grep "^warn	sensor-flaky" | grep -q "make it deterministic$"; check "sensor-flaky: the fix is make it deterministic" $?
+r="$(mkclean)"; mkhist "$r" fast lint p p p f f f p p p f; hc "$r"; only sensor-flaky lint.sh; check "sensor-flaky: exactly 3 flips in the last 10 warns" $?
+r="$(mkclean)"; mkhist "$r" fast lint p p p p f f f p p p; hc "$r"; [ $rc -eq 0 ]; check "sensor-flaky: 2 flips is below the threshold" $?
+r="$(mkclean)"; mkhist "$r" fast lint p f p f p f p f p; hc "$r"; [ $rc -eq 0 ]; check "sensor-flaky: fewer than 10 runs is silent" $?
+r="$(mkclean)"; mkhist "$r" fast lint p f p f p f p f p f p p p p p p p p p p; hc "$r"; ! has sensor-flaky; check "sensor-flaky: only the last 10 runs count" $?
+
+# failure-recurring
+mkrule_env() { # mkrule_env REPO SENSOR -> a rule that names the sensor, with its doc section
+  mkdir -p "$1/docs" "$1/.agents/rules"
+  printf '# Conventions\n<a id="lint-clean"></a>\n### Lint clean\n' > "$1/docs/conventions.md"
+  printf 'RULE_ID=lint-clean\nKIND=convention\nORIGIN=user\nAPPROVED_AT=2026-10-20\nENFORCEMENT=sensor:%s\nDOC=docs/conventions.md#lint-clean\n' "$2" > "$1/.agents/rules/lint-clean.env"
+  printf -- '- Lint stays clean → docs/conventions.md#lint-clean\n' >> "$1/AGENTS.md"
+}
+r="$(mkclean)"; mkrule_env "$r" lint
+sed -i 's/^class=heuristic/class=heuristic\nGUIDANCE="Run the linter and fix every reported problem"/' "$r/scripts/sensors/lint.sh"
+mkhist "$r" fast lint $(rep p 8) $(rep f 5) $(rep p 7); commit "$r"; hc "$r"
+only failure-recurring scripts/sensors/lint.sh; check "failure-recurring: 5 failures in the last 20 runs is one warning" $?
+printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'Run the linter and fix every reported problem'; check "failure-recurring: names the sensor's guidance (GUIDANCE= in the script)" $?
+printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'rule lint-clean' && printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'docs/conventions.md#lint-clean' && printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'AGENTS.md line'; check "failure-recurring: names the guide that would have prevented it (rule line and docs section)" $?
+printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'exemplar'; check "failure-recurring: the fix mentions the exemplar" $?
+mkdir -p "$r/.agents/run"; printf '%s\n' 'x lint         [heuristic ] 1 problem                                     12ms' '  guidance: Fix the 1 problem shown in the last run' 'x other        [correctness] fine   3ms' > "$r/.agents/run/last-run.log"
+hc "$r"; printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'Fix the 1 problem shown in the last run'; check "failure-recurring: prefers the guidance printed in the last run's log" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep p 8) $(rep f 5) $(rep p 7); hc "$r"
+only failure-recurring lint.sh && printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'no rule names this sensor'; check "failure-recurring: with no rule for the sensor it suggests writing a guide" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep p 8) $(rep f 4) $(rep p 8); hc "$r"; [ $rc -eq 0 ]; check "failure-recurring: 4 failures in 20 is below the threshold, silent" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep f 5) $(rep p 30); hc "$r"; [ $rc -eq 0 ]; check "failure-recurring: failures older than the last 20 runs do not count" $?
+r="$(mkclean)"; mkhist "$r" fast lint p f f f f f; hc "$r"; only failure-recurring lint.sh; check "failure-recurring: 5 failures in a short history still counts" $?
+r="$(mkclean)"; mkhist "$r" fast lint p f p f p f p f p f; hc "$r"; only sensor-flaky lint.sh; check "failure-recurring: a flaky sensor is reported once, as flaky" $?
+
+# history robustness
+r="$(mkclean)"; mkdir -p "$r/.agents/run/history"; printf 'garbage\n\t\t\n2026-10-01T00:00:00Z\tlint\tweird\t1\n' > "$r/.agents/run/history/fast.tsv"; hc "$r"; [ $rc -eq 0 ]; check "history: malformed lines are ignored" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep f 10); before="$(cd "$r" && git status --porcelain --ignored | md5sum)"; hc "$r"; hc "$r"; [ "$before" = "$(cd "$r" && git status --porcelain --ignored | md5sum)" ]; check "history checks are read-only" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep f 10); hc "$r" TMPDIR=/nonexistent-keel; only sensor-always-red lint.sh; check "history checks work from the .agents/run/tmp fallback" $?
+
 # README.agents.md
 G="$KEEL/assets/core/README.agents.md"
 [ -f "$G" ] && [ "$(wc -l < "$G")" -le 120 ]; check "README.agents.md exists and is at most 120 lines" $?
 for t in 'make harness-check' 'scripts/sensors/disabled/' 'KEEL_MEASURE=1' 'adr_dir' '.claude/settings.json' 'scripts/sensors/'; do grep -qF -- "$t" "$G" 2>/dev/null; check "README.agents.md mentions $t" $?; done
+# F6: a model change re-runs the read-only evals and moves harness_review_by
+grep -qF 'On a model change' "$G" && grep -qF 'read-only eval groups' "$G" && grep -qF 'harness_review_by' "$G"; check "README.agents.md: on a model change, re-run the read-only eval groups and move harness_review_by" $?
+grep -qF '## On a model change' "$KEEL/README.md" && sed -n '/^## On a model change/,/^## Evals/p' "$KEEL/README.md" | grep -q 'read-only eval groups' && sed -n '/^## On a model change/,/^## Evals/p' "$KEEL/README.md" | grep -q 'harness_review_by'; check "plugin README: on a model change, re-run the read-only eval groups and move harness_review_by" $?
 finish

@@ -42,10 +42,11 @@ grep '^| \*\*Headless setup' "$R" | qgrep 'no `read`' && grep '^| \*\*Headless s
 grep '^| \*\*Flaky tests' "$R" | qgrep '3 times' && grep '^| \*\*Flaky tests' "$R" | qgrep 'not measured'; check "Flaky tests row: measured 3 times, unmeasured is not measured" $?
 grep '^| \*\*Observability' "$R" | qgrep 'pino' && grep '^| \*\*Observability' "$R" | qgrep 'log-format line'; check "Observability row: logging library and a log-format line" $?
 grep -qF '+N.Ns per run' "$R" && grep -qF '+N.Ns per run' "$sk/SKILL.md"; check "the per-run cost unit is in the rubric and the report contract" $?
-awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md" | qgrep 'three times'; check "phase 1 asks before running the tests three times" $?
+phase1="$(awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md")" # captured once: a pipe into grep -q can die of SIGPIPE under pipefail
+grep -q 'three times' <<< "$phase1"; check "phase 1 asks before running the tests three times" $?
 grep -q 'only after the user agrees' "$sk/SKILL.md" && grep -qi 'agreement' "$R"; check "the three runs need the user's agreement" $?
 for a in 'Reproducible build' 'Headless setup' 'Flaky tests' 'Observability'; do
-  awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md" | qgrep -F -- "\`$a\`"; check "phase 1 scoring lists axis: $a" $?
+  grep -qF -- "\`$a\`" <<< "$phase1"; check "phase 1 scoring lists axis: $a" $?
 done
 ! grep -qi 'aggregate score\|overall grade' "$R" || qgrep 'There is no aggregate score' "$R"; check "still no aggregate score" $?
 
@@ -82,10 +83,15 @@ done
 for id in plan-stale progress-size acceptance-untested exemplar-missing mandatory-unsensored exception-expired; do
   hasc "$id"; check "check id (F3b, F3c-2, F3d-1): $id" $?
 done
-! grep -qi "capture rate" "$f" "$chk"; check "no history-dependent checks" $?
+for id in sensor-always-green sensor-always-red sensor-flaky failure-recurring; do
+  hasc "$id"; check "check id (F6): $id" $?
+done
+has ".agents/run/history/"; check "assess SKILL.md says the history checks read .agents/run/history/" $?
+! has "looks once, not across time"; check "assess SKILL.md no longer says the health check looks once" $?
+! grep -qi "capture rate" "$f" "$chk"; check "no capture-rate check (keel does not record why a run failed)" $?
 # the count written in the title, in assess/SKILL.md and in the README equals the rows of the table
 nrows="$(grep -c '^| `' "$chk")"
-words="x x x x x x x x x x x x x x x fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three"
+words="x x x x x x x x x x x x x x x fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six twenty-seven twenty-eight twenty-nine thirty"
 word="$(printf '%s\n' "$words" | cut -d' ' -f$((nrows + 1)))"
 grep -q "^# The $word checks$" "$chk"; check "checks.md title counts its $nrows rows ($word)" $?
 grep -qF "The $word checks, what each one means" "$f"; check "assess SKILL.md counts the checks: $word" $?
@@ -107,4 +113,41 @@ for c in assess-finds-drift assess-validator-drift; do
 done
 ! grep -q 'doctor' "$root/plugins/keel-harness/evals/should-not-trigger/graders/skill-silent.md"; check "should-not-trigger no longer names doctor" $?
 ! grep -rq 'sensors:' "$root/plugins/keel-harness/evals/gate-catches-defect/fixtures/harness/.agents/state.yml"; check "eval fixture state has no sensors list" $?
+
+# --- F6: lessons inbox
+L="$sk/references/lessons.md"
+LC="$root/plugins/keel-harness/contracts/learnings.md"
+[ -f "$L" ] && [ -f "$LC" ]; check "lessons.md and contracts/learnings.md exist" $?
+has 'references/lessons.md' && has '.agents/run/learnings/'; check "assess SKILL.md reads the lessons inbox through references/lessons.md" $?
+has 'it never promotes, edits or deletes a lesson, and never writes memory or learnings'; check "assess SKILL.md: never promotes, edits or deletes a lesson, never writes memory or learnings" $?
+for s in '/keel-harness:rules' 'ADR' 'discard' 'malformed' 'Seen:' 'Proposed:' 'Source:'; do
+  grep -qF -- "$s" "$L"; check "lessons.md covers: $s" $?
+done
+for s in 'Source:' 'Seen:' 'Proposed:' '`rule`' '`sensor`' '`adr`' '`discard`' 'git-ignored' 'Stop hook' 'sessions in a row' 'YYYY-MM-DD-<slug>.md' 'Only the user'; do
+  grep -qF -- "$s" "$LC"; check "learnings.md states: $s" $?
+done
+grep -qF '.agents/run/learnings/YYYY-MM-DD-<slug>.md' "$root/plugins/keel-harness/assets/core/README.agents.md"; check "README.agents.md tells agents where to write a lesson" $?
+
+# --- F6: auto-memory coherence (D41)
+M="$sk/references/memory.md"
+[ -f "$M" ]; check "memory.md exists" $?
+grep -qF 'https://code.claude.com/docs/en/memory' "$M" && grep -qF 'read 2026-10-29' "$M"; check "memory.md cites the memory docs with the date read" $?
+grep -qF '~/.claude/projects/<project>/memory/' "$M" && grep -qF 'MEMORY.md' "$M" && grep -qF 'autoMemoryDirectory' "$M"; check "memory.md states the location, the index and the override as the docs give them" $?
+grep -qF 'first 200 lines or 25 KB' "$M"; check "memory.md states what loads at session start" $?
+grep -qi 'inferential' "$M" && grep -qF 'env-file' "$M"; check "memory.md says the comparison is inferential and names the env-file numbers" $?
+grep -qF 'AGENTS.md' "$M" && grep -q 'contradiction' "$M"; check "memory.md compares with the env files and AGENTS.md" $?
+grep -qF 'never guess it' "$M"; check "memory.md does not guess the project directory" $?
+grep -qF 'edits or deletes that entry' "$M" && grep -qF 'never edits, creates or deletes a memory file' "$M"; check "memory.md proposes edit or delete and never edits memory" $?
+has 'references/memory.md'; check "assess SKILL.md points at references/memory.md" $?
+has 'Assess never edits memory'; check "assess SKILL.md: Assess never edits memory" $?
+
+# --- F6: adherence diagnosis (spec 5.4)
+A="$sk/references/adherence.md"
+[ -f "$A" ]; check "adherence.md exists" $?
+grep -qF 'plan-adherence' "$A" && grep -qF 'Opt-in' "$A"; check "adherence.md cites plan-adherence and is opt-in" $?
+for s in 'keel apply' 'keel verify' 'keel plan' 'keel approve' 'check pre' 'Gate run' 'file:line' 'Happened?' 'yes' 'no'; do
+  grep -qF -- "$s" "$A"; check "adherence.md covers: $s" $?
+done
+grep -qF 'before the first' "$A" && grep -qF 'after the last write' "$A"; check "adherence.md checks apply before the first write and verify after the last" $?
+has 'references/adherence.md' && has 'how well agents follow the harness'; check "assess SKILL.md offers the adherence diagnosis only when the user asks" $?
 exit $fail

@@ -15,9 +15,9 @@ one `warn` line per broken condition, or `harness is clean`.
 | `.agents/rules/<rule-id>.env` | A rule's metadata and parameters (`LIMIT`, `INCLUDE`, ...), read by its sensor | Yes |
 | `.agents/baselines/<id>.tsv` | Violations that existed when a rule was adopted, per file | Only shrink |
 | `.agents/baselines/archunit/`, `depcruise-known-violations.json` | Native architecture baselines (ArchUnit freeze store, dependency-cruiser known violations); import-linter's is `IGNORE_IMPORTS` in `architecture.env` | Only shrink |
-| `.agents/gate.env` | `CEILING_SECONDS` and `SLOW_CEILING_SECONDS` | Yes |
+| `.agents/gate.env` | `CEILING_SECONDS`, `SLOW_CEILING_SECONDS`, `HISTORY_RUNS` (runs of history kept) and the `harness-check` thresholds | Yes |
 | `.agents/state.yml` | Metadata only (`schema_version`, `mode`, `harness_review_by`, `adr_dir`) | Rarely |
-| `.agents/run/` | Run state (logs, fingerprints, lock) and `tmp/`, the temp-dir fallback when `TMPDIR` is unusable; git-ignored | Never: delete it to reset |
+| `.agents/run/` | Run state (logs, fingerprints, lock), `history/` (the last `HISTORY_RUNS` gate runs per sensor), `learnings/` (the lessons inbox) and `tmp/`, the temp-dir fallback when `TMPDIR` is unusable; git-ignored | Add a lesson; otherwise never: delete it to reset |
 | `.agents/plans/` | Plans (`Status: active/done/abandoned`, a required `## Acceptance`), committed; when done or abandoned, log one line in `.agents/progress.md` (the `keel plan-close` command does it) and delete the file | Yes |
 | `.agents/progress.md` | What survives between sessions: one line per closed plan, plus notes for the next session. Committed; `harness-check` warns when it passes `PROGRESS_MAX_LINES` | Yes |
 | `scripts/gate.sh` | Runs `make gate-fast` / `make gate-slow` | No (managed) |
@@ -79,6 +79,17 @@ re-running `depcruise-baseline`; for import-linter, delete the fixed edge from `
 Copy an existing ADR in the ADR folder (`adr_dir`; MADR: context, decision drivers, considered options,
 outcome, consequences, evidence), number it `NNNN`, and link it from the rule's **Decision.** line
 and `DECISION=` key. To change a decision, write a new ADR that supersedes the old one.
+
+### Write a lesson down
+When a review comment or a failure that keeps coming back teaches something, write
+`.agents/run/learnings/YYYY-MM-DD-<slug>.md` (git-ignored): `Source:` (session, review comment quoted, or
+sensor), `Seen:` (a count; raise it, do not write a second file), `Proposed:` (`rule`, `sensor`, `adr` or
+`discard`), then what would have prevented it. Never promote it yourself: `/keel-harness:assess` lists
+them and a person decides. The Stop hook writes one when a sensor fails in three sessions in a row.
+
+### On a model change
+Re-run the read-only eval groups of the keel-harness plugin, then move `harness_review_by` in
+`.agents/state.yml` six months ahead. `make harness-check` warns (`review-due`) once the date passes.
 
 ### Turn the Stop hook off
 Remove the `Stop` entry from `.claude/settings.json`. Copilot and Devin never had a hook; they follow
