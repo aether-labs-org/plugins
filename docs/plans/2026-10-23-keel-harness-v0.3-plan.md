@@ -28,7 +28,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | E3 Tool cases | ☐ after E2 (merged) and H1 | `2026-10-28-…-e3-plan.md` | not run yet: no `feat/keel-harness-v0.3-e3` branch on 2026-10-29 | owner's machine; AppArmor profile for `bwrap`, removed after (D50) |
 | F2a Layout | ✅ done 2026-10-24 | `2026-10-24-…-f2a-plan.md` | `13af4a2`; 1020 `ok`; 56 files, as planned | — |
 | F2b State + ADR folder | ✅ done 2026-10-28 | `2026-10-28-…-f2b-plan.md` | `6d16fe3`; 1028 `ok` (1031 with E1) | — |
-| F2c Skills and flow | ☐ after E2 | to write | — | `doctor` folds into `assess` (D51) |
+| F2c Skills and flow | ◐ F2c-1 done 2026-10-29 | `2026-10-29-…-f2c1-plan.md` | `646d5ae`, `dc95a1b`, `cfa7a77`; 1151 `ok` (1085 before); `validate --strict` passes; owner's paid run of `assess-*-drift` and `assess-*` still open (D51) | F2c-2 (`scripts/keel`), F2c-3 (skill template, traceability) |
 | F2d Assess and context | ☐ | — | — | after F2c |
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
 | F3b Versioned plans | ☐ | — | — | after F2c (`scripts/keel verify`) |
@@ -179,7 +179,7 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
 
 ### F2c — skills and flow
 
-- [ ] **Fold `doctor` into `assess` (D51, decided 2026-10-28).**
+- [x] **Fold `doctor` into `assess` (D51, decided 2026-10-28).** Done in F2c-1; the paid with/without run of the merged `assess` is open (owner).
   - With an installed harness, `assess` runs the plugin's own `harness-check.sh`, compares it with
     the repository's copy and explains each warning.
   - The validator and its tests stay unchanged.
@@ -187,16 +187,16 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
   - The README names the removed `/keel-harness:doctor` as a breaking change.
 - [ ] `scripts/keel` with `plan | approve | apply | verify | measure | check`; approvals in
   `.agents/run/flow/`; `apply` refuses without an approval matching the proposal hash.
-- [ ] `contracts/` (`sensor.md`, `rule-env.md`, `state.md`, `flow.md`, `plan.md`), moved from the skills'
-  references.
+- [x] `contracts/` (`sensor.md`, `rule-env.md`, `state.md`, `flow.md`, `plan.md`), moved from the skills'
+  references. Done in F2c-1; `flow.md` is a stub until F2c-2 (Phases) and F2c-3 (Traceability).
 - [ ] `contracts/rule-env.md` gains `ENFORCEMENT_LEVEL=mandatory|ratchet` (default `ratchet`).
   `harness-check` warns on a `mandatory` rule without a computational sensor. `AGENTS.md` lists the
   `mandatory` rules first. `rules` reads `.specify/memory/constitution.md` when it is present.
 - [ ] Rewrite each SKILL.md on the template in spec §5.5, one skill at a time: **assess (with
   doctor folded in), then build, then rules**. Each prose self-verify list moves into
   `keel verify <skill>`.
-- [ ] `disallowed-tools: Write Edit NotebookEdit` on `assess`.
-- [ ] `tests/keel_skill_size_test.sh`: every SKILL.md under 20,000 bytes.
+- [x] `disallowed-tools: Write Edit NotebookEdit` on `assess`.
+- [x] `tests/keel_skill_size_test.sh`: every SKILL.md under 20,000 bytes.
 - [ ] Traceability matrix (`contracts/flow.md`): every `never`/`always` in a skill maps to a test, a
   `keel verify` item or an eval grader, classified by form (recipe / slot / discipline).
 - [ ] Pressure tests for the discipline rules.
