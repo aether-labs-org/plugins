@@ -29,4 +29,46 @@ ev="$root/plugins/keel-harness/evals/assess-claude-md"
 for f in case.yaml prompt.md scaffold.sh; do [ -f "$ev/$f" ]; check "assess-claude-md has $f" $?; done
 [ "$(ls "$ev/graders" 2>/dev/null | wc -l)" -ge 3 ]; check "assess-claude-md has 3 graders" $?
 bash -n "$ev/scaffold.sh" 2>/dev/null; check "assess-claude-md scaffold parses" $?
+
+# --- doctor folded into assess (D51, F2c-1): the health check half
+f="$sk/SKILL.md"
+chk="$sk/references/checks.md"
+has() { grep -qF -- "$1" "$f" 2>/dev/null; }
+hasc() { grep -qF -- "$1" "$chk" 2>/dev/null; }
+[ ! -e "$root/plugins/keel-harness/skills/""doctor" ]; check "the doctor skill is gone (folded into assess)" $?
+grep -qE '^disallowed-tools: Write Edit NotebookEdit$' "$f"; check "assess declares disallowed-tools: Write Edit NotebookEdit (D36)" $?
+! grep -q '^allowed-tools:' "$f"; check "assess does not use allowed-tools as a restriction" $?
+[ "$(awk '/^description: >/{d=1;next} d&&/^[a-z-]+:/{d=0} d' "$f" | sed 's/^ *//' | tr '\n' ' ' | wc -c)" -le 1024 ]; check "assess description is at most 1,024 characters" $?
+grep -qi 'out of date' "$f" && grep -qi 'health check' "$f" && grep -qi 'ready' "$f"; check "assess description keeps bothd; } | trigger families" $?
+has '.agents/state.yml'; check "assess branches on .agents/state.yml" $?
+has 'references/checks.md'; check "assess links references/checks.md" $?
+hasc "100 lines"; check "AGENTS.md size is covered" $?
+! has "model_baseline" && ! hasc "model_baseline"; check "no model_baseline check (replaced by review-due)" $?
+has 'harness-check.sh'; check "runs harness-check.sh" $?
+has '${CLAUDE_PLUGIN_ROOT}/assets/core/harness-check.sh'; check "runs the plugin's copy of the validator" $?
+has 'prompt-audit'; check "points at /doctor prompt-audit" $?
+grep -qi "writes nothing" "$f"; check "assess writes nothing" $?
+grep -qi "exactly one warning" "$chk"; check "one condition produces one warning" $?
+has 'cmp'; check "proposes updating scripts/harness-check.sh when it differs (cmp)" $?
+for id in agents-size stale-command agents-not-loaded dangling-pointer hook-missing run-state guard-missing enforcement-drift sensor-malformed sensor-unavailable \
+          rule-inconsistent topic-size baseline-malformed baseline-stale review-due; do
+  hasc "$id"; check "check id: $id" $?
+done
+! grep -qi "capture rate" "$f" "$chk"; check "no history-dependent checks" $?
+! grep -qi "is not installed by keel\|not installed by keel" "$f"; check "assess no longer says keel does not install enforcement" $?
+ev="$root/plugins/keel-harness/evals/assess-validator-drift"
+for x in case.yaml prompt.md scaffold.sh; do [ -f "$ev/$x" ]; check "assess-validator-drift has $x" $?; done
+[ "$(ls "$ev/graders" 2>/dev/null | wc -l)" -ge 3 ]; check "assess-validator-drift has graders" $?
+bash -n "$ev/scaffold.sh" 2>/dev/null; check "assess-validator-drift scaffold parses" $?
+grep -q 'assess-finds-drift/scaffold.sh' "$ev/scaffold.sh"; check "assess-validator-drift scaffold calls assess-finds-drift" $?
+[ -f "$root/plugins/keel-harness/evals/assess-finds-drift/scaffold.sh" ]; check "assess-finds-drift scaffold exists" $?
+[ ! -e "$root/plugins/keel-harness/evals/doctor-finds-drift" ] && [ ! -e "$root/plugins/keel-harness/evals/doctor-validator-drift" ]; check "doctor-* eval cases renamed to assess-*-drift" $?
+[ ! -e "$root/plugins/keel-harness/evals/doctor-agents-not-loaded" ]; check "doctor-agents-not-loaded retired (E1)" $?
+for c in assess-finds-drift assess-validator-drift; do
+  grep -q "allowed_tools: \[.*Bash" "$root/plugins/keel-harness/evals/$c/prompt.md"; check "$c grants Bash (assess runs the validator)" $?
+  grep -q '^name: '"$c"'$' "$root/plugins/keel-harness/evals/$c/case.yaml" && grep -q '^tags: \[assess,' "$root/plugins/keel-harness/evals/$c/case.yaml"; check "$c case.yaml carries its new name and the assess tag" $?
+  grep -q 'tool: Skill' "$root/plugins/keel-harness/evals/$c/graders/skill-fired.md" && grep -qF '"skill"\s*:\s*"(?:[\w-]+:)?assess"' "$root/plugins/keel-harness/evals/$c/graders/skill-fired.md"; check "$c has the skill-fired grader" $?
+done
+! grep -q 'doctor' "$root/plugins/keel-harness/evals/should-not-trigger/graders/skill-silent.md"; check "should-not-trigger no longer names doctor" $?
+! grep -rq 'sensors:' "$root/plugins/keel-harness/evals/gate-catches-defect/fixtures/harness/.agents/state.yml"; check "eval fixture state has no sensors list" $?
 exit $fail

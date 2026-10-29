@@ -28,7 +28,7 @@ grep -q 'rules)' "$EV/should-not-trigger/graders/skill-silent.md"; check "should
 
 # The Bash write pattern, as the graders carry it, on commands the read-only skills really run
 if command -v node >/dev/null 2>&1; then
-  re="$(sed -n "s/^input_match: '\(.*\)'$/\1/p" "$EV/doctor-finds-drift/graders/no-bash-write.md")"
+  re="$(sed -n "s/^input_match: '\(.*\)'$/\1/p" "$EV/assess-finds-drift/graders/no-bash-write.md")"
   out="$(RE="$re" node -e '
     const re = new RegExp(process.env.RE), j = c => JSON.stringify({ command: c });
     const reads = ["bash scripts/harness-check.sh 2>&1", "make harness-check 2>/dev/null", "cmp a b >/dev/null 2>&1", "git status --short", "wc -l AGENTS.md"];
