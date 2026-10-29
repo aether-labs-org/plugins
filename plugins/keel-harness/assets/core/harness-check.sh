@@ -4,7 +4,8 @@
 # Run from the repository root: bash scripts/harness-check.sh (or make harness-check).
 # Prints one line per warning: warn<TAB><check-id><TAB><file><TAB><message><TAB><fix>, then
 # "harness-check: N warning(s)" or "harness-check: harness is clean".
-# Exit 0 clean, 1 warnings, 2 no .agents/state.yml. KEEL_TODAY=YYYY-MM-DD overrides today.
+# Exit 0 clean, 1 warnings, 2 no .agents/state.yml, 3 no writable temp directory (TMPDIR, else
+# .agents/run/tmp/). KEEL_TODAY=YYYY-MM-DD overrides today.
 set -uo pipefail
 
 if [ ! -f .agents/state.yml ]; then
@@ -18,7 +19,13 @@ warn() { # warn <check-id> <file> <message> <fix>
   nwarn=$((nwarn + 1))
   printf 'warn\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4"
 }
-tmp="$(mktemp -d)"
+# A temp dir: TMPDIR, else .agents/run/tmp/ (git-ignored), else none.
+keel_tmpdir() { mktemp -d 2>/dev/null || { mkdir -p .agents/run/tmp 2>/dev/null && mktemp -d .agents/run/tmp/XXXXXX 2>/dev/null; }; }
+tmp="$(keel_tmpdir)" || tmp=""
+if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+  echo "harness-check: no writable temp directory (TMPDIR or .agents/run/tmp/)" >&2
+  exit 3
+fi
 trap 'rm -rf "$tmp"' EXIT
 TAB="$(printf '\t')"
 

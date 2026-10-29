@@ -32,7 +32,13 @@ GUIDANCE="Write the missing test at the mapped path, for the behaviour you chang
 # --- keel:repo-specific end ---
 
 baseline=".agents/baselines/$id.tsv"
-tmp="$(mktemp -d)"
+# A temp dir: TMPDIR, else .agents/run/tmp/ (git-ignored), else none.
+keel_tmpdir() { mktemp -d 2>/dev/null || { mkdir -p .agents/run/tmp 2>/dev/null && mktemp -d .agents/run/tmp/XXXXXX 2>/dev/null; }; }
+tmp="$(keel_tmpdir)" || tmp=""
+if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no writable temp directory (TMPDIR or .agents/run/tmp/)"
+  exit 2
+fi
 trap 'rm -rf "$tmp"' EXIT
 
 specs=()
@@ -82,7 +88,12 @@ if [ "${KEEL_MEASURE:-}" = 1 ]; then
 fi
 
 over=$(awk -F'\t' '$2 > 0' "$tmp/counts" | wc -l | tr -d ' ')
-if viol="$(baseline_compare "$baseline" "$tmp/counts")"; then
+viol="$(baseline_compare "$baseline" "$tmp/counts")"; brc=$?
+if [ "$brc" -eq 2 ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no writable temp directory (TMPDIR or .agents/run/tmp/)"
+  exit 2
+fi
+if [ "$brc" -eq 0 ]; then
   printf '%s\t%s\t%s\t%s\n' "$id" "$class" pass "$checked files checked, all have a test ($over baselined)."
   exit 0
 fi

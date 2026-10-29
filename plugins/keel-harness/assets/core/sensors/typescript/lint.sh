@@ -31,7 +31,13 @@ if [ -n "${SCOPE:-}" ] && [ "${KEEL_MEASURE:-}" != 1 ]; then
   fi
 fi
 
-tmp="$(mktemp -d)"
+# A temp dir: TMPDIR, else .agents/run/tmp/ (git-ignored), else none.
+keel_tmpdir() { mktemp -d 2>/dev/null || { mkdir -p .agents/run/tmp 2>/dev/null && mktemp -d .agents/run/tmp/XXXXXX 2>/dev/null; }; }
+tmp="$(keel_tmpdir)" || tmp=""
+if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no writable temp directory (TMPDIR or .agents/run/tmp/)"
+  exit 2
+fi
 trap 'rm -rf "$tmp"' EXIT
 if [ -n "$targets" ]; then
   printf '%s\n' "$targets" | tr '\n' '\0' | xargs -0 "$ESLINT" -f json > "$tmp/eslint.json" 2> "$tmp/eslint.err"
@@ -66,7 +72,12 @@ fi
 
 now=$(awk -F'\t' '{ s += $2 } END { print s + 0 }' "$tmp/counts.tsv")
 based=$(baseline_total "$baseline")
-if viol="$(baseline_compare "$baseline" "$tmp/counts.tsv")"; then
+viol="$(baseline_compare "$baseline" "$tmp/counts.tsv")"; brc=$?
+if [ "$brc" -eq 2 ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no writable temp directory (TMPDIR or .agents/run/tmp/)"
+  exit 2
+fi
+if [ "$brc" -eq 0 ]; then
   printf '%s\t%s\t%s\t%s\n' "$id" "$class" pass "$now problems, none above baseline ($based baselined)."
   exit 0
 fi

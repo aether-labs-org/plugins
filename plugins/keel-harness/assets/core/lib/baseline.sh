@@ -24,11 +24,19 @@ baseline_header() {
   printf '# measured_at: %s review_by: %s\n' "$today" "$(add_months "$today" 6)"
 }
 
+# A temp file: TMPDIR, else .agents/run/tmp/ (git-ignored), else none.
+keel_tmpfile() { mktemp 2>/dev/null || { mkdir -p .agents/run/tmp 2>/dev/null && mktemp .agents/run/tmp/XXXXXX 2>/dev/null; }; }
+
 # baseline_compare BASELINE_FILE COUNTS_FILE
-# Prints path<TAB>now<TAB>allowed per violation; returns 0 when none, 1 otherwise.
+# Prints path<TAB>now<TAB>allowed per violation; returns 0 when none, 1 otherwise,
+# 2 when no temp file can be made (the calling sensor reports skip).
 baseline_compare() {
   local base="$1" counts="$2" out empty=""
-  if [ ! -s "$base" ]; then empty="$(mktemp)"; echo "# none" > "$empty"; base="$empty"; fi
+  if [ ! -s "$base" ]; then
+    empty="$(keel_tmpfile)" || empty=""
+    if [ -z "$empty" ] || [ ! -f "$empty" ]; then return 2; fi
+    echo "# none" > "$empty"; base="$empty"
+  fi
   out="$(awk -F'\t' '
     { sub(/\r$/, "") }
     NR == FNR { if ($0 !~ /^#/ && NF >= 2) allowed[$1] = $2 + 0; next }
