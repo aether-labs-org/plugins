@@ -98,6 +98,13 @@ on the changed files; it is never run by the hook and never wired to CI.
 `make check` runs `tests/run.sh`: shell tests with stub tools (no network, no model, free).
 `make validate` runs `claude plugin validate --strict`.
 
+## On a model change
+
+Re-run the read-only eval groups (`--tag readonly`, and `--tag bash` for the `assess-*` cases; commands
+below) and move `harness_review_by` in `.agents/state.yml` six months ahead. A harness built for one model
+is a bet about that model: the evals say whether it still pays, and `assess` reports `review-due` when the
+date passes.
+
 ## Evals (`claude plugin eval`, manual and paid)
 
 `assess-finds-drift` and `assess-validator-drift` were `doctor-finds-drift` and `doctor-validator-drift` before F2c;

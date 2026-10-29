@@ -81,13 +81,15 @@ outcome, consequences, evidence), number it `NNNN`, and link it from the rule's 
 and `DECISION=` key. To change a decision, write a new ADR that supersedes the old one.
 
 ### Write a lesson down
-When a review comment or a failure that keeps coming back teaches something the harness should have
-told you, write `.agents/run/learnings/YYYY-MM-DD-<slug>.md` (git-ignored): first line `Source:` (the
-session, the review comment quoted, or the sensor), second `Seen:` (a count; raise it instead of
-writing a second file), third `Proposed:` (`rule`, `sensor`, `adr` or `discard`), then what would have
-prevented it. Do not turn it into a rule or sensor yourself: the Stop hook also writes one when a sensor
-fails in three sessions in a row, and a person promotes or discards each one (`/keel-harness:assess`
-lists them and proposes the route).
+When a review comment or a failure that keeps coming back teaches something, write
+`.agents/run/learnings/YYYY-MM-DD-<slug>.md` (git-ignored): `Source:` (session, review comment quoted, or
+sensor), `Seen:` (a count; raise it, do not write a second file), `Proposed:` (`rule`, `sensor`, `adr` or
+`discard`), then what would have prevented it. Never promote it yourself: `/keel-harness:assess` lists
+them and a person decides. The Stop hook writes one when a sensor fails in three sessions in a row.
+
+### On a model change
+Re-run the read-only eval groups of the keel-harness plugin, then move `harness_review_by` in
+`.agents/state.yml` six months ahead. `make harness-check` warns (`review-due`) once the date passes.
 
 ### Turn the Stop hook off
 Remove the `Stop` entry from `.claude/settings.json`. Copilot and Devin never had a hook; they follow

@@ -458,4 +458,7 @@ r="$(mkclean)"; mkhist "$r" fast lint $(rep f 10); hc "$r" TMPDIR=/nonexistent-k
 G="$KEEL/assets/core/README.agents.md"
 [ -f "$G" ] && [ "$(wc -l < "$G")" -le 120 ]; check "README.agents.md exists and is at most 120 lines" $?
 for t in 'make harness-check' 'scripts/sensors/disabled/' 'KEEL_MEASURE=1' 'adr_dir' '.claude/settings.json' 'scripts/sensors/'; do grep -qF -- "$t" "$G" 2>/dev/null; check "README.agents.md mentions $t" $?; done
+# F6: a model change re-runs the read-only evals and moves harness_review_by
+grep -qF 'On a model change' "$G" && grep -qF 'read-only eval groups' "$G" && grep -qF 'harness_review_by' "$G"; check "README.agents.md: on a model change, re-run the read-only eval groups and move harness_review_by" $?
+grep -qF '## On a model change' "$KEEL/README.md" && sed -n '/^## On a model change/,/^## Evals/p' "$KEEL/README.md" | grep -q 'read-only eval groups' && sed -n '/^## On a model change/,/^## Evals/p' "$KEEL/README.md" | grep -q 'harness_review_by'; check "plugin README: on a model change, re-run the read-only eval groups and move harness_review_by" $?
 finish
