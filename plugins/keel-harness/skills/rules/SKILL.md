@@ -17,7 +17,7 @@ You are an engineer experienced in AI coding agents, harness engineering and con
 **keel proposes, the human decides.** Facts (commands, structure, measurements) are only discovered
 or measured. Norms (rules, limits, architecture, tools) you may propose, always with a
 justification, and this skill **writes only what the user approved**. It never migrates production
-code: an approved breaking change becomes a rule, a baseline, an ADR and a local plan.
+code: an approved breaking change becomes a rule, a baseline, an ADR and a plan.
 
 Reference files live next to this one: `references/catalog.md` (the entries and their sources),
 `interview.md`, `adr-template.md`, `rule-section.md`, `nested-agents-md-template.md` and `topics/`.
@@ -89,7 +89,7 @@ option of each question and say so. Group by topic: architecture, then testing, 
 ### Phase 7 - Write
 
 First record what the rounds approved as one proposal: the ADRs, topic files, env files, sensors,
-baselines, generated tool config and local plans, each with its path. Save it to a temporary file (`mktemp`; under
+baselines, generated tool config and plans, each with its path. Save it to a temporary file (`mktemp`; under
 `.agents/run/tmp/` when that fails), run `${CLAUDE_PLUGIN_ROOT}/scripts/keel plan rules <file>` and show
 it. After the user accepts it, run `${CLAUDE_PLUGIN_ROOT}/scripts/keel approve rules <hash>` with the hash `plan` printed; acceptance
 given up front in the user's own request counts, and the reply says so. An amended proposal needs
@@ -129,8 +129,7 @@ Write only what was approved, in this order:
    - dependency-cruiser: `node_modules/.bin/depcruise-baseline src --config .dependency-cruiser.cjs --output-to .agents/baselines/depcruise-known-violations.json`.
    - import-linter: run `lint-imports`, copy each offending `importer -> imported` edge into
      `IGNORE_IMPORTS` in `architecture.env`, and re-render `.importlinter`.
-7. `.agents/plans/` in `.gitignore` (with the other generated state files).
-8. Run `make gate-fast` and read it. A new rule must leave the gate green.
+7. Run `make gate-fast` and read it. A new rule must leave the gate green.
 
 The slow gate (`make gate-slow`: mutation and diff coverage) is never run by the Stop hook and never
 wired to CI; `AGENTS.md` tells agents to run it before opening a pull request. Integration and e2e
@@ -138,22 +137,23 @@ suites stay the project's own targets, cited in `AGENTS.md`.
 
 ### Phase 8 - Plan
 
-For each approved rule whose baseline is non-empty, write a local migration plan
-`.agents/plans/YYYY-MM-DD-<rule-id>.md` from `${CLAUDE_PLUGIN_ROOT}/contracts/plan.md`, with acceptance criteria in the
-sensor's numbers, and record it as `PLAN=` in the rule's env file. Plans never go under `docs/`
-(they are gitignored) and this skill never migrates anything itself.
+For each approved rule whose baseline is non-empty, write a migration plan
+`.agents/plans/YYYY-MM-DD-<rule-id>.md` from `${CLAUDE_PLUGIN_ROOT}/contracts/plan.md` (`Status: active`, an
+`## Acceptance` section in the sensor's numbers), run `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify plan <file>` on it,
+and record it as `PLAN=` in the rule's env file. Plans are committed, not ignored. Plans never go under `docs/`
+and this skill never migrates anything itself.
 
 ## Output contract
 
 Each approved rule leaves these artifacts, in these shapes:
 
-- the proposal recorded by `keel plan rules`: every ADR, topic file, env file, sensor, baseline, generated tool config and local plan, each with its path;
+- the proposal recorded by `keel plan rules`: every ADR, topic file, env file, sensor, baseline, generated tool config and plan, each with its path;
 - an ADR in `<adr_dir>/` when there was a real trade-off (`adr-template.md`), naming by path every baseline it introduces and every env file it loosens;
 - a section in its topic file, from `rule-section.md`, and its line in the right `AGENTS.md`: `- <statement> → docs/<topic>.md#<rule-id>`;
 - `.agents/rules/<rule-id>.env` with the fields of `contracts/rule-env.md`, inferential rules included;
 - a sensor, or `inferential` in the env file;
 - a baseline that came from `KEEL_MEASURE=1` (or the native tool's own baseline command);
-- a local plan from `contracts/plan.md` for every non-empty baseline.
+- a plan from `contracts/plan.md`, checked by `keel verify plan`, for every non-empty baseline.
 
 ## Discipline
 
@@ -164,11 +164,11 @@ no write before `keel apply rules` exits 0.
 | --- | --- |
 | "The team obviously wants hexagonal, I'll write the rule" | Norms are proposed with a justification and written only after the user approves them. Facts are discovered; norms are decided by the human. |
 | "There is no data for this limit, I'll use a typical one and call it theirs" | Never present an invented rule as the project's. Say nothing can be inferred, give your recommendation and why, label opinion as opinion, and ask. |
-| "While I'm here I'll fix the files that break the new rule" | This skill never migrates production code. An approved breaking change becomes a rule, a baseline, an ADR and a local plan under `.agents/plans/`. |
+| "While I'm here I'll fix the files that break the new rule" | This skill never migrates production code. An approved breaking change becomes a rule, a baseline, an ADR and a plan under `.agents/plans/`. |
 | "The gate is red, so I'll raise the baseline a little" | keel never raises a baseline. `guard` accepts a new or grown baseline only when an ADR added in the same change names it, and `security` sensors never get one. |
 | "The request said do not pause, so I'll skip plan and approve" | Acceptance given up front still goes through `keel plan`, `approve` and `apply`; the reply says the acceptance came from the request. |
 | "Editing the accepted ADR is simpler than a new one" | Never edit an accepted ADR: supersede it. |
-| "Plans are useful to the whole team, put them in `docs/`" | Plans never go under `docs/`: they are gitignored local files. |
+| "Plans are useful to the whole team, put them in `docs/`" | Plans never go under `docs/`: they live in `.agents/plans/`, versioned but transient (removed when done). |
 
 ## Done when
 

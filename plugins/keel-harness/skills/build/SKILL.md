@@ -73,7 +73,8 @@ Fill `references/agents-md-template.md` with real, confirmed values only. Any to
 than one sentence becomes a `→ docs/X.md` pointer. Omit sections with nothing found. Read
 `references/context-engineering.md` first. The rendered file is **100 lines** or fewer. Create no
 TODO stubs: project rules and `docs/architecture.md`, `docs/conventions.md`, `docs/testing.md` come
-from `/keel-harness:rules`, which this skill offers at the end.
+from `/keel-harness:rules`, which this skill offers at the end. Also create `.agents/progress.md` (a
+heading and one line on what it holds, per `contracts/plan.md`): the template points at it.
 
 **Claude Code reads `AGENTS.md` only when no `CLAUDE.md` or `.claude/CLAUDE.md` exists.** So when
 neither exists, create `CLAUDE.md` containing exactly `@AGENTS.md`. When one exists without that
@@ -149,8 +150,8 @@ continues only while the gate fails, up to its loop guard.
 Claude Code sets when it runs the hook; never replace it with this repository's absolute path. The
 hook is the item most worth declining on its own, so it is a separate line in the proposal.
 
-Add `.agents/run/` (all run state: logs, fingerprints, lock) and `.agents/plans/` to `.gitignore`,
-fresh installs and upgrades alike. Propose ignoring the tools' caches too when they are not (`.mypy_cache/`,
+Add `.agents/run/` (all run state: logs, fingerprints, lock) to `.gitignore`, fresh installs and
+upgrades alike. `.agents/plans/` and `.agents/progress.md` are versioned, not ignored (D6). Propose ignoring the tools' caches too when they are not (`.mypy_cache/`,
 `.pytest_cache/`, `.ruff_cache/`, `.gradle/`, `build/`, `coverage/`): untracked, they enter `SCOPE`.
 
 ### Phase 5 - enforcement (ci, precommit)

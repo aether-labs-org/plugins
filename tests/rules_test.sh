@@ -59,4 +59,11 @@ for c in rules-brownfield rules-greenfield rules-architecture-java rules-effect-
   bash -n "$EV/$c/scaffold.sh" 2>/dev/null; check "eval $c scaffold parses" $?
 done
 bash -n "$EV/rules-brownfield/harness.sh"; check "eval harness helper parses" $?
+
+# --- F3b: rules writes versioned plans from contracts/plan.md and verifies them
+! grep -q '`\.agents/plans/` in `\.gitignore`' "$S"; check "rules no longer adds .agents/plans/ to .gitignore" $?
+! grep -qi 'gitignored' "$S"; check "rules does not call plans gitignored" $?
+has "$S" 'keel verify plan'; check "rules runs keel verify plan on each plan" $?
+has "$S" '## Acceptance'; check "rules writes an Acceptance section" $?
+has "$S" 'PLAN='; check "rules still records PLAN=" $?
 exit $fail

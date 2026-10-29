@@ -53,7 +53,7 @@ text in the file, so keep `layers` on one line in flow style, as above.
 ## Rules for editing
 
 - Never edit `state.yml`, a baseline or a test to make the gate pass; `guard` and the Stop hook say so.
-- `.agents/state.yml`, `.agents/gate.env` and `.agents/baselines/` are committed; `.agents/run/` and
-  `.agents/plans/` are git-ignored.
+- `.agents/state.yml`, `.agents/gate.env`, `.agents/baselines/`, `.agents/plans/` and `.agents/progress.md` are committed; only `.agents/run/`
+  is git-ignored.
 - A state without `schema_version`, or with `schema_version: 2`, is an earlier install: `build`
   upgrades it (`skills/build/references/upgrade.md`).

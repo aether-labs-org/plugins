@@ -13,3 +13,7 @@ A `schema_version: 2` state (v0.2) gets one round, each item accept-or-drop: del
 4. The v0.1 model-baseline key is replaced by `harness_review_by` (today + 6 months); state becomes the
    `schema_version: 3` shape in `SKILL.md` (output contract).
 5. The `.gitignore` entries of the hook phase are added.
+
+Every earlier install gets one more accept-or-drop item (D6 revised): a `.agents/plans/` line in `.gitignore`
+is removed, because plans are versioned now, and `.agents/progress.md` is created with the `Progress across
+sessions → .agents/progress.md` line in `AGENTS.md` (see `contracts/plan.md`).

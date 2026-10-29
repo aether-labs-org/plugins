@@ -15,7 +15,7 @@ APPROVED_AT=2026-10-20
 ENFORCEMENT=sensor:file-size      # sensor:<id>[,sensor:<id>] | inferential
 DOC=docs/conventions.md#file-size
 DECISION=docs/adr/0003-file-size-limit.md         # optional; in adr_dir
-PLAN=.agents/plans/2026-10-20-file-size.md        # optional; local, may be absent on other clones
+PLAN=.agents/plans/2026-10-20-file-size.md        # optional; committed, removed when the plan is closed
 LIMIT=300
 INCLUDE='src/'
 ```

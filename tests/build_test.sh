@@ -107,4 +107,17 @@ grep -q 'LINT_PATHS' "$root/plugins/keel-harness/evals/build-react/graders/lint-
 E="$root/plugins/keel-harness/skills/build/references/enforcement.md"
 has "$S" 'references/enforcement.md'; check "build proposes the ci and precommit layers (F3a)" $?
 for t in 'assets/core/ci/keel.yml' 'KEEL_GUARD_BASE' 'never a new one' 'required'; do has "$E" "$t"; check "enforcement.md: $t" $?; done
+
+# --- F3b: plans and progress are versioned (D6 revised)
+! grep -qE 'and `\.agents/plans/` to `\.gitignore`|`\.agents/plans/` in `\.gitignore`' "$S"; check "build no longer adds .agents/plans/ to .gitignore" $?
+has "$S" 'versioned, not ignored'; check "build says plans and progress are versioned, not ignored" $?
+has "$S" '.agents/progress.md'; check "build creates .agents/progress.md" $?
+has "$sk/references/upgrade.md" '`.agents/plans/` line in `.gitignore`'; check "upgrade.md proposes removing an existing .agents/plans/ line" $?
+has "$sk/references/agents-md-template.md" 'Progress across sessions → .agents/progress.md'; check "AGENTS.md template points at .agents/progress.md" $?
+tl="$(awk '/^```markdown$/{t=1;next} /^```$/{t=0} t' "$sk/references/agents-md-template.md" | wc -l | tr -d ' ')"
+[ "$tl" -le 100 ]; check "the rendered AGENTS.md template stays within 100 lines ($tl)" $?
+! grep -rqi 'plans.*gitignored\|gitignored.*plans' "$root/plugins/keel-harness" --include=*.md --include=*.sh; check "nothing in the plugin says plans are gitignored" $?
+! grep -q 'plans/' "$root/plugins/keel-harness/assets/core/gate.sh" 2>/dev/null; check "gate.sh does not touch .agents/plans/" $?
+[ ! -e "$root/plugins/keel-harness/evals/rules-brownfield/graders/gitignore-plans.md" ]; check "the brownfield eval no longer expects .agents/plans/ in .gitignore" $?
+has "$root/plugins/keel-harness/evals/rules-brownfield/graders/plan-acceptance.md" '## Acceptance'; check "the brownfield eval expects an Acceptance section in the plan" $?
 exit $fail

@@ -42,7 +42,7 @@ what the user approved and never migrates production code.
 - **Reads:** the code (read-only measurements), instruction files, existing ADRs
 - **Writes:** rule sections in `docs/architecture.md`, `docs/conventions.md`, `docs/testing.md`;
   ADRs in the repository's ADR folder (`docs/adr/` by default); `.agents/rules/<id>.env`; rule sensors, baselines and generated tool config
-  (ArchUnit test, `.dependency-cruiser.cjs`, `.importlinter`); local plans in `.agents/plans/`
+  (ArchUnit test, `.dependency-cruiser.cjs`, `.importlinter`); plans in `.agents/plans/`
 
 ### Breaking change in v0.3
 
@@ -56,7 +56,7 @@ eval cases `doctor-finds-drift` and `doctor-validator-drift` are now `assess-fin
 **keel proposes, the human decides.** Facts (commands, structure, measurements) are discovered or
 measured. Norms (rules, limits, architecture, tools) may be proposed with a justification and are
 written only after approval, in rounds of questions. An approved breaking change becomes a rule, a
-baseline, an ADR and a local migration plan; keel never executes the migration. Still no action is
+baseline, an ADR and a committed migration plan with a required Acceptance section; keel never executes the migration. Still no action is
 blocked: the Stop hook hands the fast gate's guidance back to Claude and stops after a loop guard.
 
 ## How the flow is enforced
@@ -65,7 +65,7 @@ The order of a skill's phases is code, not prose (`scripts/keel`, `contracts/flo
 write their proposal with `keel plan`, record the user's answer with `keel approve <hash>` and may write
 only after `keel apply` exits 0, which it does only for an approved proposal that has not changed since.
 Every skill ends with `keel verify <skill>`, which replaces the old prose checklists and exits non-zero on
-any unmet item; `assess` uses it to prove it wrote nothing. State lives in `.agents/run/flow/`
+any unmet item; `assess` uses it to prove it wrote nothing. `keel verify plan <file>` checks a plan's `Status:` and `## Acceptance`; `keel plan-close` logs a finished plan in `.agents/progress.md` and removes it. State lives in `.agents/run/flow/`
 (git-ignored). The agent itself runs `keel approve`, so the hash proves that what was approved is what was
 applied, not that a human said yes; the other layers are the guard sensor, the planned PreToolUse hook and
 the process evals.

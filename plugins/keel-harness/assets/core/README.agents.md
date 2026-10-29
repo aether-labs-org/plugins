@@ -18,7 +18,8 @@ one `warn` line per broken condition, or `harness is clean`.
 | `.agents/gate.env` | `CEILING_SECONDS` and `SLOW_CEILING_SECONDS` | Yes |
 | `.agents/state.yml` | Metadata only (`schema_version`, `mode`, `harness_review_by`, `adr_dir`) | Rarely |
 | `.agents/run/` | Run state (logs, fingerprints, lock) and `tmp/`, the temp-dir fallback when `TMPDIR` is unusable; git-ignored | Never: delete it to reset |
-| `.agents/plans/` | Local migration plans (gitignored) | Yes |
+| `.agents/plans/` | Plans (`Status: active/done/abandoned`, a required `## Acceptance`), committed; when done or abandoned, log one line in `.agents/progress.md` (the `keel plan-close` command does it) and delete the file | Yes |
+| `.agents/progress.md` | What survives between sessions: one line per closed plan, plus notes for the next session. Committed; `harness-check` warns when it passes `PROGRESS_MAX_LINES` | Yes |
 | `scripts/gate.sh` | Runs `make gate-fast` / `make gate-slow` | No (managed) |
 | `scripts/lib/` | Helpers sourced by sensors (`baseline.sh`, `junit.sh`) | No (managed) |
 | `scripts/sensors/*.sh` | Fast sensors, one per file | Yes |

@@ -410,7 +410,7 @@ pc "$r" .agents/plans/g.md "done" -h; [ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/
 for s in assess build rules; do
   calls="$(grep -ohE 'scripts/keel (check pre|plan|approve|apply|verify) [a-z]+' "$KEEL/skills/$s/SKILL.md")"
   [ -n "$calls" ]; check "$s/SKILL.md calls scripts/keel" $?
-  bad="$(printf '%s\n' "$calls" | grep -vE "^scripts/keel (check pre|plan|approve|apply|verify) $s\$" | grep -c .)"
+  bad="$(printf '%s\n' "$calls" | grep -vE "^scripts/keel verify plan$" | grep -vE "^scripts/keel (check pre|plan|approve|apply|verify) $s\$" | grep -c .)"
   [ "$bad" -eq 0 ]; check "$s/SKILL.md names only its own skill in every scripts/keel call" $?
 done
 grep -q 'scripts/keel' "$KEEL/skills/build/SKILL.md" && ! grep -q 'keel verify build' "$KEEL/skills/rules/SKILL.md"; check "build and rules do not call each other's verify" $?
