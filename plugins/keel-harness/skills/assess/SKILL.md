@@ -126,7 +126,7 @@ harness. Exit 2 means `.agents/state.yml` is missing, so this is the readiness q
 at `/keel-harness:build` and continue with phase 1; that is a precondition, not a warning. Exit 3
 means no writable temp directory (`TMPDIR`, else `.agents/run/tmp/`): report it, never guess the checks.
 
-**2b. Explain each warning.** The twenty checks, what each one means and where its fix goes are in
+**2b. Explain each warning.** The twenty-two checks, what each one means and where its fix goes are in
 `references/checks.md`. For each warning the validator prints, say in plain words what is wrong, name
 the file, and propose the fix through `/keel-harness:build` or `/keel-harness:rules` as that table
 says. **One broken condition produces exactly one warning.** Stay silent about checks that found

@@ -73,4 +73,22 @@ bash -n "$EV/rules-brownfield/harness.sh"; check "eval harness helper parses" $?
 has "$S" 'keel verify plan'; check "rules runs keel verify plan on each plan" $?
 has "$S" '## Acceptance'; check "rules writes an Acceptance section" $?
 has "$S" 'PLAN='; check "rules still records PLAN=" $?
+
+# --- F3c-2: mandatory rules (D43), Spec Kit constitution
+CT="$root/plugins/keel-harness/contracts/rule-env.md"
+P5="$(awk '/^### Phase 5/{p=1} /^### Phase 6/{p=0} p' "$S")"
+printf '%s\n' "$P5" | grep -qF 'Mandatory or ratchet?' && printf '%s\n' "$P5" | grep -qF 'ENFORCEMENT_LEVEL=mandatory' && printf '%s\n' "$P5" | grep -qF 'superseding ADR'; check "phase 5 asks mandatory or ratchet, with the trade-off" $?
+printf '%s\n' "$P5" | grep -qF 'inferential rule stays ratchet'; check "phase 5: an inferential rule stays ratchet" $?
+awk '/^### Phase 3/{p=1} /^### Phase 4/{p=0} p' "$S" | grep -qF '.specify/memory/constitution.md'; check "phase 3 reads a Spec Kit constitution" $?
+awk '/^### Phase 3/{p=1} /^### Phase 4/{p=0} p' "$S" | grep -qF '## Principles' && awk '/^### Phase 3/{p=1} /^### Phase 4/{p=0} p' "$S" | grep -qF '→ review:<owner>'; check "unsensorable principles go to ## Principles with → review:<owner>" $?
+has "$S" 'never writes a `constitution.md`'; check "rules never writes a constitution.md" $?
+[ -z "$(find "$root/plugins/keel-harness" -name 'constitution*' | head -1)" ]; check "the plugin ships no constitution file or template" $?
+awk '/^### Phase 7/{p=1} /^### Phase 8/{p=0} p' "$S" | grep -qF 'mandatory rules come first' && awk '/^### Phase 7/{p=1} /^### Phase 8/{p=0} p' "$S" | grep -qF '[mandatory]'; check "phase 7 puts mandatory rules first in AGENTS.md" $?
+awk '/^### Phase 7/{p=1} /^### Phase 8/{p=0} p' "$S" | grep -qF 'A mandatory rule has no baseline'; check "phase 7: a mandatory rule has EXCEPTIONS, not a baseline" $?
+has "$R/nested-agents-md-template.md" '[mandatory]' && has "$R/nested-agents-md-template.md" 'mandatory rules first'; check "nested AGENTS.md template lists mandatory rules first" $?
+has "$root/plugins/keel-harness/skills/build/references/agents-md-template.md" '[mandatory]' && has "$root/plugins/keel-harness/skills/build/references/agents-md-template.md" 'mandatory rules first'; check "root AGENTS.md template lists mandatory rules first" $?
+has "$R/adr-template.md" 'Supersedes:' && has "$R/adr-template.md" 'CODEOWNERS'; check "adr-template.md documents the Supersedes: line and its CODEOWNERS approval" $?
+has "$root/plugins/keel-harness/skills/build/references/enforcement.md" 'mandatory' && has "$root/plugins/keel-harness/skills/build/references/enforcement.md" 'required'; check "enforcement.md asks for a required keel check when a rule is mandatory" $?
+for t in ENFORCEMENT_LEVEL EXCEPTIONS 'ratchet' 'Supersedes:' 'CODEOWNERS' 'mandatory-unsensored' 'exception-expired' 'no baseline' '.agents/rules/'; do has "$CT" "$t"; check "rule-env.md documents $t" $?; done
+has "$R/topics/architecture.md" '## Principles' && has "$R/topics/architecture.md" 'review:'; check "architecture topic has the ## Principles section" $?
 exit $fail

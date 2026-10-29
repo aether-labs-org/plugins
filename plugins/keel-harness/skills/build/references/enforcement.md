@@ -19,6 +19,9 @@ the proposal (`ci`, `precommit` in `.agents/state.yml`), accepted or declined on
   (`make bootstrap`, `KEEL_GUARD_BASE=<target branch> make gate-fast`, `make harness-check || true`)
   in that system's file, and say it is untested by keel.
 - Tell the user to make the `keel` check required in the branch protection; keel cannot set it.
+  When any rule is mandatory (`ENFORCEMENT_LEVEL=mandatory`, `contracts/rule-env.md`) say so as a requirement
+  and not as advice: a superseding ADR is approved through CODEOWNERS plus that required check, and without
+  both the approval is only a convention. keel cannot check either locally.
 
 ## Pre-commit (`precommit` layer)
 

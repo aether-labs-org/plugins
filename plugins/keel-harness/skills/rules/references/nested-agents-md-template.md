@@ -8,5 +8,9 @@ For rules that apply to one directory only. Agents read the nearest `AGENTS.md`.
 {{One line: what this directory is.}}
 
 ## Rules
-- {{statement, one verifiable sentence}} → docs/{{topic}}.md#{{rule-id}}
+- [mandatory] {{non-negotiable statement, one verifiable sentence}} → docs/{{topic}}.md#{{rule-id}}
+- {{ratchet statement, one verifiable sentence}} → docs/{{topic}}.md#{{rule-id}}
 ```
+
+List mandatory rules first (`ENFORCEMENT_LEVEL=mandatory` in the rule's env file), each line starting
+`[mandatory]`, then the ratchet rules.
