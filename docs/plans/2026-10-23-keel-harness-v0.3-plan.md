@@ -36,7 +36,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F3d Exemplars + catalog | ☐ F3d-1 wave E, F3d-2 wave F | `2026-10-29-…-f3d1/f3d2-plan.md` | — | after F3d-1 |
 | F4 Codex | backlog (D5) | — | — | — |
 | F5 Profile L | ☐ wave G | `2026-10-29-…-f5-plan.md` | — | after F3 and F6; ships only with Δ > 0 per component, else v0.4 (D52) |
-| F6 Feedback → infrastructure | ☐ wave E | `2026-10-29-…-f6-plan.md` | — | after F2d, F3b, F3c-1 |
+| F6 Feedback → infrastructure | ✅ done 2026-10-29 | `2026-10-29-…-f6-plan.md` | `c3914bf`, `5ec63ea`, `63ef483`, `72a0c9f`, `f58251b`, `c90345e` on `feat/keel-harness-v0.3-f6`; 2371 `ok` (2244 before), 0 FAIL, `validate --strict` passes, shellcheck clean; the 4 history checks bring harness-check to 24 | F5 |
 | R Release v0.3.0 | ☐ wave H | `2026-10-29-…-r-plan.md` | — | last |
 | CLI (`feat/keel-cli`) | ❄ frozen, outside v0.3 | `docs/keel-cli-plan` branch | 7 commits on an old base, not reviewed | revisit after R, or when a D48 trigger occurs |
 
@@ -303,13 +303,13 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f3a-plan.md`.
 
 ## F6 — Feedback into infrastructure
 
-- [ ] Each gate run's per-sensor status goes to `.agents/run/history/`, keeping the last 50 runs
+- [x] Each gate run's per-sensor status goes to `.agents/run/history/`, keeping the last 50 runs
   (adjustable). The validator (through `assess`, D51) reports sensors that are always green or always red.
-- [ ] Lessons inbox `.agents/run/learnings/`, with promotion proposals written only with approval.
-- [ ] Auto-memory coherence report; never edits memory.
-- [ ] Transcript adherence diagnosis (did the flow's phases happen, in order).
-- [ ] Recurring failures grouped by class, with the guide or sensor that would have prevented them.
-- [ ] On a model change, re-run the read-only evals and move `harness_review_by`.
+- [x] Lessons inbox `.agents/run/learnings/`, with promotion proposals written only with approval.
+- [x] Auto-memory coherence report; never edits memory.
+- [x] Transcript adherence diagnosis (did the flow's phases happen, in order).
+- [x] Recurring failures (per sensor, as the F6 plan asks, not grouped by class), with the guide or sensor that would have prevented them.
+- [x] On a model change, re-run the read-only evals and move `harness_review_by`.
 
 ## R — Release v0.3.0
 
