@@ -127,4 +127,12 @@ awk '/^## type-strictness$/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'guard'; ch
 awk '/^## function-size$/{p=1;next} /^## /{p=0} p' "$C" | qgrep -iF 'no study'; check "catalog function-size: says no study backs an exact number" $?
 awk '/^## test-conventions$/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'test-presence' && awk '/^## test-conventions$/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'folder-layout'; check "catalog test-conventions: no new sensor, test-presence and folder-layout" $?
 has "$CT" 'measure.sh deps'; check "rule-env.md documents measure.sh deps" $?
+# --- F3d-2 Task 3: rules proposes a D44 entry only on evidence
+P5="$(awk '/^### Phase 5/{p=1} /^### Phase 6/{p=0} p' "$S")"
+printf '%s\n' "$P5" | qgrep -F 'D44' && printf '%s\n' "$P5" | qgrep -F 'only when its measurement shows a problem' && printf '%s\n' "$P5" | qgrep -F 'or the user asks'; check "phase 5: a D44 entry is proposed only when its measurement shows a problem or the user asks" $?
+printf '%s\n' "$P5" | qgrep -F 'any match for a pattern entry' && printf '%s\n' "$P5" | qgrep -F 'any function over the default for a size entry'; check "phase 5: names the evidence per kind of entry" $?
+printf '%s\n' "$P5" | qgrep -F 'unproven'; check "phase 5: says the D44 entries are unproven" $?
+awk '/^### Phase 4/{p=1} /^### Phase 5/{p=0} p' "$S" | qgrep -F 'measure.sh" deps'; check "phase 4 lists measure.sh deps" $?
+[ "$(wc -l < "$S")" -le 250 ]; check "rules SKILL.md still at most 250 lines after F3d-2" $?
+[ "$(wc -c < "$S")" -lt 20000 ]; check "rules SKILL.md is under 20,000 bytes after F3d-2" $?
 exit $fail
