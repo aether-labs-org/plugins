@@ -78,7 +78,19 @@ on the changed files; it is never run by the hook and never wired to CI.
 
 ## Evals (`claude plugin eval`, manual and paid)
 
-Run `claude plugin eval . --scaffold` from `plugins/keel-harness/`. Host prerequisites per case:
+Run from `plugins/keel-harness/`, one grant group at a time. `--allow-tools` applies to every case in
+a run, and `--case` keeps only its last value, so each group is selected by its tag:
+
+```bash
+claude plugin eval . --tag readonly --scaffold --trust-plugin --max-cost-usd <ceiling>
+claude plugin eval . --tag bash     --scaffold --trust-plugin --allow-tools Bash --max-cost-usd <ceiling>
+claude plugin eval . --tag tools    --scaffold --trust-plugin --allow-tools Bash Write Edit --max-cost-usd <ceiling>
+claude plugin eval . --tag effect   --scaffold --trust-plugin --allow-tools Bash Write Edit --ablation none --max-cost-usd <ceiling>
+```
+
+"Writes nothing" is graded from tool calls (`no-write`, `no-edit`, `no-notebook-edit`, `no-bash-write`,
+weight 0.25 each), not with `file_exists`, which also counts the `.claude/.cc-writes/` that Claude
+Code's Bash tool creates. Host prerequisites per case:
 
 | Case | Host prerequisites |
 | --- | --- |
