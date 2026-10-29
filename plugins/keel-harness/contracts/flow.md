@@ -146,7 +146,7 @@ parentheses:
 | build | "must run with this plugin absent" | discipline | verify:build item 7; test:tests/keel_assets_test.sh (no plugin path in any asset) |
 | build | "the adapter always exits 0" | recipe | test:tests/keel_stop_hook_test.sh (the hook exits 0 for every gate result) |
 | build | "never replace it with this repository's absolute path" | discipline | verify:build item 9; test:tests/keel_cli_test.sh (hook-settings fails on an absolute path) |
-| build | "never edit the test to match" | slot | none (the guidance is in the tests sensors, no test pins its wording - a gap) |
+| build | "never edit the test to match" | slot | test:tests/keel_assets_test.sh |
 | build | "**Write nothing before the user accepts" | discipline | verify:build item 12; test:tests/keel_cli_test.sh (apply refuses without an approval of the current proposal) |
 | rules | "always with a" | slot | eval:rules-brownfield/graders/mentions-p90.md |
 | rules | "never migrates production" | discipline | eval:rules-brownfield/graders/never-edits-src.md; eval:rules-brownfield/graders/never-writes-src.md |
@@ -156,6 +156,6 @@ parentheses:
 | rules | "keel never raises one" | discipline | test:tests/keel_guard_test.sh (a grown baseline fails unless an ADR added in the same change names it) |
 | rules | "keel never raises a baseline" | discipline | test:tests/keel_guard_test.sh (a grown baseline fails unless an ADR added in the same change names it) |
 | rules | "must leave the gate green" | recipe | verify:rules item 2 |
-| rules | "never run by the Stop hook" | discipline | none (nothing asserts that the hook runs only the fast gate - a gap) |
+| rules | "never run by the Stop hook" | discipline | test:tests/keel_stop_hook_test.sh |
 | rules | "Plans never go under" | discipline | eval:rules-brownfield/graders/plan.md (a plan is written under `.agents/plans/`) |
 | rules | "this skill never migrates anything itself" | discipline | eval:rules-brownfield/graders/never-edits-src.md; eval:rules-brownfield/graders/never-writes-src.md |

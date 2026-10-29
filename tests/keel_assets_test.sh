@@ -22,4 +22,8 @@ done <<EOL
 $(find "$KEEL"/assets "$KEEL"/scripts -type f -name '*.sh' | sort)
 EOL
 [ "$n" -gt 0 ]; check "at least one asset exists" $?
+# every tests sensor names the wrong fix (build: "never edit the test to match")
+for st in typescript python jvm; do
+  grep -q 'do not edit the test to match' "$KEEL/assets/core/sensors/$st/tests.sh"; check "sensors/$st/tests.sh guidance names the wrong fix" $?
+done
 finish

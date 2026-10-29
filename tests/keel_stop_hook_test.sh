@@ -147,4 +147,6 @@ cmd="$(jq -r '.hooks.Stop[0].hooks[0].command' "$S" 2>/dev/null)"
 case "$cmd" in *'${CLAUDE_PROJECT_DIR}'*scripts/hooks/claude-stop.sh*) true ;; *) false ;; esac; check "settings command uses literal CLAUDE_PROJECT_DIR and the hook path" $?
 [ "$(jq -r '.hooks.Stop[0].hooks[0].timeout' "$S")" = 120 ]; check "settings timeout 120" $?
 ! grep -q 'exit 2' "$HOOK_SRC" && ! grep -q '"block"' "$HOOK_SRC"; check "hook never exits 2 or emits block" $?
+# the Stop hook runs the fast gate only, never the slow one (rules: "never run by the Stop hook")
+grep -q 'gate.sh fast' "$HOOK_SRC" && ! grep -qE 'gate\.sh +slow|gate-slow' "$HOOK_SRC"; check "Stop hook runs only the fast gate" $?
 finish
