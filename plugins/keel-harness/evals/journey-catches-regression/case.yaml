@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: journey-catches-regression
+description: A planted regression in a small web page is caught by the opt-in journey sensor through the installed slow gate, which names the failing journey and its trace. Experimental (D52).
+tags: [profile-l, tools]
+context:
+  scaffold_script: scaffold.sh

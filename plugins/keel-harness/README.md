@@ -178,6 +178,8 @@ Code's Bash tool creates. Host prerequisites per case:
 | `build-java`, `rules-architecture-java` | JDK 17+, network (Gradle wrapper) |
 | `rules-greenfield` | none beyond the tool allow-list |
 | `assess-finds-drift`, `assess-validator-drift` | node/npm, network, `gitleaks`; `--allow-tools Bash` (`assess` runs the validator) |
+| `reviewer-catches-violation-with` / `-without` (F5, experimental) | the `-with` arm makes a real model call through `claude -p` (billed; set `KEEL_EVAL_REVIEWER_CMD` to `claude -p --model <a model other than the one that codes>`) and needs network and auth inside the sandbox, which is unproven; `--allow-tools Write Edit Bash`, `--ablation none`, compare the two scores by hand |
+| `journey-catches-regression` (F5, experimental) | node/npm, network, Chromium (`npx playwright install chromium`, run by the scaffold); `--allow-tools Bash Write` |
 
 v0.2 numbers, **partial baseline**: 5 of the 15 cases measured (the read-only ones). `rules-effect-with`
 and `rules-effect-without` are meant to run with `--ablation none` and be compared by hand, since that
