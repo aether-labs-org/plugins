@@ -29,7 +29,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F2a Layout | ✅ done 2026-10-24 | `2026-10-24-…-f2a-plan.md` | `13af4a2`; 1020 `ok`; 56 files, as planned | — |
 | F2b State + ADR folder | ✅ done 2026-10-28 | `2026-10-28-…-f2b-plan.md` | `6d16fe3`; 1028 `ok` (1031 with E1) | — |
 | F2c Skills and flow | ✅ done 2026-10-29 (F2c-1 and F2c-2 merged; F2c-3 on `feat/keel-harness-v0.3-f2c3`); `ENFORCEMENT_LEVEL` moved to F3c; evals not re-run (owner) | `2026-10-29-…-f2c1/f2c2/f2c3-plan.md` | `646d5ae`, `dc95a1b`, `cfa7a77`; F2c-3: 1755 `ok` (1505 before), `validate --strict` passes, 9 traceability rows are written gaps (`none`); owner's paid re-run of `--tag readonly`, `--tag bash` and the new `--tag pressure` still open (D51) | owner: re-run the eval groups |
-| F2d Assess and context | ☐ wave D | `2026-10-29-…-f2d-plan.md` | — | after F2c |
+| F2d Assess and context | ✅ done 2026-10-29; triggering evals not run (owner) | `2026-10-29-…-f2d-plan.md` | `c378144`, `8f6128c`, `0d904a5`, `587f778` on `feat/keel-harness-v0.3-f2d`; 1941 `ok` (1759 before), `validate --strict` passes; 11 rubric axes; LSP names from the official code-intelligence page; `codemap-stale` is check 16; 9 `trigger-*` cases | owner: run `--tag trigger` (read-only) |
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
 | F3b Versioned plans | ☐ wave D | `2026-10-29-…-f3b-plan.md` | — | after F2c |
 | F3c Authority | ☐ F3c-1 wave D, F3c-2 wave E | `2026-10-29-…-f3c1/f3c2-plan.md` | — | after F2c |
@@ -220,11 +220,11 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
 
 ### F2d — assess and context
 
-- [ ] `assess` gains flakiness (run the suite N times), build reproducibility, headless setup and
+- [x] `assess` gains flakiness (run the suite N times), build reproducibility, headless setup and
   observability signals, each with evidence and cost, still with no aggregate score.
-- [ ] `build` proposes the stack's official LSP plugin. `rules` writes the codemap into
+- [x] `build` proposes the stack's official LSP plugin. `rules` writes the codemap into
   `docs/architecture.md`, and `harness-check` warns `codemap-stale` on cited paths that no longer exist.
-- [ ] Triggering evals for each skill, should and should not trigger. They are read-only, so they run.
+- [x] Triggering evals for each skill, should and should not trigger. They are read-only, so they run (written in F2d; not run, the owner runs them).
 
 ## F3a — CI and pre-commit (D7 revised)
 
