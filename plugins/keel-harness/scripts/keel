@@ -8,6 +8,8 @@
 #                                 (`keel verify assess <token>` takes the token `check pre assess` printed)
 #   keel measure ... | render ... run scripts/measure.sh / scripts/render.sh with the same arguments
 #   keel check                    run the plugin's assets/core/harness-check.sh in this repository
+#   keel verify plan <file>       a plan has a valid Status: line and an ## Acceptance section with a bullet
+#   keel plan-close <file> <done|abandoned> <ref>   log the outcome in .agents/progress.md, remove the plan
 # <skill> is assess, build or rules. State lives in .agents/run/flow/ (git-ignored). Exit 64 on bad usage.
 # bash 3.2, no jq, no network. It makes no temporary file; everything it writes is under .agents/run/flow/,
 # and the assess commands write nothing at all (assess is read-only).
@@ -26,6 +28,8 @@ usage: keel check pre <assess|build|rules>
        keel apply <assess|build|rules>
        keel verify <build|rules>
        keel verify assess <token>
+       keel verify plan <file>
+       keel plan-close <file> <done|abandoned> <ref>
        keel measure <args...>
        keel render <args...>
        keel check
@@ -305,6 +309,76 @@ cmd_verify() {
   exit "$verify_bad"
 }
 
+# ------------------------------------------------------------------ plans (D40)
+# keel verify plan <file> -> `ok|fail status`, `ok|fail acceptance`: a plan has a valid `Status:` line and
+# an `## Acceptance` section with at least one `- ` bullet.
+plan_problems() { # plan_problems FILE -> sets plan_status_why, plan_acc_why
+  local f="$1" st n
+  plan_status_why=""; plan_acc_why=""
+  st="$(tr -d '\r' < "$f" | sed -n 's/^Status:[[:space:]]*//p' | head -n 1 | sed 's/[[:space:]]*$//')"
+  case "$st" in
+    active | done | abandoned) ;;
+    '') plan_status_why="no 'Status:' line (active, done or abandoned)" ;;
+    *) plan_status_why="Status '$st' is not active, done or abandoned" ;;
+  esac
+  if ! tr -d '\r' < "$f" | grep -qE '^## Acceptance[[:space:]]*$'; then
+    plan_acc_why="no '## Acceptance' section"
+  else
+    n="$(tr -d '\r' < "$f" | awk '/^## /{ on = ($0 ~ /^## Acceptance[ \t]*$/); next } on && /^- /{ c++ } END{ print c + 0 }')"
+    [ "$n" -gt 0 ] || plan_acc_why="'## Acceptance' has no '- ' bullet (name a sensor number or a test)"
+  fi
+}
+
+cmd_verify_plan() {
+  [ $# -eq 1 ] || usage
+  [ -f "$1" ] || { bad plan "no such file: $1"; exit 1; }
+  plan_problems "$1"
+  item status "$plan_status_why"
+  item acceptance "$plan_acc_why"
+  exit "$verify_bad"
+}
+
+# keel plan-close <file> <done|abandoned> <ref>: log the outcome in .agents/progress.md, then remove the plan.
+adr_dir_of() {
+  local d
+  d="$(sed -n 's/^adr_dir:[[:space:]]*\([^#[:space:]]*\).*/\1/p' .agents/state.yml 2>/dev/null | head -n 1)"
+  printf '%s\n' "${d:-docs/adr}"
+}
+ref_resolves() { # a commit, or an existing file under adr_dir
+  local ref="$1" adr
+  case "$ref" in -* | '') return 1 ;; esac
+  if in_git && git rev-parse --verify -q "${ref}^{commit}" >/dev/null 2>&1; then return 0; fi
+  adr="$(adr_dir_of)"; adr="${adr%/}"
+  case "/$ref/" in */../*) return 1 ;; esac
+  case "$ref" in "$adr"/*) [ -f "$ref" ] ;; *) return 1 ;; esac
+}
+
+cmd_plan_close() {
+  [ $# -eq 3 ] || usage
+  local file="$1" st="$2" ref="$3" prog=.agents/progress.md
+  case "$st" in done | abandoned) ;; *) usage ;; esac
+  [ -f "$file" ] || { echo "keel: no such file: $file" >&2; exit 1; }
+  plan_problems "$file"
+  if [ -n "$plan_status_why$plan_acc_why" ]; then
+    echo "keel: $file fails keel verify plan: $plan_status_why${plan_status_why:+${plan_acc_why:+; }}$plan_acc_why" >&2
+    exit 1
+  fi
+  if ! ref_resolves "$ref"; then
+    echo "keel: '$ref' is not a commit and not a file under $(adr_dir_of)/ - record the outcome first" >&2
+    exit 1
+  fi
+  mkdir -p .agents 2>/dev/null || { echo "keel: cannot create .agents" >&2; exit 1; }
+  if [ ! -f "$prog" ]; then
+    printf '# Progress across sessions\n\nOne line per closed plan: date, outcome, plan file, commit or ADR.\n\n' > "$prog" || exit 1
+  fi
+  printf '%s %s %s %s\n' "${KEEL_TODAY:-$(date +%Y-%m-%d)}" "$st" "$(basename "$file")" "$ref" >> "$prog" || exit 1
+  if in_git && git ls-files --error-unmatch -- "$file" >/dev/null 2>&1; then
+    git rm -q -f -- "$file" || exit 1
+  else
+    rm -f -- "$file" || exit 1
+  fi
+}
+
 # ------------------------------------------------------------------ dispatch
 [ $# -ge 1 ] || usage
 cmd="$1"; shift
@@ -313,7 +387,8 @@ case "$cmd" in
   plan) cmd_plan "$@" ;;
   approve) cmd_approve "$@" ;;
   apply) cmd_apply "$@" ;;
-  verify) cmd_verify "$@" ;;
+  verify) [ "${1:-}" = plan ] && cmd_verify_plan "${@:2}"; cmd_verify "$@" ;;
+  plan-close) cmd_plan_close "$@" ;;
   measure) exec bash "$here/measure.sh" "$@" ;;
   render) exec bash "$here/render.sh" "$@" ;;
   *) usage ;;

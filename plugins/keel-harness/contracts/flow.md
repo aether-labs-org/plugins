@@ -18,6 +18,8 @@ bash 3.2, needs no `jq` and no network. `<skill>` is `assess`, `build` or `rules
 | `keel verify <skill>` | The self-verification (below). One line per item: `ok <item>` or `fail <item>: <why>` | 0 all ok; 1 any fail |
 | `keel measure …` / `keel render …` | Run `scripts/measure.sh` / `scripts/render.sh` with the same arguments | theirs |
 | `keel check` | Runs the plugin's `assets/core/harness-check.sh` in the repository | its exit code |
+| `keel verify plan <file>` | A plan (`contracts/plan.md`) has a `Status:` line with a valid value and an `## Acceptance` section with at least one `- ` bullet. Items `status` and `acceptance`, `ok` or `fail … : <what is missing>` | 0 / 1 |
+| `keel plan-close <file> <done\|abandoned> <ref>` | `<ref>` must exist: a commit, or a file under `adr_dir`. Appends `YYYY-MM-DD <done\|abandoned> <plan basename> <ref>` to `.agents/progress.md` (created if absent), then removes the plan (`git rm` if tracked, else `rm`) | 0; 1 when `<ref>` does not resolve or the plan fails `verify plan` |
 | anything else | usage on stderr | 64 |
 
 The hash is `git hash-object` of the proposal file, so it needs no tool beyond git.

@@ -335,6 +335,77 @@ kr "$r" approve build "$H"; kr "$r" apply build
 leftover="$(find "$r" -path "$r/.git" -prune -o -type f -print | grep -v '/\.agents/run/flow/' | wc -l | tr -d ' ')"
 [ "$leftover" -eq "$((before))" ]; check "plan/approve/apply write only under .agents/run/flow/" $?
 
+# ------------------------------------------------------------------ F3b: keel verify plan and keel plan-close (D40)
+# mkplan FILE STATUS-LINE -> a plan with an Acceptance section
+mkplan() {
+  mkdir -p "$(dirname "$1")"
+  {
+    echo "# Plan: demo"
+    [ -n "${2:-}" ] && echo "$2"
+    printf 'Created: 2026-10-01\n\n## Acceptance\n- `file-size` reports 0 files over 300 lines\n\n## Steps\n1. split it\n'
+  } > "$1"
+}
+r="$(new_repo)"
+mkplan "$r/.agents/plans/ok.md" "Status: active"
+kr "$r" verify plan .agents/plans/ok.md; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^ok status' && printf '%s\n' "$out" | grep -q '^ok acceptance'; check "verify plan: a plan with Status and Acceptance passes" $?
+for st in "done" abandoned; do
+  mkplan "$r/.agents/plans/$st.md" "Status: $st"; kr "$r" verify plan ".agents/plans/$st.md"; [ "$rc" -eq 0 ]; check "verify plan: Status: $st is valid" $?
+done
+mkplan "$r/.agents/plans/nostatus.md" ""
+kr "$r" verify plan .agents/plans/nostatus.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail status:'; check "verify plan: no Status line fails, naming status" $?
+mkplan "$r/.agents/plans/badstatus.md" "Status: wip"
+kr "$r" verify plan .agents/plans/badstatus.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail status:'; check "verify plan: an invalid Status value fails" $?
+printf '# Plan\nStatus: active\n\n## Steps\n1. x\n' > "$r/.agents/plans/noacc.md"
+kr "$r" verify plan .agents/plans/noacc.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail acceptance:'; check "verify plan: no Acceptance section fails, naming acceptance" $?
+printf '# Plan\nStatus: active\n\n## Acceptance\nSomething prose, no bullet.\n\n## Steps\n- a step bullet\n' > "$r/.agents/plans/nobullet.md"
+kr "$r" verify plan .agents/plans/nobullet.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail acceptance:'; check "verify plan: an Acceptance without a bullet fails (a bullet under Steps does not count)" $?
+printf '# Plan\n\n## Steps\n1. x\n' > "$r/.agents/plans/neither.md"
+kr "$r" verify plan .agents/plans/neither.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail status:' && printf '%s\n' "$out" | grep -q '^fail acceptance:'; check "verify plan: both missing -> both named" $?
+kr "$r" verify plan .agents/plans/nosuch.md; [ "$rc" -eq 1 ]; check "verify plan: a missing file exits 1" $?
+ko "$r" verify plan; [ "$rc" -eq 64 ] && [ -n "$err" ]; check "verify plan without a file exits 64" $?
+ko "$r" verify plan a b; [ "$rc" -eq 64 ]; check "verify plan with two files exits 64" $?
+
+# plan-close
+pc() { # pc REPO FILE STATUS REF -> out, rc; the date is fixed
+  out="$(cd "$1" && KEEL_TODAY=2026-10-29 bash "$K" plan-close "${@:2}" 2>&1)"; rc=$?
+}
+r="$(new_repo)"
+mkplan "$r/.agents/plans/2026-10-01-file-size.md" "Status: active"; commit "$r"
+ref="$(cd "$r" && git rev-parse HEAD)"
+pc "$r" .agents/plans/2026-10-01-file-size.md "done" "$ref"
+[ "$rc" -eq 0 ] && [ ! -e "$r/.agents/plans/2026-10-01-file-size.md" ]; check "plan-close done: exit 0 and the tracked plan is removed" $?
+[ "$(tail -n 1 "$r/.agents/progress.md" 2>/dev/null)" = "2026-10-29 done 2026-10-01-file-size.md $ref" ]; check "plan-close done: progress.md ends with 'date done basename ref' (created if absent)" $?
+(cd "$r" && git status --porcelain -- .agents/plans | grep -q '^D'); check "plan-close removes a tracked plan with git rm" $?
+mkplan "$r/.agents/plans/b.md" "Status: active"
+pc "$r" .agents/plans/b.md abandoned HEAD
+[ "$rc" -eq 0 ] && [ ! -e "$r/.agents/plans/b.md" ] && [ "$(tail -n 1 "$r/.agents/progress.md")" = "2026-10-29 abandoned b.md HEAD" ] && [ "$(grep -c . "$r/.agents/progress.md")" -ge 3 ]; check "plan-close abandoned: an untracked plan is removed and the line is appended, not overwritten" $?
+mkplan "$r/.agents/plans/c.md" "Status: active"; before="$(cat "$r/.agents/progress.md")"
+pc "$r" .agents/plans/c.md "done" deadbeef00000000
+[ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/c.md" ] && [ "$before" = "$(cat "$r/.agents/progress.md")" ]; check "plan-close: an unknown ref exits 1, keeps the plan, writes nothing" $?
+pc "$r" .agents/plans/c.md "done" docs/adr/0042-nope.md
+[ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/c.md" ]; check "plan-close: an ADR path that does not exist exits 1" $?
+mkdir -p "$r/docs/adr" "$r/docs/other"; echo adr > "$r/docs/adr/0042-done.md"; echo x > "$r/docs/other/0001-x.md"
+pc "$r" .agents/plans/c.md "done" docs/other/0001-x.md
+[ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/c.md" ]; check "plan-close: a file outside adr_dir is not a ref" $?
+pc "$r" .agents/plans/c.md "done" docs/adr/0042-done.md
+[ "$rc" -eq 0 ] && [ ! -e "$r/.agents/plans/c.md" ] && [ "$(tail -n 1 "$r/.agents/progress.md")" = "2026-10-29 done c.md docs/adr/0042-done.md" ]; check "plan-close: a path under the default adr_dir is a ref" $?
+mkdir -p "$r/.agents" "$r/decisions"; printf 'schema_version: 3\nadr_dir: decisions\n' > "$r/.agents/state.yml"; echo adr > "$r/decisions/0001-x.md"
+mkplan "$r/.agents/plans/d.md" "Status: active"
+pc "$r" .agents/plans/d.md "done" decisions/0001-x.md; [ "$rc" -eq 0 ]; check "plan-close: adr_dir is read from .agents/state.yml" $?
+mkplan "$r/.agents/plans/e.md" "Status: active"
+pc "$r" .agents/plans/e.md "done" docs/adr/../../.seed; [ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/e.md" ]; check "plan-close: a path that climbs out of adr_dir is refused" $?
+printf '# Plan\nStatus: active\n' > "$r/.agents/plans/bad.md"; before="$(cat "$r/.agents/progress.md")"
+pc "$r" .agents/plans/bad.md "done" HEAD
+[ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/bad.md" ] && [ "$before" = "$(cat "$r/.agents/progress.md")" ] && printf '%s\n' "$out" | grep -qi 'acceptance'; check "plan-close: a plan that fails verify plan exits 1 and is kept" $?
+pc "$r" .agents/plans/nosuch.md "done" HEAD; [ "$rc" -eq 1 ]; check "plan-close: a missing plan exits 1" $?
+mkplan "$r/.agents/plans/f.md" "Status: active"
+pc "$r" .agents/plans/f.md finished HEAD; [ "$rc" -eq 64 ] && [ -e "$r/.agents/plans/f.md" ]; check "plan-close: a status other than done|abandoned exits 64" $?
+pc "$r" .agents/plans/f.md "done"; [ "$rc" -eq 64 ]; check "plan-close without a ref exits 64" $?
+ko "$r" plan-close; [ "$rc" -eq 64 ] && [ -n "$err" ]; check "plan-close without arguments: usage, exit 64" $?
+pc "$r" -x "done" HEAD; [ "$rc" -eq 1 ] || [ "$rc" -eq 64 ]; check "plan-close: a leading-dash file is not taken as an option" $?
+mkplan "$r/.agents/plans/g.md" "Status: active"
+pc "$r" .agents/plans/g.md "done" -h; [ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/g.md" ]; check "plan-close: a ref starting with a dash is refused" $?
+
 # ------------------------------------------------------------------ the skills call keel with commands that exist, for their own skill
 for s in assess build rules; do
   calls="$(grep -ohE 'scripts/keel (check pre|plan|approve|apply|verify) [a-z]+' "$KEEL/skills/$s/SKILL.md")"
