@@ -23,8 +23,8 @@ not_installed:                    # layer or sensor -> the reason, in keel's wor
 | `schema_version` | integer, `3` | `build` (output contract; the v0.2 upgrade round in `references/upgrade.md` sets it from `2`) | `build` (decides whether the upgrade round applies) |
 | `installed_at` | ISO date | `build` | people; `build` on re-runs |
 | `harness_review_by` | ISO date, `installed_at` plus six months | `build` (a re-read moves it six months on) | `harness-check` (`review-due` once the date has passed; `KEEL_TODAY` overrides today in tests) |
-| `mode` | `greenfield` or `brownfield` | `build`; `rules` records its own confirmation (section 2) | `rules` (greenfield skips reverse engineering); `assess` reports it as an inference |
-| `adr_dir` | repository-relative folder | `rules` (section 1: an existing ADR folder, else `docs/adr/`) | `guard` (an ADR added in the same change justifies a loosening), the `tests` sensors' guidance, `build` (the `Decisions` pointer in `AGENTS.md`) |
+| `mode` | `greenfield` or `brownfield` | `build`; `rules` records its own confirmation (phase 2) | `rules` (greenfield skips reverse engineering); `assess` reports it as an inference |
+| `adr_dir` | repository-relative folder | `rules` (phase 1: an existing ADR folder, else `docs/adr/`) | `guard` (an ADR added in the same change justifies a loosening), the `tests` sensors' guidance, `build` (the `Decisions` pointer in `AGENTS.md`) |
 | `layers` | map of the layers below to `installed` or `not_installed` | `build` | `harness-check`; `build` (a layer already `installed` is not re-proposed, so each phase is resumable) |
 | `not_installed` | map: layer or sensor to the reason | `build` | people; `build` (the reason of a skipped layer, or of a sensor that blew the budget, with its seconds) |
 

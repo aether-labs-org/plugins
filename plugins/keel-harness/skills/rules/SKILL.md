@@ -32,7 +32,9 @@ run `/keel-harness:build` first (in greenfield, build installs the runner even w
 run yet; a gate with zero sensors is valid). Continue only when the user agrees or it exits 0. The order of
 this skill is enforced by `${CLAUDE_PLUGIN_ROOT}/scripts/keel` (`${CLAUDE_PLUGIN_ROOT}/contracts/flow.md`).
 
-## 1. Context interview
+## Phases
+
+### Phase 1 - Context interview
 
 One round before any measurement, in at most 4 questions, from `references/interview.md`. First pick
 the **ADR folder**: an existing one (`docs/adr/`, `doc/adr/`, `docs/decisions/`, `docs/architecture/decisions/`,
@@ -40,21 +42,21 @@ in that order), else `docs/adr/`. Record it as `adr_dir: <folder>` in `.agents/s
 below is in that folder. Record the answers in `<adr_dir>/0001-agent-harness-context.md` (the first ADR,
 `adr-template.md`) and let them steer every proposal.
 
-## 2. Mode
+### Phase 2 - Mode
 
 Classify the repository: **greenfield** (no tracked source files in the stack's source roots) or
 **brownfield**. State the evidence and ask the user to confirm; store it as `mode:` in
-`.agents/state.yml`. Greenfield skips step 4, proposes from the catalog and the interview, and
+`.agents/state.yml`. Greenfield skips phase 4, proposes from the catalog and the interview, and
 starts every baseline empty.
 
-## 3. Inventory
+### Phase 3 - Inventory
 
 Read every instruction file the target agents load: `AGENTS.md` (root and nested), `CLAUDE.md`,
 `.claude/CLAUDE.md`, `.claude/rules/`, `.github/copilot-instructions.md`, `.github/instructions/`,
 `.devin/rules/`, `.cursor/rules/`; plus `docs/`, lint and architecture tool configs, test layout and
 existing ADRs. Existing rules are respected, not duplicated.
 
-## 4. Reverse engineering (brownfield)
+### Phase 4 - Reverse engineering (brownfield)
 
 For each catalog entry, measure the as-is state and report it before proposing anything. The
 measurements are read-only and run from the plugin:
@@ -68,7 +70,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" tests
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" language pt.txt
 ```
 
-## 5. Proposals
+### Phase 5 - Proposals
 
 For each entry, propose a rule with two kinds of justification: **repository data** ("p90 = 240
 lines; 12 files over 500") and an **external source** from the catalog. Label opinion as opinion,
@@ -77,14 +79,14 @@ flag breaking proposals and state their blast radius (files affected). You may p
 When nothing can be inferred, say so, give your recommendation and why, and ask. Never present an
 invented rule as the project's.
 
-## 6. Rounds
+### Phase 6 - Rounds
 
 Approve, amend or reject proposals in rounds of at most 4 questions each, the recommended option
 first, each option with its trade-off. Use `AskUserQuestion` when it is available. When it is not,
 ask in plain text; when the user's own request pre-authorised proceeding, take the recommended
 option of each question and say so. Group by topic: architecture, then testing, then conventions.
 
-## 7. Write
+### Phase 7 - Write
 
 First record what the rounds approved as one proposal: the ADRs, topic files, env files, sensors,
 baselines, generated tool config and local plans, each with its path. Save it to a temporary file (`mktemp`; under
@@ -134,15 +136,42 @@ The slow gate (`make gate-slow`: mutation and diff coverage) is never run by the
 wired to CI; `AGENTS.md` tells agents to run it before opening a pull request. Integration and e2e
 suites stay the project's own targets, cited in `AGENTS.md`.
 
-## 8. Plan
+### Phase 8 - Plan
 
 For each approved rule whose baseline is non-empty, write a local migration plan
 `.agents/plans/YYYY-MM-DD-<rule-id>.md` from `${CLAUDE_PLUGIN_ROOT}/contracts/plan.md`, with acceptance criteria in the
 sensor's numbers, and record it as `PLAN=` in the rule's env file. Plans never go under `docs/`
 (they are gitignored) and this skill never migrates anything itself.
 
+## Output contract
+
+Each approved rule leaves these artifacts, in these shapes:
+
+- the proposal recorded by `keel plan rules`: every ADR, topic file, env file, sensor, baseline, generated tool config and local plan, each with its path;
+- an ADR in `<adr_dir>/` when there was a real trade-off (`adr-template.md`), naming by path every baseline it introduces and every env file it loosens;
+- a section in its topic file, from `rule-section.md`, and its line in the right `AGENTS.md`: `- <statement> → docs/<topic>.md#<rule-id>`;
+- `.agents/rules/<rule-id>.env` with the fields of `contracts/rule-env.md`, inferential rules included;
+- a sensor, or `inferential` in the env file;
+- a baseline that came from `KEEL_MEASURE=1` (or the native tool's own baseline command);
+- a local plan from `contracts/plan.md` for every non-empty baseline.
+
+## Discipline
+
+**keel proposes, the human decides.** `${CLAUDE_PLUGIN_ROOT}/scripts/keel` enforces the order in code:
+no write before `keel apply rules` exits 0.
+
+| The excuse | Why it is wrong |
+| --- | --- |
+| "The team obviously wants hexagonal, I'll write the rule" | Norms are proposed with a justification and written only after the user approves them. Facts are discovered; norms are decided by the human. |
+| "There is no data for this limit, I'll use a typical one and call it theirs" | Never present an invented rule as the project's. Say nothing can be inferred, give your recommendation and why, label opinion as opinion, and ask. |
+| "While I'm here I'll fix the files that break the new rule" | This skill never migrates production code. An approved breaking change becomes a rule, a baseline, an ADR and a local plan under `.agents/plans/`. |
+| "The gate is red, so I'll raise the baseline a little" | keel never raises a baseline. `guard` accepts a new or grown baseline only when an ADR added in the same change names it, and `security` sensors never get one. |
+| "The request said do not pause, so I'll skip plan and approve" | Acceptance given up front still goes through `keel plan`, `approve` and `apply`; the reply says the acceptance came from the request. |
+| "Editing the accepted ADR is simpler than a new one" | Never edit an accepted ADR: supersede it. |
+| "Plans are useful to the whole team, put them in `docs/`" | Plans never go under `docs/`: they are gitignored local files. |
+
 ## Done when
 
-Run `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify rules` (after the `make gate-fast` of section 7, step 8). Fix every `fail`
+Run `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify rules` (after the `make gate-fast` of phase 7, step 8). Fix every `fail`
 line and run it again until it exits 0. It cannot check one thing: each approved rule has its line in the
 right `AGENTS.md` and a sensor or `inferential`, and each baseline came from `KEEL_MEASURE=1`.
