@@ -2,15 +2,15 @@
 name: assess
 description: >
   Diagnoses a repository for AI coding agents, in two modes. Without an installed harness it scans
-  the repo against a seven-axis rubric (bootstrap, guides, fast sensors, slow sensors, enforcement,
-  context, rules), reporting each axis as absent, partial or present with the file that proves it,
-  plus the estimated setup minutes to close each gap and the seconds added to the gate. With a
+  the repo against an eleven-axis rubric (bootstrap, guides, sensors, enforcement, context, rules,
+  reproducibility, headless setup, flakiness, observability), reporting each axis as absent, partial
+  or present with the file that proves it, plus the setup minutes to close each gap and the gate seconds. With a
   harness installed (.agents/state.yml) it runs the portable validator, explains each warning
   (oversize AGENTS.md, stale commands, missing Stop hook or guard sensor, CI or pre-commit no longer
-  running the gate, rules that disagree with their env files, stale baselines, overdue review) and
+  running the gate, rules out of sync with their env files, stale baselines, overdue review) and
   proposes the fix. Writes nothing. Use when someone asks whether their repository is ready for AI
   agents, what is missing to work with coding agents, for an agent-readiness assessment or a
-  harness diagnosis (always before the build skill), or whether their harness is out of date, stale
+  harness diagnosis (always before the build skill), or whether their harness is out of date
   or still valid, or wants a harness health check.
 disallowed-tools: Write Edit NotebookEdit
 ---
@@ -38,8 +38,8 @@ when it exits non-zero (not a git work tree), show its `missing:` line and stop.
 
 ### Phase 1 - Readiness (no harness installed)
 
-Goal: classify the seven axes, with the file that proves each one and the cost to close each gap.
-Question to the human: confirm the inferred mode (greenfield or brownfield); nothing else is asked.
+Goal: classify the eleven axes, with the file that proves each one and the cost to close each gap.
+Questions to the human: confirm the inferred mode (greenfield or brownfield), and whether to run the fast test command three times for the `Flaky tests` axis (1b); nothing else is asked.
 
 **1a. Discovery.** Identify the stack(s) by reading the filesystem. Monorepos can show more than one
 stack: expect and handle several.
@@ -88,11 +88,16 @@ Also infer the **mode**: `greenfield` when no tracked source files exist in the 
 roots, `brownfield` otherwise. State the evidence as an inference for the user to confirm; the mode
 is an inference, not a fact.
 
-**1b. Scoring.** Read `references/rubric.md` and classify each of the seven axes — `Bootstrap`,
-`Guides`, `Fast sensors`, `Slow sensors`, `Enforcement`, `Context`, `Rules` — as `present`, `partial`,
-or `absent`, per the table there. For every axis, record the repo-relative file that proves the
+**1b. Scoring.** Read `references/rubric.md` and classify each of the eleven axes — `Bootstrap`,
+`Guides`, `Fast sensors`, `Slow sensors`, `Enforcement`, `Context`, `Rules`, `Reproducible build`,
+`Headless setup`, `Flaky tests`, `Observability` — as `present`, `partial`, or `absent`, per the
+table there. For every axis, record the repo-relative file that proves the
 classification (a lockfile, a config file, a workflow file, `AGENTS.md` itself). If nothing proves it,
 there is no evidence, and the axis cannot be `present`.
+
+`Flaky tests` is the one measured axis. Ask first; with the user's agreement, run the fast test
+command from discovery three times, discarding its output and reports, and note the seconds spent.
+Without agreement, or when the command does not run, the state is `not measured`, not `absent`.
 
 **1c. Cost.** For each axis that is not `present`, state the cost of closing the gap in **estimated
 setup minutes** — how long `build` (or `rules`, for the `Rules` axis) would take, confirmations
@@ -146,8 +151,9 @@ row per axis, in the fixed axis order above:
 ```
 
 - **Evidence** is a backtick-quoted repo-relative path, or `—` when there is none.
-- **Cost to close** is `N estimated setup minutes`, `+N.Ns gate`, `not measured`, or `—` (for a `present`
-  axis, which has nothing to close).
+- **Cost to close** is `N estimated setup minutes`, `+N.Ns gate`, `+N.Ns per run` (`Flaky tests` only),
+  `not measured`, or `—` (for a `present` axis, which has nothing to close).
+- **State** is `present`, `partial` or `absent`; `Flaky tests` alone can read `not measured`.
 
 After the table, add a short paragraph per `absent` axis naming what is missing and the cheapest
 next step to close it. Say nothing about `present` or `partial` axes beyond the table row. There is no
@@ -166,7 +172,8 @@ covers the shell. No shell command that modifies the repository — no `touch`, 
 default read-only invocation). If a command would change a file, or you are not sure whether it
 would, do not run it. When a sensor's cost can only be measured by running it, running it to measure
 is fine as long as it does not persist output the repository would otherwise not have (e.g. do not
-let it write a cache file into a tracked directory — redirect elsewhere or discard).
+let it write a cache file into a tracked directory — redirect elsewhere or discard). The three
+`Flaky tests` runs follow the same rule, and only after the user agrees.
 
 Allowed: `harness-check.sh` (phase 2a) is read-only, and its only possible write is git-ignored
 temporary state under `.agents/run/tmp/`. So is `scripts/keel`: its assess commands write nothing
