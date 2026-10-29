@@ -15,7 +15,7 @@ one `warn` line per broken condition, or `harness is clean`.
 | `.agents/rules/<rule-id>.env` | A rule's metadata and parameters (`LIMIT`, `INCLUDE`, ...), read by its sensor | Yes |
 | `.agents/baselines/<id>.tsv` | Violations that existed when a rule was adopted, per file | Only shrink |
 | `.agents/baselines/archunit/`, `depcruise-known-violations.json` | Native architecture baselines (ArchUnit freeze store, dependency-cruiser known violations); import-linter's is `IGNORE_IMPORTS` in `architecture.env` | Only shrink |
-| `.agents/gate.env` | `CEILING_SECONDS` and `SLOW_CEILING_SECONDS` | Yes |
+| `.agents/gate.env` | `CEILING_SECONDS`, `SLOW_CEILING_SECONDS`, `HISTORY_RUNS` (runs of history kept) and the `harness-check` thresholds | Yes |
 | `.agents/state.yml` | Metadata only (`schema_version`, `mode`, `harness_review_by`, `adr_dir`) | Rarely |
 | `.agents/run/` | Run state (logs, fingerprints, lock) and `tmp/`, the temp-dir fallback when `TMPDIR` is unusable; git-ignored | Never: delete it to reset |
 | `.agents/plans/` | Plans (`Status: active/done/abandoned`, a required `## Acceptance`), committed; when done or abandoned, log one line in `.agents/progress.md` (the `keel plan-close` command does it) and delete the file | Yes |

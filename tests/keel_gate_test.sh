@@ -99,4 +99,69 @@ r="$(mkrepo)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness fail "many" 1 "for i in \$(seq 1 60); do echo \"  line \$i\"; done"
 out="$(cd "$r" && bash scripts/gate.sh 2>&1)"
 [ "$(printf '%s\n' "$out" | tail -1)" = "output truncated at 40 lines - full log in .agents/run/last-run.log" ]; check "truncation notice" $?
+# --- F6: history (.agents/run/history/<mode>.tsv), the last HISTORY_RUNS runs, one line per sensor
+grep -q '^HISTORY_RUNS=50' "$KEEL/assets/core/gate.env" 2>/dev/null; check "gate.env carries HISTORY_RUNS=50" $?
+r="$(mkrepo)"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+stub_sensor "$r" scripts/sensors/b.sh b correctness fail "bad" 1
+stub_sensor "$r" scripts/sensors/c.sh c correctness skip "no tool" 2
+(cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
+h="$r/.agents/run/history/fast.tsv"
+[ "$(wc -l < "$h" 2>/dev/null | tr -d ' ')" = 3 ]; check "history: one line per sensor" $?
+awk -F'\t' 'NF == 4 && $1 ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/ && $4 ~ /^[0-9]+$/' "$h" | wc -l | grep -qx 3; check "history: <UTC time> <id> <status> <ms>" $?
+[ "$(awk -F'\t' '$2 == "a" { print $3 } $2 == "b" { print $3 } $2 == "c" { print $3 }' "$h" | tr '\n' ' ')" = "pass fail skip " ]; check "history: pass, fail and skip statuses" $?
+[ "$(cut -f1 "$h" | sort -u | wc -l | tr -d ' ')" = 1 ]; check "history: the sensors of one run share one timestamp" $?
+(cd "$r" && bash scripts/gate.sh slow >/dev/null 2>&1)
+[ ! -e "$r/.agents/run/history/slow.tsv" ]; check "history: a slow run with no slow sensors writes nothing to slow.tsv" $?
+stub_sensor "$r" scripts/sensors/slow/s.sh s correctness pass "slow" 0
+(cd "$r" && bash scripts/gate.sh slow >/dev/null 2>&1)
+[ "$(wc -l < "$r/.agents/run/history/slow.tsv" | tr -d ' ')" = 1 ] && [ "$(wc -l < "$h" | tr -d ' ')" = 3 ]; check "history: slow.tsv is separate from fast.tsv" $?
+stub_sensor "$r" scripts/sensors/d.sh d correctness pass "ok" 0 "printf '%s\\n' \"\$SCOPE\" > \"\$PWD/scope.out\""
+(cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
+! grep -q 'history' "$r/scope.out"; check "history: the history files are not in SCOPE" $?
+
+# rotation: only the last HISTORY_RUNS runs are kept; a run is every line sharing a timestamp
+r="$(mkrepo)"
+printf 'HISTORY_RUNS=3\r\nCEILING_SECONDS=30\r\n' > "$r/.agents/gate.env"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+stub_sensor "$r" scripts/sensors/b.sh b correctness pass "ok" 0
+mkdir -p "$r/.agents/run/history"
+for i in 1 2 3 4 5; do
+  printf '2026-01-0%sT00:00:00Z\ta\tpass\t1\n2026-01-0%sT00:00:00Z\tb\tpass\t1\n' "$i" "$i"
+done > "$r/.agents/run/history/fast.tsv"
+(cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
+h="$r/.agents/run/history/fast.tsv"
+[ "$(cut -f1 "$h" | sort -u | wc -l | tr -d ' ')" = 3 ] && [ "$(wc -l < "$h" | tr -d ' ')" = 6 ]; check "rotation: keeps the last 3 runs (CRLF gate.env), 2 lines each" $?
+! grep -q '2026-01-0[123]' "$h" && grep -q '2026-01-05' "$h" && [ "$(tail -2 "$h" | cut -f1 | sort -u | grep -c '^20[0-9-]*T')" = 1 ]; check "rotation: drops the oldest runs and appends the new one last" $?
+r="$(mkrepo)"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+for i in 1 2 3; do (cd "$r" && bash scripts/gate.sh >/dev/null 2>&1); sleep 1; done
+[ "$(wc -l < "$r/.agents/run/history/fast.tsv" | tr -d ' ')" = 3 ]; check "default HISTORY_RUNS (50) keeps three runs" $?
+r="$(mkrepo)"
+printf 'HISTORY_RUNS=0\n' > "$r/.agents/gate.env"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+(cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
+[ ! -e "$r/.agents/run/history" ]; check "HISTORY_RUNS=0 turns history off" $?
+
+# the verdict never depends on history: byte-identical output and exit code with and without a writable history dir
+norm() { sed -E 's/[0-9.]+m?s/T/g'; }
+for want in 0 1; do
+  r1="$(mkrepo)"; r2="$(mkrepo)"
+  for r in "$r1" "$r2"; do
+    stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+    [ "$want" = 1 ] && stub_sensor "$r" scripts/sensors/b.sh b correctness fail "bad" 1 "echo '  guidance: do X'"
+  done
+  mkdir -p "$r2/.agents/run"; echo blocker > "$r2/.agents/run/history"   # history path is a file: mkdir and append both fail
+  o1="$(cd "$r1" && bash scripts/gate.sh 2>&1 | norm)"
+  (cd "$r1" && bash scripts/gate.sh >/dev/null 2>&1); c1=$?
+  o2="$(cd "$r2" && bash scripts/gate.sh 2>&1 | norm)"
+  (cd "$r2" && bash scripts/gate.sh >/dev/null 2>&1); c2=$?
+  [ "$o1" = "$o2" ] && [ "$c1" = "$c2" ] && [ "$c1" = "$want" ]; check "history unwritable: output and exit code ($want) identical" $?
+done
+# no temp dir at all: still no change in verdict
+r="$(mkrepo)"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+(cd "$r" && TMPDIR=/nonexistent-keel bash scripts/gate.sh >/dev/null 2>&1); [ $? -eq 0 ]; check "history: no usable TMPDIR does not change the exit code" $?
+[ -s "$r/.agents/run/history/fast.tsv" ]; check "history: still appended when TMPDIR is unusable" $?
+! grep -n 'mktemp' "$KEEL/assets/core/gate.sh" | grep -v 'keel_tmpdir()' | grep -q .; check "gate.sh uses mktemp only through keel_tmpdir" $?
 finish
