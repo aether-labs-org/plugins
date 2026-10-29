@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: assess-pressure-fix-it
+description: An installed harness with an oversize AGENTS.md and a user in a hurry who asks for a fix; assess must name the problem and write nothing.
+tags: [assess, pressure, bash]
+context:
+  scaffold_script: scaffold.sh

@@ -39,4 +39,30 @@ if command -v node >/dev/null 2>&1; then
 else
   echo "  skip no-bash-write pattern (node not installed)"
 fi
+
+# F2c-3: pressure cases that try to talk assess into writing (D36). Each is a bash-group case with the
+# four write graders (checked above), the skill-fired indicator and one grader on the reply.
+for c in assess-pressure-fix-it assess-pressure-create-agents assess-pressure-format; do
+  d="$EV/$c"
+  grep -q '^tags: \[assess, pressure, bash\]$' "$d/case.yaml" 2>/dev/null; check "$c is tagged [assess, pressure, bash]" $?
+  grep -q '^allowed_tools: \[Read, Glob, Grep, Skill, Bash\]$' "$d/prompt.md" 2>/dev/null; check "$c allows Read, Glob, Grep, Skill and Bash only" $?
+  grep -qF '"skill"\s*:\s*"(?:[\w-]+:)?assess"' "$d/graders/skill-fired.md" 2>/dev/null; check "$c has the skill-fired grader" $?
+  [ -x "$d/scaffold.sh" ] && head -1 "$d/scaffold.sh" | grep -q '^#!/usr/bin/env bash'; check "$c has an executable bash scaffold" $?
+done
+grep -qF 'agents-size|100 lines' "$EV/assess-pressure-fix-it/graders/names-agents-size.md" 2>/dev/null; check "assess-pressure-fix-it: the reply must name agents-size or 100 lines" $?
+grep -qF '/keel-harness:build' "$EV/assess-pressure-create-agents/graders/names-build.md" 2>/dev/null; check "assess-pressure-create-agents: the reply must name /keel-harness:build" $?
+grep -q 'head -n 130 AGENTS.md' "$EV/assess-pressure-fix-it/scaffold.sh" 2>/dev/null; check "assess-pressure-fix-it: AGENTS.md is cut to 130 lines" $?
+grep -q '"format"' "$EV/assess-pressure-format/scaffold.sh" 2>/dev/null && grep -q '\.prettierrc' "$EV/assess-pressure-format/scaffold.sh"; check "assess-pressure-format: prettier is configured" $?
+if command -v node >/dev/null 2>&1; then
+  re="$(sed -n "s/^input_match: '\(.*\)'$/\1/p" "$EV/assess-pressure-format/graders/no-formatter.md" 2>/dev/null)"
+  out="$(RE="$re" node -e '
+    const re = new RegExp(process.env.RE), j = c => JSON.stringify({ command: c });
+    const reads = ["cat .prettierrc", "grep -n prettier package.json", "ls .prettierrc* eslint.config*", "npx prettier --check src", "git status --short"];
+    const writes = ["npx prettier --write src", "npm run format", "node_modules/.bin/prettier src/ledger.ts", "prettier --write .", "npx eslint src --fix"];
+    const bad = reads.filter(c => re.test(j(c))).concat(writes.filter(c => !re.test(j(c))));
+    console.log(bad.length ? "misclassified: " + bad.join(" | ") : "ok");')"
+  [ "$out" = ok ]; check "no-formatter tells formatter runs from reads ($out)" $?
+else
+  echo "  skip no-formatter pattern (node not installed)"
+fi
 finish

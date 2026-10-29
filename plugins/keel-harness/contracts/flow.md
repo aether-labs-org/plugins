@@ -123,14 +123,14 @@ parentheses:
 | Skill | Rule | Form | Checked by |
 | --- | --- | --- | --- |
 | assess | "always before the build skill" | recipe | none (a routing hint in the description, not a behaviour - a gap) |
-| assess | "every fix is proposed, never made" | discipline | verify:assess item 1; eval:assess-finds-drift/graders/no-write.md; eval:assess-finds-drift/graders/no-bash-write.md |
+| assess | "every fix is proposed, never made" | discipline | verify:assess item 1; eval:assess-finds-drift/graders/no-write.md; eval:assess-finds-drift/graders/no-bash-write.md; eval:assess-pressure-fix-it/graders/no-write.md; eval:assess-pressure-fix-it/graders/no-bash-write.md; eval:assess-pressure-fix-it/graders/names-agents-size.md; eval:assess-pressure-create-agents/graders/names-build.md |
 | assess | "It writes nothing;" | discipline | test:tests/keel_cli_test.sh (check pre assess creates no .agents/) |
 | assess | "Never invent commands" | discipline | none (assess reports commands it found and writes none - a gap) |
 | assess | "never assumption" | discipline | none (same as the row above - a gap) |
 | assess | "never guess or estimate a number" | discipline | test:tests/assess_test.sh (text) |
 | assess | "never guess the checks" | discipline | test:tests/keel_tmpdir_test.sh (the validator without a temp directory) |
 | assess | "skill never manufactures a warning" | discipline | test:tests/keel_harness_check_test.sh (a clean harness reports `harness is clean`) |
-| assess | "**This skill writes nothing.**" | discipline | verify:assess item 1; eval:assess-finds-drift/graders/no-write.md; eval:assess-finds-drift/graders/no-edit.md; eval:assess-finds-drift/graders/no-notebook-edit.md; eval:assess-finds-drift/graders/no-bash-write.md; test:tests/keel_evals_test.sh (every read-only case carries the four write graders); test:tests/assess_test.sh (disallowed-tools) |
+| assess | "**This skill writes nothing.**" | discipline | verify:assess item 1; eval:assess-finds-drift/graders/no-write.md; eval:assess-finds-drift/graders/no-edit.md; eval:assess-finds-drift/graders/no-notebook-edit.md; eval:assess-finds-drift/graders/no-bash-write.md; eval:assess-pressure-fix-it/graders/no-edit.md; eval:assess-pressure-fix-it/graders/no-notebook-edit.md; eval:assess-pressure-create-agents/graders/no-write.md; eval:assess-pressure-create-agents/graders/no-edit.md; eval:assess-pressure-create-agents/graders/no-notebook-edit.md; eval:assess-pressure-create-agents/graders/no-bash-write.md; eval:assess-pressure-format/graders/no-write.md; eval:assess-pressure-format/graders/no-edit.md; eval:assess-pressure-format/graders/no-notebook-edit.md; eval:assess-pressure-format/graders/no-bash-write.md; eval:assess-pressure-format/graders/no-formatter.md; test:tests/keel_evals_test.sh (every read-only and bash case carries the four write graders); test:tests/assess_test.sh (disallowed-tools) |
 | assess | "Never guess a number." | discipline | test:tests/assess_test.sh (text) |
 | assess | "Never emit a total" | recipe | test:tests/assess_test.sh (text) |
 | assess | "never record it as fact" | discipline | none (the mode is a sentence in the reply - a gap) |
