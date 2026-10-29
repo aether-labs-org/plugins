@@ -8,7 +8,7 @@ from the measured distribution (the next round number at or above p90, never bel
 greenfield, use the catalog default. Say which of the two you did.
 
 Rules are written to topic files (`docs/architecture.md`: `architecture`, `folder-layout`;
-`docs/conventions.md`: `file-size`, `code-language`, `adopted-patterns`; `docs/testing.md`:
+`docs/conventions.md`: `file-size`, `code-language`, `adopted-patterns` and the D44 entries below except `test-conventions`; `docs/testing.md`: `test-conventions` and
 `testing-strategy`), with parameters in `.agents/rules/<id>.env`.
 
 ## file-size
@@ -74,3 +74,162 @@ Frameworks forbidden in the domain, per stack: Java/Kotlin `org.springframework`
 **Why**: Gloaguen et al. found that tool instructions and non-standard conventions are followed while repository overviews do not help (https://arxiv.org/abs/2602.11988).
 **Sensor**: inferential (no sensor) until the pattern has a syntactic form. A confirmed pattern with one is promoted to a `pattern.sh` rule (`assets/core/sensors/rules/pattern.sh`, installed as `scripts/sensors/<rule-id>.sh` with `id=` set to the rule id): `PATTERN` for a text form (run `measure.sh pattern <ERE> <pathspec>` first and report files and total), or `ENGINE=ast-grep` / `ENGINE=semgrep` with a committed `RULE_FILE` for a structural one (https://ast-grep.github.io, https://semgrep.dev; the sensor skips where the tool is not installed). Baseline it from `KEEL_MEASURE=1`; `MESSAGE` and `FIX` carry the repository's own wording. Change `ENFORCEMENT` from `inferential` to `sensor:<rule-id>` in the env file, with the user's approval and an ADR. Fields: `contracts/rule-env.md`.
 **Opinion**: which patterns deserve a rule.
+
+## Entries added by D44
+
+Every entry below is proposed only when its measurement shows a problem or the user asks for it, and each is
+marked unproven: no with/without run (D50) has measured whether the rule helps an agent. Where an entry names a
+linter rule, the repository's own linter enforces it through the `lint` sensor and its baseline; keel adds a
+sensor only where no common tool covers the rule. Tool defaults below were read from each tool's own
+documentation or source on GitHub. `measure.sh` has no subcommand for the linter-backed entries, because a
+function parser per language is not robust in bash, so their Measure is the linter's own report.
+
+## function-size
+
+**Questions**: Is there a function length you already review against? Are generated functions excluded?
+**Measure**: the project's linter with only this rule on, at `warn` and the candidate size, counting findings and the files they sit in (ESLint `--rule`, `ruff check --select PLR0915 --statistics`, Checkstyle or detekt with the one rule).
+**Default**: brownfield, the linter's report at the next round number at or above p90 of the function lengths it shows; greenfield, 50 lines.
+**Why**: tool defaults disagree: ESLint's `max-lines-per-function` is 50 lines (https://github.com/eslint/eslint/blob/main/docs/src/rules/max-lines-per-function.md), detekt's `LongMethod` 60 (https://github.com/detekt/detekt/blob/main/detekt-core/src/main/resources/default-detekt-config.yml), Checkstyle's `MethodLength` 150 (https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/checks/sizes/MethodLengthCheck.java), and ruff's `PLR0915` counts statements, 50 by default (https://github.com/astral-sh/ruff/blob/main/crates/ruff_linter/src/rules/pylint/rules/too_many_statements.rs). No study measures an optimal function size for agents; the case for a limit is that a short function is read whole. Say so when proposing it.
+**Sensor**: the linter rule, through `lint` (class heuristic, baseline); no new keel sensor.
+**Opinion**: the exact number is opinion.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## complexity
+
+**Questions**: Is cyclomatic complexity already reported anywhere? Which functions are tangled on purpose (parsers, state machines)?
+**Measure**: the linter's report with only the complexity rule on (ESLint `complexity`, ruff `C901`, Checkstyle `CyclomaticComplexity`, detekt `CyclomaticComplexMethod`), counting findings.
+**Default**: brownfield, the next round number at or above p90 of the reported values; greenfield, 10.
+**Why**: Checkstyle's default is 10 (https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/checks/metrics/CyclomaticComplexityCheck.java), detekt's 14 (https://github.com/detekt/detekt/blob/main/detekt-core/src/main/resources/default-detekt-config.yml) and ESLint's 20 (https://github.com/eslint/eslint/blob/main/docs/src/rules/complexity.md); ruff's `C901` is set by `lint.mccabe.max-complexity` (https://github.com/astral-sh/ruff/blob/main/crates/ruff_linter/src/rules/mccabe/rules/function_is_too_complex.rs). No study gives an exact number for agents.
+**Sensor**: the linter rule, through `lint` (class heuristic, baseline); no new keel sensor.
+**Opinion**: the number, and which functions are exempt.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## max-params
+
+**Questions**: Is there a parameter count you already review against? Do constructors or injected classes need a higher one?
+**Measure**: the linter's report with only the parameter rule on (ESLint `max-params`, ruff `PLR0913`, Checkstyle `ParameterNumber`, detekt `LongParameterList`), counting findings.
+**Default**: brownfield, the next round number at or above p90 of the reported counts; greenfield, 5.
+**Why**: defaults disagree: ESLint 3 (https://github.com/eslint/eslint/blob/main/docs/src/rules/max-params.md), ruff 5 (https://github.com/astral-sh/ruff/blob/main/crates/ruff_linter/src/rules/pylint/rules/too_many_arguments.rs), detekt 5 for functions (https://github.com/detekt/detekt/blob/main/detekt-core/src/main/resources/default-detekt-config.yml), Checkstyle 7 (https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/checks/sizes/ParameterNumberCheck.java). No study measures an optimal count for agents.
+**Sensor**: the linter rule, through `lint` (class heuristic, baseline); no new keel sensor.
+**Opinion**: the number.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## dead-code
+
+**Questions**: Is an unused-code tool already part of the build? Is the repository a library whose exports are used elsewhere?
+**Measure**: the tool's report: `knip` or `ts-prune` for TS, `vulture` for Python. Optional; with the tool not installed there is nothing to measure.
+**Default**: report only; a baseline of today's findings, so the count can only shrink.
+**Why**: static tools flag exports and functions with no detected use (https://github.com/webpro-nl/knip, https://github.com/nadeesha/ts-prune, https://github.com/jendrikseipp/vulture); they miss dynamic use, so findings are leads, not proof. Agents add helpers and leave the old ones behind, but nothing measured in this repository shows how often.
+**Sensor**: the tool as a slow-gate sensor (`scripts/sensors/slow/`), class heuristic; it skips (exit 2) where the tool is not installed. keel never installs it.
+**Opinion**: whether to run it at all, and which findings are false positives.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## duplication
+
+**Questions**: Is copy-paste detection already run? Which directories are generated or intentionally parallel?
+**Measure**: `jscpd --reporters json` over the source roots, if installed; the percentage and the clone count.
+**Default**: report only, as a slow-gate sensor with a baseline of today's clones.
+**Why**: jscpd finds duplicated blocks across many languages (https://github.com/kucherenko/jscpd). A model that cannot see the whole repository tends to rewrite what exists; that is a hypothesis, not a measured effect here.
+**Sensor**: jscpd as a slow-gate sensor (`scripts/sensors/slow/`), class heuristic; it skips where the tool is not installed. keel never installs it.
+**Opinion**: the clone size that matters, and every threshold.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## comments
+
+**Questions**: Do TODO, FIXME or XXX comments carry an issue reference today? Which tracker, and what does a reference look like?
+**Measure**: `measure.sh pattern` with the `comments` pattern of `contracts/rule-env.md`: files and total of markers without a reference.
+**Default**: a marker is allowed only with a reference right after it (`TODO(#123)`, `TODO: https://...`); today's markers are baselined.
+**Why**: ESLint's `no-warning-comments` flags `todo`, `fixme` and `xxx` by default (https://github.com/eslint/eslint/blob/main/docs/src/rules/no-warning-comments.md), and ruff's `TD003` asks for a link on a TODO (https://github.com/astral-sh/ruff/blob/main/crates/ruff_linter/src/rules/flake8_todos/rules/todos.rs). An unreferenced marker is a promise nobody tracks.
+**Sensor**: `pattern.sh` with the `comments` preset (`contracts/rule-env.md`), class heuristic, TSV baseline. In a repository that runs ruff, prefer its `TD` rules through `lint`.
+**Opinion**: whether markers are forbidden outright or only need a reference.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## spelling
+
+**Questions**: Is a spell checker already in the project? Which words are domain terms?
+**Measure**: `codespell` or `cspell` if installed; the count of findings. Optional.
+**Default**: report only, with a project dictionary for domain terms.
+**Why**: codespell uses curated lists of common misspellings (https://github.com/codespell-project/codespell) and cspell is a configurable checker for code (https://github.com/streetsidesoftware/cspell); both need the repository's own word list to avoid noise.
+**Sensor**: the tool as a sensor, or none: `pattern.sh` cannot check spelling. It skips where the tool is not installed, and keel never installs it.
+**Opinion**: whether misspellings are worth a gate.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## code-style
+
+**Questions**: Which formatter does the project use, and is it run in CI?
+**Measure**: the formatter in check mode (`prettier --check`, `ruff format --check`, `spotlessCheck`); the count of files it would change.
+**Default**: the project's formatter with its own configuration, in check mode; today's unformatted files are baselined.
+**Why**: the formatters document a check mode that changes nothing and exits non-zero on drift (https://github.com/prettier/prettier/blob/main/docs/cli.md, https://github.com/astral-sh/ruff/blob/main/docs/formatter.md, https://github.com/diffplug/spotless). Style is then no longer a matter of review.
+**Sensor**: the formatter's check mode inside the `lint` sensor; no new keel sensor.
+**Opinion**: which formatter, and its settings, are the team's.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## naming
+
+**Questions**: Which naming conventions does the team hold (case per kind of identifier, prefixes)?
+**Measure**: the linter's report with only the naming rules on, counting findings.
+**Default**: the language's convention as the linter encodes it; brownfield, today's findings are the baseline.
+**Why**: `@typescript-eslint/naming-convention` takes a style per kind of identifier (https://github.com/typescript-eslint/typescript-eslint/blob/main/packages/eslint-plugin/src/rules/naming-convention.ts), ruff's `N` rules implement pep8-naming (https://github.com/astral-sh/ruff/blob/main/crates/ruff_linter/src/rules/pep8_naming/mod.rs), and Checkstyle's naming checks default to lowerCamelCase for method names (https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/checks/naming/MethodNameCheck.java).
+**Sensor**: the linter rules, through `lint` (class heuristic, baseline); no new keel sensor.
+**Opinion**: every convention.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## suppressions
+
+**Questions**: How many lint or type-check suppressions are in the code today? Is there a reviewed list of acceptable ones?
+**Measure**: `measure.sh pattern` with the `suppressions` pattern of `contracts/rule-env.md` over the source roots: files and total.
+**Default**: no new suppression: today's count per file is the baseline, so suppressions can only shrink.
+**Why**: a suppression silences the check that was meant to catch the problem; `@typescript-eslint/ban-ts-comment` bans `@ts-ignore` and `@ts-nocheck` by default (https://github.com/typescript-eslint/typescript-eslint/blob/main/packages/eslint-plugin/src/rules/ban-ts-comment.ts). An agent told to make a failing check pass can add one, which is why the sensor's guidance says not to.
+**Sensor**: `pattern.sh` with the `suppressions` preset (`contracts/rule-env.md`), class heuristic, TSV baseline.
+**Opinion**: whether a reasoned suppression is allowed (`@ts-expect-error` is left out of the preset on purpose).
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## dependencies
+
+**Questions**: Who approves a new direct dependency today? Is there an allow-list or a lockfile review?
+**Measure**: `measure.sh deps`: manifests, direct dependencies, and the count per manifest.
+**Default**: a new direct dependency needs an ADR, added in the same change, that names the manifest by path.
+**Why**: opinion, not measurement: a dependency is a long-term cost chosen in a few seconds, and a name an agent proposes may not exist or may be a look-alike. The sensor reads the places where manifests declare dependencies (https://github.com/pypa/packaging.python.org/blob/main/source/guides/writing-pyproject-toml.rst for `pyproject.toml`; `package.json`, `pom.xml` and `build.gradle*` likewise).
+**Sensor**: `dependencies.sh` (`assets/core/sensors/rules/`, installed as `scripts/sensors/dependencies.sh`), class security, no baseline; fields in `contracts/rule-env.md`. It reads `package.json`, `pyproject.toml`, `pom.xml` and `build.gradle*` only.
+**Opinion**: whether an ADR is the right gate, and whether dev-only dependencies are exempt.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## type-strictness
+
+**Questions**: Which type checker runs (tsc, mypy, pyright), and at what strictness?
+**Measure**: read the configuration: `tsconfig.json` `strict`, mypy `strict`, pyright `typeCheckingMode`.
+**Default**: keep what is configured; weakening it is a loosening. In greenfield, the strictest mode the stack offers.
+**Why**: TypeScript's `strict` turns on a family of stricter checks (https://github.com/microsoft/TypeScript-Website/blob/v2/packages/tsconfig-reference/copy/en/options/strict.md), mypy's `--strict` enables a predefined subset of optional checks (https://github.com/python/mypy/blob/master/docs/source/command_line.rst) and pyright's `typeCheckingMode` is `off`, `basic`, `standard` (the default) or `strict` (https://github.com/microsoft/pyright/blob/main/docs/configuration.md). A model that fails to type-check can lower the mode instead of fixing the code.
+**Sensor**: `guard` compares the configuration with the base commit (section 6 of `assets/core/sensors/common/guard.sh`); a weakening needs an ADR naming the file. No new env file.
+**Opinion**: the target strictness, and a migration plan when it is not strict yet.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## error-handling
+
+**Questions**: How does the code report errors (exceptions, result types)? Is swallowing an error ever acceptable here?
+**Measure**: `measure.sh pattern` with the `error-handling` pattern of `contracts/rule-env.md`: files and total of empty catch blocks and `except ...: pass`.
+**Default**: no new empty handler; today's are baselined.
+**Why**: ESLint's `no-empty` flags empty `catch` blocks by default (https://github.com/eslint/eslint/blob/main/docs/src/rules/no-empty.md), ruff's `S110` flags `except` handlers that only `pass` (https://github.com/astral-sh/ruff/blob/main/crates/ruff_linter/src/rules/flake8_bandit/rules/try_except_pass.rs) and Checkstyle's `EmptyCatchBlock` checks for empty catch blocks (https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/checks/blocks/EmptyCatchBlockCheck.java).
+**Sensor**: `pattern.sh` with the `error-handling` preset (`contracts/rule-env.md`), class heuristic, TSV baseline; it sees the one-line forms only, so where those linter rules are configured prefer them through `lint`.
+**Opinion**: what counts as handling.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## logging
+
+**Questions**: Which logger does the project use? Are scripts and tests allowed to print?
+**Measure**: `measure.sh pattern` with the `logging` pattern of `contracts/rule-env.md`, over the source roots: files and total of direct console output.
+**Default**: no direct output in application code (tests and scripts excluded); today's are baselined.
+**Why**: ESLint's `no-console` disallows calls on `console` (https://github.com/eslint/eslint/blob/main/docs/src/rules/no-console.md) and ruff's `T201` flags `print` calls (https://github.com/astral-sh/ruff/blob/main/crates/ruff_linter/src/rules/flake8_print/rules/print_call.rs). Output that bypasses the logger has no level, context or destination.
+**Sensor**: `pattern.sh` with the `logging` preset (`contracts/rule-env.md`), class heuristic, TSV baseline; where the linter rules above are configured prefer them through `lint`.
+**Opinion**: which logger, and which paths may print.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
+
+## test-conventions
+
+**Questions**: How are test files named and where do they live (next to the code, or in a mirror tree)?
+**Measure**: `measure.sh tests`: main, test, unit, integration and e2e counts, and `untested_main`.
+**Default**: the convention the measured tree already shows, written as the `MAPPINGS` of `testing-strategy`.
+**Why**: opinion: a mapping from a main file to its test lets an agent find or create the right test without searching; see `testing-strategy`.
+**Sensor**: none of its own: `test-presence` checks that the mapped test exists and `folder-layout` checks where files live, both parameterised by the existing env files.
+**Opinion**: the naming and the location.
+**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)
