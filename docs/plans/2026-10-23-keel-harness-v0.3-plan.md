@@ -33,7 +33,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
 | F3b Versioned plans | ✅ done 2026-10-29 | `2026-10-29-…-f3b-plan.md` | `a40bbcf`, `cc98527`, `1f18d9a`, `5448cf4`; 1836 `ok` (1759 before), `validate --strict` passes, shellcheck clean; the 3 new checks bring harness-check to 18 | F6 |
 | F3c Authority | ✅ done 2026-10-29 (F3c-1 and F3c-2) | `2026-10-29-…-f3c1/f3c2-plan.md` | F3c-1 on `feat/keel-harness-v0.3-f3c1`: `b7efeef`, `9c496a0`, `a6df5f9`; 1985 `ok` (1759 before, 226 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; no eval run. F3c-2 on `feat/keel-harness-v0.3-f3c2`: `4b792a0`, `666068b`; 2368 `ok` (2244 before, 124 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; no eval run; the CODEOWNERS approval of a superseding ADR cannot be checked locally | — |
-| F3d Exemplars + catalog | ◐ F3d-1 done 2026-10-29; F3d-2 wave F | `2026-10-29-…-f3d1/f3d2-plan.md` | F3d-1 on `feat/keel-harness-v0.3-f3d1`: exemplars and `exemplar-missing` (check 21), `pattern.sh` (grep tested fully; ast-grep and semgrep skip when absent, parsing tested with stubs, never run against the real tools), `measure.sh pattern`, `guard` on `PATTERN`/`RULE_FILE`; no eval run | F3d-2 |
+| F3d Exemplars + catalog | ✅ done 2026-10-29 (F3d-1 and F3d-2); entries unproven until with/without runs (owner) | `2026-10-29-…-f3d1/f3d2-plan.md` | F3d-1 on `feat/keel-harness-v0.3-f3d1`: exemplars and `exemplar-missing` (check 21), `pattern.sh` (grep tested fully; ast-grep and semgrep skip when absent, parsing tested with stubs, never run against the real tools), `measure.sh pattern`, `guard` on `PATTERN`/`RULE_FILE`; no eval run. F3d-2 on `feat/keel-harness-v0.3-f3d2`: `62bacf4`, `e6f2ee1`, `43243ec`; 2634 `ok` (2449 before, 185 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; 15 catalog entries, all marked unproven; presets for `comments`, `suppressions`, `error-handling`, `logging`; `dependencies.sh`; `guard` type-strictness; `measure.sh deps`; no `function-size` subcommand; no eval run | owner: with/without runs |
 | F4 Codex | backlog (D5) | — | — | — |
 | F5 Profile L | ☐ wave G | `2026-10-29-…-f5-plan.md` | — | after F3 and F6; ships only with Δ > 0 per component, else v0.4 (D52) |
 | F6 Feedback → infrastructure | ✅ done 2026-10-29 | `2026-10-29-…-f6-plan.md` | `c3914bf`, `5ec63ea`, `63ef483`, `72a0c9f`, `f58251b`, `c90345e` on `feat/keel-harness-v0.3-f6`; 2371 `ok` (2244 before), 0 FAIL, `validate --strict` passes, shellcheck clean; the 4 history checks bring harness-check to 24 | F5 |
@@ -278,12 +278,12 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f3a-plan.md`.
 
 - [x] `EXEMPLAR=` in rule env files, a "follow X, not Y" line in nested `AGENTS.md`, legacy zones
   marked. (F3d-1)
-- [ ] Catalog entries: function length, cyclomatic complexity, max parameters, optional dead code /
+- [x] Catalog entries: function length, cyclomatic complexity, max parameters, optional dead code /
   duplication, and the ten D44 entries: `comments`, `spelling`, `code-style`, `naming`,
   `suppressions`, `dependencies`, `type-strictness`, `error-handling`, `logging`, `test-conventions`.
-  Each comes with sensor tests.
+  Each comes with sensor tests. (F3d-2)
 - [x] A generic `pattern` sensor (ast-grep / semgrep / grep) for a team's own approved rules. (F3d-1)
-- [ ] `rules` proposes an entry only when `measure.sh` shows a problem or the user asks for it.
+- [x] `rules` proposes an entry only when `measure.sh` shows a problem or the user asks for it. (F3d-2)
 - [ ] Each entry gets a with/without run as in E3 (D44); until it has one, it is marked **unproven** in
   `catalog.md`.
 

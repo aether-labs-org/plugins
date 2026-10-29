@@ -7,6 +7,8 @@
 # ENFORCEMENT_LEVEL=mandatory (D43) that is not enough: any loosening of its env file, sensors or
 # baselines, a later EXCEPTIONS deadline or a new exception line, or a lower ENFORCEMENT_LEVEL needs a
 # superseding ADR (a `Supersedes: <existing ADR path>` line) that names the file.
+# Type strictness (D44) is a loosening too: tsconfig `strict` (or a flag it implies) turned off or removed,
+# mypy `strict` / `disallow_untyped_defs` turned off, a lower pyright `typeCheckingMode` (section 6 below).
 # Base: KEEL_GUARD_BASE, else the merge-base with origin/HEAD, else HEAD. SCOPE is not used.
 # Out: line 1 = id<TAB>class<TAB>status<TAB>summary. Exit 0 pass / 1 fail / 2 skip.
 set -uo pipefail
@@ -180,6 +182,93 @@ while IFS= read -r f; do
     while IFS= read -r w; do loose "$f" "$w"; done
 done < "$tmp/allrules"
 is_hard() { awk -F'\t' -v p="$1" '$1 == p { found = 1 } END { exit !found }' "$tmp/hardmap"; }
+
+# ===== 6. Type strictness (D44, F3d-2) ==========================================================
+# tsconfig*.json (strict, the flags it implies, noUncheckedIndexedAccess ...), mypy (strict,
+# disallow_untyped_defs) and pyright (typeCheckingMode), compared with the base. Only a file that exists at
+# the base is read. A flag that was on and no longer is, or a lower pyright mode, is a loosening that needs
+# an ADR naming the file. JSONC comments on their own line are ignored; this block touches nothing else.
+ts_val() { grep -v '^[[:space:]]*//' "$1" 2>/dev/null | sed -n 's/.*"'"$2"'"[[:space:]]*:[[:space:]]*\([a-zA-Z]*\).*/\1/p' | head -1; }
+json_str() { grep -v '^[[:space:]]*//' "$1" 2>/dev/null | sed -n 's/.*"'"$2"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1; }
+# ts_eff FILE FLAG -> true | false | empty; the flags strict switches on take its value when they are not set
+ts_eff() {
+  local v; v="$(ts_val "$1" "$2")"
+  if [ -z "$v" ]; then
+    case "$2" in
+      noImplicitAny | strictNullChecks | strictFunctionTypes | strictBindCallApply | strictPropertyInitialization | noImplicitThis | useUnknownInCatchVariables | alwaysStrict) v="$(ts_val "$1" strict)" ;;
+    esac
+  fi
+  printf '%s' "$v"
+}
+# ini_val FILE SECTION KEY -> the value, lowercased, without quotes and trailing comment
+ini_val() {
+  awk -v sec="$2" -v key="$3" -v q="'" '
+    /^[ \t]*\[/ { s = $0; sub(/^[ \t]*\[+/, "", s); sub(/\]+[ \t]*(#.*)?$/, "", s); insec = (s == sec); next }
+    insec && $0 !~ /^[ \t]*[#;]/ {
+      i = index($0, "="); if (i == 0) next
+      k = substr($0, 1, i - 1); gsub(/[ \t]/, "", k)
+      if (k == key) { v = substr($0, i + 1); sub(/[ \t]*[#;].*$/, "", v); gsub("^[ \t\"" q "]+|[ \t\"" q "]+$", "", v); print tolower(v); exit }
+    }' "$1" 2>/dev/null
+}
+# mypy_eff FILE SECTION FLAG -> true | false | empty (strict switches disallow_untyped_defs on)
+mypy_eff() {
+  local v; v="$(ini_val "$1" "$2" "$3")"
+  if [ -z "$v" ] && [ "$3" = disallow_untyped_defs ]; then v="$(ini_val "$1" "$2" strict)"; fi
+  case "$v" in true | 1 | yes | on) echo true ;; '') echo "" ;; *) echo false ;; esac
+}
+lvl_num() { case "$1" in off) echo 0 ;; basic) echo 1 ;; standard) echo 2 ;; strict) echo 3 ;; *) echo "" ;; esac; }
+lvl_name() { case "$1" in 0) echo off ;; 1) echo basic ;; 2) echo standard ;; 3) echo strict ;; esac; }
+git ls-tree -r --name-only "$base" 2>/dev/null |
+  grep -E '(^|/)(tsconfig[^/]*\.json|pyrightconfig\.json|mypy\.ini|\.mypy\.ini|setup\.cfg|pyproject\.toml)$' |
+  grep -v 'node_modules/' > "$tmp/stfiles"
+TS_FLAGS="strict noImplicitAny strictNullChecks strictFunctionTypes strictBindCallApply strictPropertyInitialization noImplicitThis useUnknownInCatchVariables alwaysStrict noUncheckedIndexedAccess exactOptionalPropertyTypes noImplicitOverride noImplicitReturns"
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  at_base "$f" > "$tmp/st.old"
+  if [ -f "$f" ]; then cat "$f" > "$tmp/st.new"; else : > "$tmp/st.new"; fi
+  case "${f##*/}" in
+    tsconfig*.json)
+      if [ ! -f "$f" ]; then
+        for flag in $TS_FLAGS; do
+          if [ "$(ts_eff "$tmp/st.old" "$flag")" = true ]; then loose "$f" "type-strictness: file removed"; break; fi
+        done
+        continue
+      fi
+      strict_loosened=0
+      for flag in $TS_FLAGS; do
+        o="$(ts_eff "$tmp/st.old" "$flag")"; n="$(ts_eff "$tmp/st.new" "$flag")"
+        [ "$o" = true ] && [ "$n" != true ] || continue
+        case "$flag" in
+          strict) strict_loosened=1 ;;
+          noImplicitAny | strictNullChecks | strictFunctionTypes | strictBindCallApply | strictPropertyInitialization | noImplicitThis | useUnknownInCatchVariables | alwaysStrict)
+            [ "$strict_loosened" = 1 ] && continue ;; # already reported as strict
+        esac
+        loose "$f" "type-strictness: $flag true -> ${n:-(unset)}"
+      done ;;
+    mypy.ini | .mypy.ini | setup.cfg | pyproject.toml)
+      sec=mypy; [ "${f##*/}" = pyproject.toml ] && sec=tool.mypy
+      mypy_strict_off=0
+      for flag in strict disallow_untyped_defs; do
+        o="$(mypy_eff "$tmp/st.old" "$sec" "$flag")"; n="$(mypy_eff "$tmp/st.new" "$sec" "$flag")"
+        [ "$o" = true ] && [ "$n" != true ] || continue
+        [ "$flag" = disallow_untyped_defs ] && [ "$mypy_strict_off" = 1 ] && continue
+        [ "$flag" = strict ] && mypy_strict_off=1
+        loose "$f" "type-strictness: mypy $flag true -> ${n:-(unset)}"
+      done ;;
+  esac
+  case "${f##*/}" in
+    pyrightconfig.json | pyproject.toml)
+      if [ "${f##*/}" = pyproject.toml ]; then
+        o="$(ini_val "$tmp/st.old" tool.pyright typeCheckingMode)"; n="$(ini_val "$tmp/st.new" tool.pyright typeCheckingMode)"
+      else
+        o="$(json_str "$tmp/st.old" typeCheckingMode)"; n="$(json_str "$tmp/st.new" typeCheckingMode)"
+      fi
+      lo="$(lvl_num "$o")"; [ -n "$lo" ] || continue # compared only when the base set a mode
+      ln="$(lvl_num "$n")"; [ -n "$ln" ] || ln=2     # pyright's default mode is standard
+      [ "$ln" -lt "$lo" ] && loose "$f" "type-strictness: pyright typeCheckingMode $o -> $(lvl_name "$ln")" ;;
+  esac
+done < "$tmp/stfiles"
+# ===== end of 6 ===================================================================================
 
 # A loosened file passes when an ADR added since the base names it. A hard file needs a superseding ADR:
 # one that names the file (or the mandatory rule it belongs to) and has a line `Supersedes: <path>`

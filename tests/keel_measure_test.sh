@@ -83,6 +83,20 @@ ro pattern pattern 'console' src
 m pattern >/dev/null; [ $? -eq 64 ]; check "pattern: no ERE -> rc 64" $?
 m pattern 'foo(' >/dev/null; [ $? -eq 64 ]; check "pattern: an invalid ERE -> rc 64" $?
 
+# --- deps (F3d-2): direct dependencies per manifest, read with the dependencies sensor's parsers
+R="$(new_repo)"; mkdir -p "$R/svc"
+printf '{ "dependencies": {"a": "1", "b": "2"}, "devDependencies": {"c": "3"} }\n' > "$R/package.json"
+printf 'dependencies {\n  implementation("g:a:1")\n  implementation(project(":core"))\n}\n' > "$R/svc/build.gradle.kts"
+commit
+out="$(m deps)"
+printf '%s\n' "$out" | qgrep -x 'manifests 2' && printf '%s\n' "$out" | qgrep -x 'direct 4'; check "deps: manifests and direct dependencies" $?
+printf '%s\n' "$out" | qgrep -x "$(printf '3\tpackage.json')" && printf '%s\n' "$out" | qgrep -x "$(printf '1\tsvc/build.gradle.kts')"; check "deps: count per manifest, largest first" $?
+[ "$(printf '%s\n' "$out" | sed -n '3p')" = "$(printf '3\tpackage.json')" ]; check "deps: the largest manifest comes first" $?
+out="$(m deps svc)"; printf '%s\n' "$out" | qgrep -x 'manifests 1' && printf '%s\n' "$out" | qgrep -x 'direct 1'; check "deps: a pathspec limits the manifests" $?
+ro deps deps
+R="$(new_repo)"; echo x > "$R/a.txt"; commit
+out="$(m deps)"; printf '%s\n' "$out" | qgrep -x 'manifests 0' && printf '%s\n' "$out" | qgrep -x 'direct 0'; check "deps: no manifest gives zeros" $?
+
 # --- unknown
 R="$(new_repo)"; m bogus >/dev/null; [ $? -eq 64 ]; check "unknown subcommand rc 64" $?
 # --- language (runs the code-language sensor from the plugin, in a repository without scripts/lib/)

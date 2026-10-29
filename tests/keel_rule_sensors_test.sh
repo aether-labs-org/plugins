@@ -413,4 +413,278 @@ ENV
 J="$r/src/main/java/com/acme"; mkdir -p "$J/domain" "$J/adapter/web"
 printf 'package com.acme.domain;\nimport com.acme.adapter.web.X;\n' > "$J/domain/Foo.java"; printf 'package com.acme.adapter.web;\npublic class X {}\n' > "$J/adapter/web/X.java"; commit "$r"
 mand_case architecture-grep "$r" architecture.env src/main/java/com/acme/domain/Foo.java architecture-grep.tsv
+
+# ================= catalog presets (F3d-2): documented env files for pattern.sh (contracts/rule-env.md)
+CTR="$KEEL/contracts/rule-env.md"
+# preset_env NAME -> the fenced block under "### NAME" of the "Catalog presets" section, as written in the contract
+preset_env() { awk -v n="### $1" '$0 == n { p = 1; next } /^#{1,3} / { p = 0 } p && /^```/ { f = !f; next } p && f' "$CTR"; }
+# preset_case NAME MUST NOT: MUST and NOT are newline-separated lines; every MUST line goes into its own file and must
+# be counted by the preset, every NOT line into its own file and must not.
+preset_case() {
+  local name="$1" must="$2" not="$3" r i l nm=0 nn=0 rows
+  r="$(mk)"; install_asset "$r" "$RS/pattern.sh" "scripts/sensors/$name.sh"
+  sed -i.bak "s/^id=pattern\$/id=$name/" "$r/scripts/sensors/$name.sh"; rm -f "$r/scripts/sensors/$name.sh.bak"
+  preset_env "$name" > "$r/.agents/rules/$name.env"
+  [ -s "$r/.agents/rules/$name.env" ]; check "preset $name: documented in rule-env.md" $?
+  i=0; while IFS= read -r l; do [ -n "$l" ] || continue; i=$((i + 1)); nm=$((nm + 1)); printf '%s\n' "$l" > "$r/src/must$i.txt"; done <<EOM
+$must
+EOM
+  i=0; while IFS= read -r l; do [ -n "$l" ] || continue; i=$((i + 1)); nn=$((nn + 1)); printf '%s\n' "$l" > "$r/src/not$i.txt"; done <<EON
+$not
+EON
+  commit "$r"
+  run "$r" "$name" KEEL_MEASURE=1
+  rows="$(printf '%s\n' "$out" | grep -c '^src/must[0-9]*\.txt	1$')"
+  [ "$rows" -eq "$nm" ]; check "preset $name: all $nm must-match lines are counted (got $rows)" $?
+  if printf '%s\n' "$out" | qgrep '^src/not'; then
+    printf '%s\n' "$out" | grep '^src/not' | sed 's/^/    unexpected: /'
+    fail "preset $name: none of the $nn must-not-match lines is counted"
+  else check "preset $name: none of the $nn must-not-match lines is counted" 0; fi
+  run "$r" "$name"; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | qgrep "^$name	heuristic	fail	"; check "preset $name: the sensor fails on the must-match files (no baseline)" $?
+  PRESET_REPO="$r"
+}
+
+preset_case comments \
+'// TODO fix this
+# FIXME later
+/* XXX */
+// TODO(alice): later
+// TODO: #
+// TODO
+x = 1 // FIXME: soon
+// TODO - rewrite' \
+'// TODO(#123): rewrite
+// TODO #45 split
+# FIXME: #7
+// TODO https://tracker.example/issues/1
+// TODO(https://tracker.example/issues/2)
+// XXX#9 keep
+const todo = 1
+const XXXL = 2
+AUTODO = 3
+// TODOS are tracked elsewhere'
+
+preset_case suppressions \
+'// eslint-disable-next-line no-console
+/* eslint-disable */
+// @ts-ignore
+x = 1  # noqa: E501
+y = 2  #noqa
+z = f()  # type: ignore
+z = f()  #type:ignore[attr]
+@SuppressWarnings("unchecked")' \
+'// eslint-enable
+const noqa = 1
+# type: int
+// type annotations are checked
+// @ts-expect-error
+'
+
+preset_case error-handling \
+'try { f(); } catch (e) {}
+try { f(); } catch {}
+} catch (e) { }
+    except ValueError: pass
+except: pass  # ignore
+except (A, B) as e: pass' \
+'try { f(); } catch (e) { log(e); }
+} catch (e) {
+except KeyError: pass_through()
+except ValueError:
+    pass
+const catcher = {}'
+
+preset_case logging \
+'console.log("x")
+    print("x")
+System.out.println(x)
+System.out.print(x)
+println("kotlin")
+x = 1; print (y)' \
+'logger.info("x")
+window.print()
+blueprint(x)
+pprint(x)
+console.error("x")
+def sprint(x): pass'
+# logging excludes tests and scripts: a match under them is not counted, one under a source root is
+r="$PRESET_REPO"; mkdir -p "$r/src/test/java" "$r/src/scripts" "$r/src/main"
+printf 'console.log(1)\n' > "$r/src/app.test.ts"; printf 'console.log(1)\n' > "$r/src/app.spec.ts"
+printf 'System.out.println(1);\n' > "$r/src/test/java/AppTest.java"; printf 'print(1)\n' > "$r/src/scripts/seed.py"
+printf 'System.out.println(1);\n' > "$r/src/main/App.java"; commit "$r"
+run "$r" logging KEEL_MEASURE=1
+printf '%s\n' "$out" | qgrep -x "$(printf 'src/main/App.java\t1')" && ! printf '%s\n' "$out" | qgrep -e 'src/app\.test' -e 'src/app\.spec' -e 'src/test/' -e 'src/scripts/'; check "preset logging: tests and scripts are excluded, a source root is not" $?
+
+# a preset env is a pattern rule, so a changed PATTERN is a loosening for guard (already covered in keel_guard_test.sh)
+for p in comments suppressions error-handling logging; do
+  preset_env "$p" | qgrep -x 'KIND=pattern' && preset_env "$p" | qgrep "^PATTERN='" && preset_env "$p" | qgrep '^MESSAGE=' && preset_env "$p" | qgrep '^FIX='; check "preset $p: KIND=pattern, PATTERN, MESSAGE and FIX are set" $?
+done
+
+# ================= dependencies (F3d-2): a new direct dependency needs an ADR naming the manifest
+structure dependencies
+DP="$KEEL/$RS/dependencies.sh"
+# mkd -> a committed harness (state.yml) with the dependencies rule and one manifest of each kind
+mkd() {
+  local r; r="$(mk)"; put "$r" dependencies
+  mkdir -p "$r/docs/adr"
+  printf 'schema_version: 2\n' > "$r/.agents/state.yml"
+  printf 'RULE_ID=dependencies\nKIND=pattern\nENFORCEMENT=sensor:dependencies\n' > "$r/.agents/rules/dependencies.env"
+  cat > "$r/package.json" <<'EOF'
+{
+  "name": "app",
+  "version": "1.0.0",
+  "scripts": { "dependencies": "echo not a dependency" },
+  "dependencies": {
+    "express": "^4.18.0",
+    "left-pad": "1.3.0"
+  },
+  "devDependencies": { "jest": "^29.0.0" }
+}
+EOF
+  cat > "$r/pyproject.toml" <<'EOF'
+[project]
+name = "app"
+dependencies = [
+  "requests>=2.31",  # http client
+  "pydantic[email]>=2",
+]
+
+[project.optional-dependencies]
+web = ["flask>=3"]
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+httpx = "^0.27"
+
+[tool.poetry.group.test.dependencies]
+coverage = { version = "^7", extras = ["toml"] }
+EOF
+  cat > "$r/pom.xml" <<'EOF'
+<project>
+  <parent><groupId>org.parent</groupId><artifactId>parent</artifactId></parent>
+  <dependencyManagement>
+    <dependencies>
+      <dependency><groupId>org.managed</groupId><artifactId>bom</artifactId><version>1</version></dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+      <version>6.1.0</version>
+      <exclusions><exclusion><groupId>commons-logging</groupId><artifactId>commons-logging</artifactId></exclusion></exclusions>
+    </dependency>
+    <!-- <dependency><groupId>old</groupId><artifactId>commented</artifactId></dependency> -->
+  </dependencies>
+  <build><plugins><plugin>
+    <artifactId>maven-x</artifactId>
+    <dependencies><dependency><groupId>org.plugin</groupId><artifactId>dep</artifactId><version>1</version></dependency></dependencies>
+  </plugin></plugins></build>
+</project>
+EOF
+  mkdir -p "$r/svc"
+  cat > "$r/svc/build.gradle.kts" <<'EOF'
+plugins { id("java") }
+dependencies {
+    implementation("org.slf4j:slf4j-api:2.0.9")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    implementation(project(":core"))
+    implementation(libs.jackson.databind)
+}
+EOF
+  cat > "$r/svc/build.gradle" <<'EOF'
+dependencies {
+    api 'com.google.guava:guava:33.0.0-jre'
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.14.0'
+}
+EOF
+  commit "$r"
+  printf '%s\n' "$r"
+}
+verdict() { printf '%s\n' "$out" | head -1 | cut -f1-3 | tr '\t' ' '; }
+
+r="$(mk)"; put "$r" dependencies
+run "$r" dependencies; [ $rc -eq 2 ] && printf '%s\n' "$out" | head -1 | qgrep 'skip	.*no .agents/rules/dependencies.env - run the rules skill'; check "dependencies: no env -> skip" $?
+r="$(mkd)"; run "$r" dependencies
+[ $rc -eq 0 ] && [ "$(verdict)" = "dependencies security pass" ]; check "dependencies: nothing changed -> pass (class security)" $?
+r="$(mkd)"; run "$r" dependencies KEEL_MEASURE=1
+printf '%s\n' "$out" | qgrep -x "$(printf 'package.json\t3')" && printf '%s\n' "$out" | qgrep -x "$(printf 'pyproject.toml\t6')" && printf '%s\n' "$out" | qgrep -x "$(printf 'pom.xml\t1')" \
+  && printf '%s\n' "$out" | qgrep -x "$(printf 'svc/build.gradle.kts\t3')" && printf '%s\n' "$out" | qgrep -x "$(printf 'svc/build.gradle\t2')"; check "dependencies: direct dependencies per manifest (scripts, dependencyManagement, plugin dependencies, exclusions, comments and project() are not direct)" $?
+sed -i.bak 's/"express": "^4.18.0"/"express": "^5.0.0"/; s/"left-pad": "1.3.0"/"left-pad": "1.3.1"/' "$r/package.json"; rm -f "$r/package.json.bak"
+run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: a version bump is not a new dependency" $?
+sed -i.bak '/left-pad/d; s/"express": "^5.0.0",/"express": "^5.0.0"/' "$r/package.json"; rm -f "$r/package.json.bak"
+run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: removing a dependency passes" $?
+
+# package.json
+r="$(mkd)"; sed -i.bak 's/"jest": "^29.0.0"/"jest": "^29.0.0", "lodash": "4.17.21"/' "$r/package.json"; rm -f "$r/package.json.bak"
+run "$r" dependencies
+[ $rc -eq 1 ] && [ "$(verdict)" = "dependencies security fail" ] && printf '%s\n' "$out" | qgrep -F '  package.json: lodash' && printf '%s\n' "$out" | qgrep -F '  guidance:'; check "dependencies: a new devDependency without an ADR fails and names manifest and package" $?
+printf '%s\n' "$out" | qgrep -F 'Never add the dependency to an allow-list'; check "dependencies: guidance names the wrong fix" $?
+printf '# ADR 0001\nWe add lodash to the dependencies of other-package.json.\n' > "$r/docs/adr/0001-lodash.md"
+run "$r" dependencies; [ $rc -eq 1 ]; check "dependencies: an ADR that does not name the manifest does not unlock it" $?
+printf '# ADR 0002\nWe add lodash in `package.json` for deep clone.\n' > "$r/docs/adr/0002-lodash.md"
+run "$r" dependencies; [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | qgrep '1 new direct dependency'; check "dependencies: an ADR added in the change that names package.json passes" $?
+(cd "$r" && git add -A && git commit -q -m adr); run "$r" dependencies KEEL_GUARD_BASE=HEAD; [ $rc -eq 0 ]; check "dependencies: once committed the base moves and nothing is new" $?
+r="$(mkd)"; sed -i.bak 's/"jest": "^29.0.0"/"jest": "^29.0.0", "lodash": "4.17.21"/' "$r/package.json"; rm -f "$r/package.json.bak"
+printf 'ADR naming package.json.\n' > "$r/docs/adr/0003.md"; (cd "$r" && git add -A && git commit -q -m c2)
+run "$r" dependencies KEEL_GUARD_BASE=HEAD~1; [ $rc -eq 0 ]; check "dependencies: KEEL_GUARD_BASE is honoured (ADR committed since the base)" $?
+r="$(mkd)"; printf 'ADR naming package.json.\n' > "$r/docs/adr/0003.md"; (cd "$r" && git add -A && git commit -q -m adr-first)
+sed -i.bak 's/"jest": "^29.0.0"/"jest": "^29.0.0", "lodash": "4.17.21"/' "$r/package.json"; rm -f "$r/package.json.bak"
+run "$r" dependencies; [ $rc -eq 1 ]; check "dependencies: an ADR that already existed at the base does not unlock a new dependency" $?
+r="$(mkd)"; sed -i.bak 's/"jest": "^29.0.0"/"jest": "^29.0.0", "left-pad": "1.3.0"/' "$r/package.json"; rm -f "$r/package.json.bak"
+run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: a dependency already present is not new" $?
+r="$(mkd)"; sed -i.bak 's/"devDependencies": { "jest": "^29.0.0" }/"devDependencies": { "jest": "^29.0.0" }, "peerDependencies": { "react": "18" }/' "$r/package.json"; rm -f "$r/package.json.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  package.json: react'; check "dependencies: a peerDependency counts, on one line" $?
+r="$(mkd)"; sed -i.bak 's/"scripts": {.*/"scripts": { "dependencies": "echo", "x": "y" },/' "$r/package.json"; rm -f "$r/package.json.bak"
+run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: a script called dependencies is not a dependency block" $?
+
+# pyproject.toml
+r="$(mkd)"; sed -i.bak 's/^  "requests>=2.31",.*/  "requests>=2.32",  # bumped\n  "rich>=13",/' "$r/pyproject.toml"; rm -f "$r/pyproject.toml.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  pyproject.toml: rich' && ! printf '%s\n' "$out" | qgrep -F 'requests'; check "dependencies: pyproject [project] dependencies: new name fails, version bump does not" $?
+r="$(mkd)"; sed -i.bak 's/^web = \["flask>=3"\]/web = ["flask>=3", "jinja2"]/' "$r/pyproject.toml"; rm -f "$r/pyproject.toml.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  pyproject.toml: jinja2'; check "dependencies: pyproject optional-dependencies" $?
+r="$(mkd)"; sed -i.bak 's/^  "pytest>=8",/  "pytest>=8",\n  "ruff",/' "$r/pyproject.toml"; rm -f "$r/pyproject.toml.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  pyproject.toml: ruff'; check "dependencies: pyproject dependency-groups" $?
+r="$(mkd)"; sed -i.bak 's/^httpx = "^0.27"/httpx = "^0.28"\nanyio = "^4"/' "$r/pyproject.toml"; rm -f "$r/pyproject.toml.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  pyproject.toml: anyio' && ! printf '%s\n' "$out" | qgrep -F 'httpx'; check "dependencies: pyproject [tool.poetry.dependencies]" $?
+r="$(mkd)"; sed -i.bak 's/^coverage = .*/coverage = { version = "^7" }\nfreezegun = "*"/' "$r/pyproject.toml"; rm -f "$r/pyproject.toml.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  pyproject.toml: freezegun'; check "dependencies: pyproject poetry group dependencies" $?
+r="$(mkd)"; sed -i.bak 's/^  "pydantic\[email\]>=2",/  "pydantic>=2.5",/' "$r/pyproject.toml"; rm -f "$r/pyproject.toml.bak"
+run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: extras and version specifiers do not change a dependency's name" $?
+
+# pom.xml
+r="$(mkd)"; sed -i.bak 's|<version>6.1.0</version>|<version>6.2.0</version>|' "$r/pom.xml"; rm -f "$r/pom.xml.bak"
+run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: pom version bump passes" $?
+r="$(mkd)"; sed -i.bak 's|<!-- <dependency>.*|<dependency><groupId>org.jsoup</groupId><artifactId>jsoup</artifactId></dependency>|' "$r/pom.xml"; rm -f "$r/pom.xml.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  pom.xml: org.jsoup:jsoup'; check "dependencies: pom new dependency as groupId:artifactId" $?
+r="$(mkd)"; sed -i.bak 's|<dependency><groupId>org.managed</groupId><artifactId>bom</artifactId><version>1</version></dependency>|<dependency><groupId>org.managed</groupId><artifactId>bom</artifactId><version>1</version></dependency><dependency><groupId>org.m2</groupId><artifactId>b2</artifactId></dependency>|; s|<exclusions><exclusion><groupId>commons-logging</groupId><artifactId>commons-logging</artifactId></exclusion></exclusions>|<exclusions><exclusion><groupId>x</groupId><artifactId>y</artifactId></exclusion></exclusions>|; s|<groupId>org.plugin</groupId>|<groupId>org.plugin2</groupId>|' "$r/pom.xml"; rm -f "$r/pom.xml.bak"
+run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: dependencyManagement, exclusions and plugin dependencies are not direct dependencies" $?
+
+# gradle
+r="$(mkd)"; sed -i.bak 's|    implementation("org.slf4j:slf4j-api:2.0.9")|    implementation("org.slf4j:slf4j-api:2.0.10")\n    runtimeOnly("com.h2database:h2:2.2.224")|' "$r/svc/build.gradle.kts"; rm -f "$r/svc/build.gradle.kts.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  svc/build.gradle.kts: com.h2database:h2' && ! printf '%s\n' "$out" | qgrep -F 'slf4j'; check "dependencies: gradle kts: new coordinate fails, version bump does not" $?
+r="$(mkd)"; sed -i.bak 's|    implementation(project(":core"))|    implementation(project(":core"))\n    implementation(project(":other"))\n    implementation(libs.kotlin.stdlib)|' "$r/svc/build.gradle.kts"; rm -f "$r/svc/build.gradle.kts.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  svc/build.gradle.kts: libs.kotlin.stdlib' && ! printf '%s\n' "$out" | qgrep -F ':other'; check "dependencies: gradle version-catalog alias counts, project() does not" $?
+r="$(mkd)"; sed -i.bak "s|    api 'com.google.guava:guava:33.0.0-jre'|    api 'com.google.guava:guava:33.0.0-jre'\n    implementation group: 'org.yaml', name: 'snakeyaml', version: '2.2'|" "$r/svc/build.gradle"; rm -f "$r/svc/build.gradle.bak"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  svc/build.gradle: org.yaml:snakeyaml'; check "dependencies: gradle groovy map notation" $?
+printf 'ADR for svc/build.gradle only.\n' > "$r/docs/adr/0001.md"; run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: the ADR names the nested manifest path" $?
+printf 'ADR for svc/build.gradle.kts only (see also build.gradle).\n' > "$r/docs/adr/0001.md"; run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  svc/build.gradle: org.yaml:snakeyaml'; check "dependencies: naming a different manifest (svc/build.gradle.kts, or a shorter path) does not unlock it" $?
+
+# new manifests, untracked, and a harness installed in this change
+r="$(mkd)"; mkdir -p "$r/web"; printf '{ "dependencies": { "react": "18" } }\n' > "$r/web/package.json"
+run "$r" dependencies; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F '  web/package.json: react'; check "dependencies: a new, untracked manifest counts all its dependencies as new" $?
+r="$(mkd)"; mkdir -p "$r/web"; printf '{ "dependencies": {} }\n' > "$r/web/package.json"; run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: a new manifest without dependencies passes" $?
+r="$(mkd)"; git -C "$r" rm -q --cached .agents/state.yml; git -C "$r" commit -q -m nostate; rm -f "$r/.agents/state.yml"; printf '{ "dependencies": { "react": "18" } }\n' > "$r/package.json"
+run "$r" dependencies; [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | qgrep 'installed in this change'; check "dependencies: harness not installed at the base -> pass, nothing to compare" $?
+r="$(new_repo --no-commit)"; put "$r" dependencies; install_asset "$r" assets/core/lib/envparse.sh scripts/lib/envparse.sh; mkdir -p "$r/.agents/rules"; printf 'RULE_ID=dependencies\n' > "$r/.agents/rules/dependencies.env"
+run "$r" dependencies; [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | qgrep 'No commits yet'; check "dependencies: no commits yet -> pass" $?
+r="$(mkd)"; sed -i.bak 's/"jest": "^29.0.0"/"jest": "^29.0.0", "lodash": "4.17.21"/' "$r/package.json"; rm -f "$r/package.json.bak"
+run "$r" dependencies KEEL_GUARD_BASE=nonexistent-ref; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | qgrep 'is not a commit'; check "dependencies: a bad KEEL_GUARD_BASE fails" $?
+printf "INCLUDE='svc'\n" >> "$r/.agents/rules/dependencies.env"; run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: INCLUDE limits the manifests checked" $?
+printf "INCLUDE='.'\nEXCLUDE='package.json'\n" > "$r/.agents/rules/dependencies.env"; run "$r" dependencies; [ $rc -eq 0 ]; check "dependencies: EXCLUDE drops a manifest" $?
 finish

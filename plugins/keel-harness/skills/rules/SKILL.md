@@ -73,6 +73,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" framework-imports src/main/java/
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" tests
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" language pt.txt
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" pattern 'console\.log\(' src    # files and total of a text pattern
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" deps                           # direct dependencies per manifest
 ```
 
 ### Phase 5 - Proposals
@@ -83,6 +84,11 @@ flag breaking proposals and state their blast radius (files affected). You may p
 (ArchUnit, dependency-cruiser, import-linter, PIT, Stryker, mutmut); install it only with approval.
 When nothing can be inferred, say so, give your recommendation and why, and ask. Never present an
 invented rule as the project's.
+
+**D44 catalog entries** (`function-size` to `test-conventions`, the second half of the catalog): propose one
+only when its measurement shows a problem or the user asks for it. A problem is any match for a pattern entry
+or any function over the default for a size entry. State the evidence, and say the entry is unproven: no
+with/without run has measured it.
 
 **Mandatory or ratchet?** Ask it for every rule that has a sensor, recommended option first, with the
 trade-off (`${CLAUDE_PLUGIN_ROOT}/contracts/rule-env.md`). *Ratchet* is the default: today's violations sit in a
@@ -144,7 +150,9 @@ Write only what was approved, in this order:
    to `scripts/sensors/<id>.sh`; the slow ones (`slow/mutation.sh`, `slow/diff-coverage.sh`) to
    `scripts/sensors/slow/`; the stop-list to `scripts/sensors/stoplists/`. A confirmed adopted pattern
    with a syntactic form becomes `rules/pattern.sh`, copied as `scripts/sensors/<rule-id>.sh` with `id=`
-   set to the rule id (`references/catalog.md`, `adopted-patterns`). Edit only inside the
+   set to the rule id (`references/catalog.md`, `adopted-patterns`); a D44 entry with a preset
+   (`comments`, `suppressions`, `error-handling`, `logging`) does the same with the env block of
+   `contracts/rule-env.md`, and `dependencies` copies `rules/dependencies.sh`. Edit only inside the
    `keel:repo-specific` markers. Render native architecture config with
    `bash "${CLAUDE_PLUGIN_ROOT}/scripts/render.sh" <archunit-java|archunit-kotlin|archunit-properties|depcruise|importlinter> .agents/rules/architecture.env`
    and write it where the user approved (e.g. `src/test/java/.../ArchitectureTest.java`,

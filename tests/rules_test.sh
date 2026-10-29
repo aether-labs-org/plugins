@@ -104,4 +104,35 @@ has "$R/adr-template.md" 'Supersedes:' && has "$R/adr-template.md" 'CODEOWNERS';
 has "$root/plugins/keel-harness/skills/build/references/enforcement.md" 'mandatory' && has "$root/plugins/keel-harness/skills/build/references/enforcement.md" 'required'; check "enforcement.md asks for a required keel check when a rule is mandatory" $?
 for t in ENFORCEMENT_LEVEL EXCEPTIONS 'ratchet' 'Supersedes:' 'CODEOWNERS' 'mandatory-unsensored' 'exception-expired' 'no baseline' '.agents/rules/'; do has "$CT" "$t"; check "rule-env.md documents $t" $?; done
 has "$R/topics/architecture.md" '## Principles' && has "$R/topics/architecture.md" 'review:'; check "architecture topic has the ## Principles section" $?
+# --- F3d-2: catalog entries (D44), each marked unproven
+ST='**Status**: unproven — no with/without measurement yet (D50; F3d acceptance)'
+D44="function-size complexity max-params dead-code duplication comments spelling code-style naming suppressions dependencies type-strictness error-handling logging test-conventions"
+for e in $D44; do
+  sec="$(awk -v h="## $e" '$0 == h { p = 1; next } /^## / { p = 0 } p' "$C")"
+  [ -n "$sec" ]; check "catalog entry (D44): $e" $?
+  ok=0; for l in '**Questions**' '**Measure**' '**Default**' '**Why**' '**Sensor**' '**Opinion**'; do printf '%s\n' "$sec" | qgrep -F -- "$l" || ok=1; done
+  check "catalog $e: has the six labels" $ok
+  printf '%s\n' "$sec" | qgrep -F -- "$ST"; check "catalog $e: marked unproven (D50)" $?
+  [ "$e" = test-conventions ] || { printf '%s\n' "$sec" | qgrep 'https://'; check "catalog $e: cites a URL" $?; }
+done
+[ "$(grep -cF -- "$ST" "$C")" -eq 15 ]; check "catalog: exactly the 15 D44 entries carry the unproven status" $?
+[ "$(wc -l < "$C")" -le 300 ]; check "catalog stays at most 300 lines (else split it into references/catalog/)" $?
+for e in comments suppressions error-handling logging; do
+  awk -v h="## $e" '$0 == h { p = 1; next } /^## / { p = 0 } p' "$C" | qgrep -F 'contracts/rule-env.md'; check "catalog $e: the Sensor names the preset in contracts/rule-env.md" $?
+  has "$CT" "### $e"; check "rule-env.md documents the $e preset" $?
+done
+awk '/^## dependencies$/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'dependencies.sh'; check "catalog dependencies: the Sensor is dependencies.sh" $?
+[ -f "$root/plugins/keel-harness/assets/core/sensors/rules/dependencies.sh" ]; check "dependencies.sh ships under assets/core/sensors/rules" $?
+awk '/^## type-strictness$/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'guard'; check "catalog type-strictness: the Sensor is guard" $?
+awk '/^## function-size$/{p=1;next} /^## /{p=0} p' "$C" | qgrep -iF 'no study'; check "catalog function-size: says no study backs an exact number" $?
+awk '/^## test-conventions$/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'test-presence' && awk '/^## test-conventions$/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'folder-layout'; check "catalog test-conventions: no new sensor, test-presence and folder-layout" $?
+has "$CT" 'measure.sh deps'; check "rule-env.md documents measure.sh deps" $?
+# --- F3d-2 Task 3: rules proposes a D44 entry only on evidence
+P5="$(awk '/^### Phase 5/{p=1} /^### Phase 6/{p=0} p' "$S")"
+printf '%s\n' "$P5" | qgrep -F 'D44' && printf '%s\n' "$P5" | qgrep -F 'only when its measurement shows a problem' && printf '%s\n' "$P5" | qgrep -F 'or the user asks'; check "phase 5: a D44 entry is proposed only when its measurement shows a problem or the user asks" $?
+printf '%s\n' "$P5" | qgrep -F 'any match for a pattern entry' && printf '%s\n' "$P5" | qgrep -F 'any function over the default for a size entry'; check "phase 5: names the evidence per kind of entry" $?
+printf '%s\n' "$P5" | qgrep -F 'unproven'; check "phase 5: says the D44 entries are unproven" $?
+awk '/^### Phase 4/{p=1} /^### Phase 5/{p=0} p' "$S" | qgrep -F 'measure.sh" deps'; check "phase 4 lists measure.sh deps" $?
+[ "$(wc -l < "$S")" -le 250 ]; check "rules SKILL.md still at most 250 lines after F3d-2" $?
+[ "$(wc -c < "$S")" -lt 20000 ]; check "rules SKILL.md is under 20,000 bytes after F3d-2" $?
 exit $fail

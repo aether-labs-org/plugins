@@ -27,7 +27,11 @@ Parameters per sensor: `file-size` (`LIMIT`, `INCLUDE`, `EXCLUDE`), `folder-layo
 `MUTATION_MIN_SCORE`, `DIFF_COVERAGE_MIN`). A sensor skips (exit 2) when its env file is missing.
 Keys are UPPER_CASE. `guard` treats a `*MIN*` key that goes down, a `*LIMIT*`/`*MAX*` key that goes up,
 a longer `ALLOWED`/`EXCLUDE`/`IGNORE_IMPORTS`, a shorter `INCLUDE`/`FORBIDDEN`, a changed `ENFORCEMENT`
-or a deleted env file as a loosening that needs an ADR in the same change.
+or a deleted env file as a loosening that needs an ADR in the same change. It also compares the type-checker
+configuration with the base (`type-strictness`, D44): a `tsconfig*.json` `strict` (or a flag it implies, or
+`noUncheckedIndexedAccess`) that was on and is off or gone, mypy `strict`/`disallow_untyped_defs` turned off,
+or a lower pyright `typeCheckingMode` is a loosening that needs an ADR naming that file. The rule has no env
+file of its own.
 
 ## Exemplar and legacy zones (any rule)
 
@@ -64,6 +68,101 @@ syntactic rule. It is copied as `scripts/sensors/<rule-id>.sh` with `id=<rule-id
 The count is per file (matching lines for `grep`, findings for the other engines) and is compared with
 `.agents/baselines/<rule-id>.tsv`. `guard` treats a changed `PATTERN` or `RULE_FILE` (or an edited
 rule file) as a loosening, because it changes what is caught.
+
+## Catalog presets (D44)
+
+Four catalog entries have no common linter rule behind them, so each is a `pattern.sh` rule: copy the
+sensor as `scripts/sensors/<name>.sh` with `id=<name>`, write the block below as
+`.agents/rules/<name>.env`, replace `INCLUDE` with the repository's source roots (no trailing `/`: git ignores an `EXCLUDE` pathspec
+next to an `INCLUDE` that ends in `/`), and baseline the matches
+that exist (`KEEL_MEASURE=1`). `tests/keel_rule_sensors_test.sh` runs each block against lines that must and
+must not match. The sensor matches one line at a time: a multi-line form needs `ENGINE=ast-grep` or the
+project's linter, which the catalog names per entry. All four are ratchet rules (`KIND=pattern`), and the
+status of every one is *unproven* (D50).
+
+### comments
+
+A `TODO`, `FIXME` or `XXX` is allowed only with an issue reference right after the marker: `TODO(#123)`,
+`TODO #123`, `TODO: https://tracker.example/1`. Any other form counts.
+
+```sh
+RULE_ID=comments
+KIND=pattern
+ORIGIN=proposed
+ENFORCEMENT=sensor:comments
+DOC=docs/conventions.md#comments
+PATTERN='(^|[^A-Za-z0-9_])(TODO|FIXME|XXX)($|#([^0-9]|$)|[^A-Za-z0-9_#][: (]*([^#h: (]|#([^0-9]|$)|h([^t]|$)|ht([^t]|$)|htt([^p]|$)|$))'
+INCLUDE='src'
+MESSAGE='A TODO, FIXME or XXX comment has no issue reference.'
+FIX='Write the reference right after the marker, as TODO(#123) or TODO: https://tracker.example/123, or do the work now.'
+```
+
+### suppressions
+
+Counts the comments that switch a check off. A file keeps the count it had in the baseline, so suppressions
+can only shrink. `@ts-expect-error` is left out on purpose: it fails once the error is gone.
+
+```sh
+RULE_ID=suppressions
+KIND=pattern
+ORIGIN=proposed
+ENFORCEMENT=sensor:suppressions
+DOC=docs/conventions.md#suppressions
+PATTERN='eslint-disable|@ts-ignore|#[[:space:]]*(noqa|type:[[:space:]]*ignore)|@SuppressWarnings'
+INCLUDE='src'
+MESSAGE='A new lint or type-check suppression was added.'
+FIX='Fix the finding the suppression hides. If it is a false positive, say so in a comment and ask for the baseline to be raised through an ADR.'
+```
+
+### error-handling
+
+Empty `catch` blocks and `except ...: pass`, written on one line.
+
+```sh
+RULE_ID=error-handling
+KIND=pattern
+ORIGIN=proposed
+ENFORCEMENT=sensor:error-handling
+DOC=docs/conventions.md#error-handling
+PATTERN='(^|[^A-Za-z0-9_])catch[[:space:]]*(\([^)]*\))?[[:space:]]*\{[[:space:]]*\}|(^|[^A-Za-z0-9_])except[^:]*:[[:space:]]*pass([[:space:]]|$)'
+INCLUDE='src'
+MESSAGE='An error is caught and ignored.'
+FIX='Handle it, log it with context, or let it propagate. If ignoring it is right, say why in a comment and handle the one exception type that is expected.'
+```
+
+### logging
+
+Direct console output under the source roots; tests and scripts are excluded. `EXCLUDE` is a list of git
+pathspecs, where `*` also matches `/`.
+
+```sh
+RULE_ID=logging
+KIND=pattern
+ORIGIN=proposed
+ENFORCEMENT=sensor:logging
+DOC=docs/conventions.md#logging
+PATTERN='console\.log|(^|[^A-Za-z0-9_.])print(ln)?[[:space:]]*\(|System\.out\.print'
+INCLUDE='src'
+EXCLUDE='*/test/*
+*/tests/*
+*.test.*
+*.spec.*
+*/scripts/*'
+MESSAGE='Direct console output was added to application code.'
+FIX='Use the repository logger instead (name it here), at the level the message deserves.'
+```
+
+## The `dependencies` sensor (D44)
+
+`assets/core/sensors/rules/dependencies.sh` (class `security`, installed as `scripts/sensors/dependencies.sh`)
+fails when a manifest gained a direct dependency since the base commit (`KEEL_GUARD_BASE`, else the merge-base
+with `origin/HEAD`, else `HEAD`) and no ADR added in the same change names that manifest by its whole path.
+There is no baseline. Its env file holds `INCLUDE` and `EXCLUDE` (git pathspecs limiting the manifests; empty
+means every manifest outside `node_modules`). The manifests read are `package.json`, `pyproject.toml`,
+`pom.xml` and `build.gradle`/`build.gradle.kts`; `requirements*.txt`, `Cargo.toml`, `go.mod` and Gradle version
+catalogs are not read. A version change, a removal, a dependency already present in another section of the
+same manifest, Maven `dependencyManagement`, plugin dependencies and Gradle `project()` are not new
+dependencies. `measure.sh deps [pathspec...]` prints the direct dependencies per manifest.
 
 ## Enforcement level: `mandatory` or `ratchet` (D43)
 

@@ -11,6 +11,7 @@
 #   tests                              main/test/unit/integration/e2e counts and tools
 #   language <stoplist> [pathspec...]  runs sensors/code-language.sh in measure mode
 #   pattern <ERE> [pathspec...]        checked, files with a match, total matching lines, then the top 10 files
+#   deps [pathspec...]                 manifests, direct dependencies, then count<TAB>manifest (top 10)
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -211,6 +212,18 @@ cmd_pattern() {
   sort -t "$(printf '\t')" -k1,1nr -k2,2 "$tmp/pcounts" | head -10
 }
 
+# deps [pathspec...]: direct dependencies per manifest, read with the parsers of the dependencies sensor
+cmd_deps() {
+  local inc="" p
+  for p in "$@"; do inc="${inc}${inc:+
+}${p}"; done
+  printf "INCLUDE='%s'\n" "$inc" > "$tmp/deps.env"
+  RULE_ENV="$tmp/deps.env" KEEL_MEASURE=1 KEEL_ENVPARSE_LIB="$here/../assets/core/lib/envparse.sh" \
+    bash "$here/../assets/core/sensors/rules/dependencies.sh" > "$tmp/deprows"
+  awk -F'\t' '{ t += $2 } END { printf "manifests %d\ndirect %d\n", NR, t }' "$tmp/deprows"
+  awk -F'\t' '{ printf "%d\t%s\n", $2, $1 }' "$tmp/deprows" | sort -t "$(printf '\t')" -k1,1nr -k2,2 | head -10
+}
+
 sub="${1:-}"; [ $# -gt 0 ] && shift
 case "$sub" in
   file-size) cmd_file_size "$@" ;;
@@ -220,5 +233,6 @@ case "$sub" in
   tests) cmd_tests ;;
   language) cmd_language "$@" ;;
   pattern) cmd_pattern "$@" ;;
-  *) echo "usage: measure.sh file-size|tree|imports|framework-imports|tests|language|pattern ..." >&2; exit 64 ;;
+  deps) cmd_deps "$@" ;;
+  *) echo "usage: measure.sh file-size|tree|imports|framework-imports|tests|language|pattern|deps ..." >&2; exit 64 ;;
 esac
