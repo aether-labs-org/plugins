@@ -42,6 +42,10 @@ printf '# measured_at: 2026-10-20 review_by: 2027-04-20\nsrc/a.ts\t7\n' > "$r/.a
 run "$r" file-size; [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | qgrep '^file-size	heuristic	pass	2 files checked, 0 over 5 lines (1 baselined)\.$'; check "file-size: baselined passes" $?
 nlines 8 > "$r/src/a.ts"; run "$r" file-size; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep -F 'src/a.ts: 8 lines (allowed 7)'; check "file-size: growth past baseline fails" $?
 nlines 4 > "$r/src/a.ts"; run "$r" file-size; [ $rc -eq 0 ]; check "file-size: shrink below limit passes" $?
+# a trailing slash on an INCLUDE directory must not switch EXCLUDE off (git ignores :(exclude) next to "src/")
+r2="$(mk)"; put "$r2" file-size; printf "LIMIT=5\nINCLUDE='src/'\nEXCLUDE='*.test.*'\n" > "$r2/.agents/rules/file-size.env"
+nlines 9 > "$r2/src/big.test.ts"; nlines 2 > "$r2/src/ok.ts"; commit "$r2"
+run "$r2" file-size; [ $rc -eq 0 ]; check "file-size: INCLUDE='src/' still honours EXCLUDE" $?
 rm "$r/.agents/baselines/file-size.tsv"; nlines 7 > "$r/src/my file ação.ts"; rm "$r/src/a.ts"
 run "$r" file-size; printf '%s\n' "$out" | qgrep -F '  src/my file ação.ts: 7 lines (allowed 5)'; check "file-size: spaces and non-ASCII path (RF1)" $?
 printf 'LIMIT=5\r\nINCLUDE='"'"'src'"'"'\r\n' > "$r/.agents/rules/file-size.env"

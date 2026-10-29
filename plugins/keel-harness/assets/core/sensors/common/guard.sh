@@ -287,6 +287,12 @@ while IFS= read -r a; do
     done
   done
 done < "$tmp/adrs"
+# names PATH ADR -> 0 when ADR names PATH by its whole path, not inside a longer one (file.tsv.bak, xdir/file.tsv)
+names() {
+  local esc
+  esc="$(printf '%s' "$1" | sed 's/[][\.*^$+?(){}|]/\\&/g')"
+  grep -E -e "(^|[^A-Za-z0-9_./-])(\./)?${esc}(\$|[^A-Za-z0-9_.-]|\.([^A-Za-z0-9_-]|\$))" -- "$2" >/dev/null 2>&1
+}
 : > "$tmp/left"; covered=0; nhard=0
 while IFS="$(printf '\t')" read -r f what; do
   [ -n "$f" ] || continue
@@ -295,14 +301,14 @@ while IFS="$(printf '\t')" read -r f what; do
     awk -F'\t' -v p="$f" '$1 == p { print $2 }' "$tmp/hardmap" | sort -u > "$tmp/names"
     while IFS= read -r a; do
       [ -f "$a" ] || continue
-      if grep -qF -- "$f" "$a"; then ok=1; break; fi
-      while IFS= read -r nm; do grep -qF -- "$nm" "$a" && { ok=1; break; }; done < "$tmp/names"
+      if names "$f" "$a"; then ok=1; break; fi
+      while IFS= read -r nm; do names "$nm" "$a" && { ok=1; break; }; done < "$tmp/names"
       [ "$ok" = 1 ] && break
     done < "$tmp/sadrs"
     if [ "$ok" != 1 ]; then nhard=$((nhard + 1)); what="$what [mandatory]"; fi
   else
     while IFS= read -r a; do
-      [ -f "$a" ] && grep -qF -- "$f" "$a" && { ok=1; break; }
+      [ -f "$a" ] && names "$f" "$a" && { ok=1; break; }
     done < "$tmp/adrs"
   fi
   if [ "$ok" = 1 ]; then covered=$((covered + 1)); else printf '%s: %s\n' "$f" "$what" >> "$tmp/left"; fi

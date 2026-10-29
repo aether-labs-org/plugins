@@ -37,6 +37,8 @@ run "$r"
 check "D-1: guard names the baseline row that appeared" $?
 printf '%s\n' "$out" | qgrep '^  guidance: undo the loosening'; check "guidance on fail" $?
 
+printf '# ADR 0007\nWe keep `.agents/baselines/file-size.tsv.bak` and `x.agents/baselines/file-size.tsv` around.\n' > "$r/docs/adr/0007-freeze-big.md"
+run "$r"; [ $rc -eq 1 ]; check "an ADR naming a longer path (file-size.tsv.bak) does not cover the file" $?
 printf '# ADR 0007\nWe freeze `.agents/baselines/file-size.tsv` for src/big.txt until the split lands.\n' > "$r/docs/adr/0007-freeze-big.md"
 run "$r"; [ $rc -eq 0 ] && printf '%s' "$out" | head -1 | qgrep '1 loosening(s)'; check "an ADR added in the change that names the file passes" $?
 (cd "$r" && git add -A && git commit -q -m adr)

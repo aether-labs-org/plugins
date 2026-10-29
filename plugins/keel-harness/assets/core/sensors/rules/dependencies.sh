@@ -187,7 +187,8 @@ kind_of() { # kind_of PATH -> pkg | toml | pom | gradle | (empty)
 }
 
 specs=()
-while IFS= read -r l; do [ -n "$l" ] && specs[${#specs[@]}]="$l"; done <<LIST
+# A trailing "/" is dropped: git ignores some :(exclude) pathspecs next to "src/" (2.43), never next to "src".
+while IFS= read -r l; do [ -n "$l" ] && { [ "$l" = / ] || l="${l%/}"; specs[${#specs[@]}]="$l"; }; done <<LIST
 $INCLUDE
 LIST
 [ ${#specs[@]} -gt 0 ] || specs[0]="."
