@@ -96,6 +96,11 @@ printf "INCLUDE='src'\n" > "$r/.agents/rules/code-language.env"
 printf 'const nomeUsuario = 1; // calcula o valor\n' > "$r/src/a.ts"; commit "$r"
 scase code-language "$r" scripts/sensors/code-language.sh 1 sensor
 
+r="$(mk)"; install_asset "$r" "$RS/pattern.sh" scripts/sensors/pattern.sh
+printf "PATTERN='TODO'\nINCLUDE='src'\n" > "$r/.agents/rules/pattern.env"
+printf 'TODO one\nok\nTODO two\n' > "$r/src/a.ts"; commit "$r"
+scase pattern "$r" scripts/sensors/pattern.sh 1 sensor
+
 r="$(mk)"; install_asset "$r" "$RS/test-presence.sh" scripts/sensors/test-presence.sh
 cat > "$r/.agents/rules/testing-strategy.env" <<'ENV'
 INCLUDE='src/main'
@@ -212,7 +217,7 @@ assets/core/sensors/typescript/lint.sh assets/core/sensors/rules/architecture.sh
 assets/core/sensors/rules/architecture-grep.sh assets/core/sensors/rules/code-language.sh
 assets/core/sensors/rules/file-size.sh assets/core/sensors/rules/folder-layout.sh
 assets/core/sensors/rules/test-presence.sh assets/core/sensors/rules/slow/diff-coverage.sh
-assets/core/sensors/rules/slow/mutation.sh scripts/measure.sh"
+assets/core/sensors/rules/slow/mutation.sh scripts/measure.sh assets/core/sensors/rules/pattern.sh"
 nfiles=0
 for f in $FILES; do
   nfiles=$((nfiles + 1))
@@ -227,6 +232,6 @@ for f in $FILES; do
   # and a temp assignment exists at all (the file really uses the pattern)
   grep -qE '(tmp|since|empty)="\$\(keel_tmp(dir|file)\)"' "$KEEL/$f"; check "$f: uses keel_tmpdir/keel_tmpfile" $?
 done
-[ "$nfiles" -eq 16 ]; check "structure covers every call site ($nfiles files)" $?
+[ "$nfiles" -eq 17 ]; check "structure covers every call site ($nfiles files)" $?
 ! grep -rn mktemp "$KEEL/assets" "$KEEL/scripts" | grep -vE ':[[:space:]]*keel_tmp(dir|file)\(\)'; check "grep mktemp over assets/ and scripts/ lists only the new pattern" $?
 finish

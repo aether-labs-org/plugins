@@ -98,6 +98,21 @@ while IFS= read -r f; do
   done < "$tmp/keys"
 done < "$tmp/rules"
 
+# 2b. A pattern rule: a changed PATTERN or RULE_FILE, or an edited rule file, changes what is caught.
+while IFS= read -r f; do
+  [ -n "$f" ] && [ -f "$f" ] || continue
+  at_base "$f" > "$tmp/old.env"
+  for k in PATTERN RULE_FILE; do
+    o="$(env_get "$tmp/old.env" "$k")"; n="$(env_get "$f" "$k")"
+    [ "$o" = "$n" ] || loose "$f" "$k changed"
+  done
+  rf="$(env_get "$f" RULE_FILE)"
+  if [ -n "$rf" ] && [ "$rf" = "$(env_get "$tmp/old.env" RULE_FILE)" ] && git cat-file -e "$base:$rf" 2>/dev/null; then
+    { at_base "$rf"; echo; } | tr -d '\r' > "$tmp/old.rf"; { cat "$rf" 2>/dev/null; echo; } | tr -d '\r' > "$tmp/new.rf"
+    cmp -s "$tmp/old.rf" "$tmp/new.rf" || loose "$rf" "pattern rule file changed"
+  fi
+done < "$tmp/rules"
+
 # 3. Gate budgets.
 if [ -f .agents/gate.env ] && at_base .agents/gate.env > "$tmp/old.gate"; then
   for k in CEILING_SECONDS SLOW_CEILING_SECONDS; do

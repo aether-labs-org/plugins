@@ -67,6 +67,33 @@ run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'CEILING_SECONDS raised
 r="$(mk)"; mkdir -p "$r/scripts/sensors/disabled"; (cd "$r" && git mv scripts/sensors/file-size.sh scripts/sensors/disabled/file-size.sh)
 run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'scripts/sensors/file-size.sh: sensor removed or disabled'; check "disabling a sensor fails" $?
 
+# pattern rules (F3d-1): a changed PATTERN or RULE_FILE, or an edited rule file, is a loosening
+mkp() { # -> repo with a pattern rule (PATTERN) and an ast-grep rule (RULE_FILE), committed
+  local g; g="$(mk)"
+  printf 'RULE_ID=no-todo\nENFORCEMENT=sensor:no-todo\nPATTERN=TODO\nINCLUDE=src\n' > "$g/.agents/rules/no-todo.env"
+  printf 'RULE_ID=no-any\nENFORCEMENT=sensor:no-any\nENGINE=ast-grep\nRULE_FILE=.agents/rules/no-any.yml\n' > "$g/.agents/rules/no-any.env"
+  printf 'id: no-any\nrule:\n  pattern: any\n' > "$g/.agents/rules/no-any.yml"
+  (cd "$g" && git add -A && git commit -q -m patterns)
+  printf '%s\n' "$g"
+}
+r="$(mkp)"; run "$r"; [ $rc -eq 0 ]; check "pattern rules: unchanged passes" $?
+r="$(mkp)"; sed -i.bak 's/^PATTERN=TODO$/PATTERN=FIXME/' "$r/.agents/rules/no-todo.env"; rm -f "$r/.agents/rules/no-todo.env.bak"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF '.agents/rules/no-todo.env: PATTERN changed'; check "pattern rules: a changed PATTERN fails" $?
+r="$(mkp)"; sed -i.bak 's/^PATTERN=TODO$/PATTERN=TODO|FIXME/' "$r/.agents/rules/no-todo.env"; rm -f "$r/.agents/rules/no-todo.env.bak"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'PATTERN changed'; check "pattern rules: a widened PATTERN fails too (any change alters what is caught)" $?
+printf '# ADR 0010\nWe change `.agents/rules/no-todo.env`: FIXME is the marker now.\n' > "$r/docs/adr/0010-pattern.md"
+run "$r"; [ $rc -eq 0 ] && printf '%s' "$out" | head -1 | grep -q '1 loosening(s)'; check "pattern rules: an ADR added in the change that names the env file passes" $?
+r="$(mkp)"; sed -i.bak 's|^RULE_FILE=.*|RULE_FILE=.agents/rules/other.yml|' "$r/.agents/rules/no-any.env"; rm -f "$r/.agents/rules/no-any.env.bak"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'RULE_FILE changed'; check "pattern rules: a changed RULE_FILE fails" $?
+r="$(mkp)"; printf '  pattern: unknown\n' >> "$r/.agents/rules/no-any.yml"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF '.agents/rules/no-any.yml: pattern rule file changed'; check "pattern rules: an edited rule file fails, naming the rule file" $?
+printf '# ADR 0011\nWe edit `.agents/rules/no-any.yml` to cover unknown.\n' > "$r/docs/adr/0011-rule-file.md"
+run "$r"; [ $rc -eq 0 ]; check "pattern rules: an ADR naming the rule file passes" $?
+r="$(mkp)"; printf 'RULE_ID=new\nPATTERN=NEW\n' > "$r/.agents/rules/new.env"
+run "$r"; [ $rc -eq 0 ]; check "pattern rules: a new pattern rule is not a loosening" $?
+r="$(mkp)"; printf 'LIMIT=10\n' >> "$r/.agents/rules/no-todo.env"; printf 'EXEMPLAR=src/a.ts\n' >> "$r/.agents/rules/no-todo.env"
+run "$r"; [ $rc -eq 0 ]; check "pattern rules: adding an EXEMPLAR or a key other than PATTERN is left alone" $?
+
 # adr_dir in state.yml (D45): only that folder's ADRs count
 r="$(mk)"; printf 'adr_dir: docs/decisions\n' >> "$r/.agents/state.yml"; mkdir -p "$r/docs/decisions"; (cd "$r" && git add -A && git commit -q -m adr-dir)
 sed -i.bak 's/LIMIT=10/LIMIT=50/' "$r/.agents/rules/file-size.env"; rm -f "$r/.agents/rules/file-size.env.bak"

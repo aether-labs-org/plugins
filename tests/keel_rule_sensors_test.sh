@@ -252,6 +252,99 @@ sed -i 's|^CMD=.*|CMD=(true)|; s|^FORMAT=.*|FORMAT="jacoco"|; s|^REPORT=.*|REPOR
 sed -i '3s/.*/c1 changed/' "$r/src/main/java/a/Foo.java"
 rund "$r" SCOPE=src/main/java/a/Foo.java; [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | grep -q '100%'; check "diff-coverage: jacoco, changed line covered -> passes" $?
 
+# ================= pattern (F3d-1): generic, baselined
+structure pattern
+PT="$KEEL/$RS/pattern.sh"
+r="$(mk)"; put "$r" pattern
+run "$r" pattern; [ $rc -eq 2 ] && printf '%s\n' "$out" | head -1 | grep -q 'skip	.*no .agents/rules/pattern.env - run the rules skill'; check "pattern: no env -> skip" $?
+cat > "$r/.agents/rules/pattern.env" <<'ENV'
+RULE_ID=pattern
+PATTERN='console\.(log|debug)\('
+INCLUDE='src'
+MESSAGE='Direct console output was found.'
+FIX='Use the logger in src/log.ts.'
+ENV
+printf 'console.log(1);\nok();\nconsole.debug(2);\n' > "$r/src/a.ts"; printf 'ok();\n' > "$r/src/clean.ts"; commit "$r"
+run "$r" pattern
+[ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^pattern	heuristic	fail	1 of 2 files with new matches\.$' && printf '%s\n' "$out" | grep -qF '  src/a.ts: 2 match(es) (allowed 0)'; check "pattern: matches without a baseline fail, per file" $?
+printf '%s\n' "$out" | grep -qF '  guidance: Direct console output was found. Use the logger in src/log.ts. Never add a suppression to make this pass'; check "pattern: guidance is MESSAGE, FIX and the suppression warning" $?
+[ "$(printf '%s\n' "$out" | grep -c '^  ')" -le 6 ]; check "pattern: at most 5 detail lines plus guidance" $?
+printf '# measured_at: 2026-10-20 review_by: 2027-04-20\nsrc/a.ts\t2\n' > "$r/.agents/baselines/pattern.tsv"
+run "$r" pattern; [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | grep -q '^pattern	heuristic	pass	2 files checked, no new matches (1 files baselined)\.$'; check "pattern: baselined passes" $?
+printf 'console.log(1);\nconsole.log(2);\nconsole.debug(3);\n' > "$r/src/a.ts"; run "$r" pattern
+[ $rc -eq 1 ] && printf '%s\n' "$out" | grep -qF '  src/a.ts: 3 match(es) (allowed 2)'; check "pattern: growth past the baseline fails" $?
+printf 'console.log(1);\n' > "$r/src/a.ts"; run "$r" pattern; [ $rc -eq 0 ]; check "pattern: shrinking is always allowed" $?
+printf 'console.log(1);\n' > "$r/src/b.ts"; run "$r" pattern
+[ $rc -eq 1 ] && printf '%s\n' "$out" | grep -qF '  src/b.ts: 1 match(es) (allowed 0)'; check "pattern: a new file with a match fails (absent from the baseline means zero)" $?
+run "$r" pattern SCOPE=src/a.ts; [ $rc -eq 0 ]; check "pattern: SCOPE restricts the check" $?
+rm "$r/src/b.ts"
+run "$r" pattern KEEL_MEASURE=1 KEEL_TODAY=2026-10-20
+[ "$(printf '%s\n' "$out" | head -1)" = "# measured_at: 2026-10-20 review_by: 2027-04-20" ] && printf '%s\n' "$out" | grep -qx "$(printf 'src/a.ts\t1')" && ! printf '%s\n' "$out" | grep -q 'clean.ts'; check "pattern: KEEL_MEASURE prints the header and the non-zero rows" $?
+printf "PATTERN='console\\\\.log'\nINCLUDE='src'\nEXCLUDE='src/a.ts'\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern KEEL_MEASURE=1; ! printf '%s\n' "$out" | grep -q 'src/a.ts'; check "pattern: EXCLUDE honoured" $?
+printf "PATTERN='console\\\\.log'\nINCLUDE='lib'\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern KEEL_MEASURE=1; ! printf '%s\n' "$out" | grep -q 'src/a.ts'; check "pattern: INCLUDE limits the files" $?
+printf "PATTERN='console\\\\.log'\r\nCLASS=correctness\r\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern; printf '%s\n' "$out" | head -1 | grep -q '^pattern	correctness	pass	'; check "pattern: CLASS=correctness (CRLF env) reaches line 1" $?
+printf "PATTERN='console\\\\.log'\nCLASS=security\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q 'CLASS=security'; check "pattern: CLASS=security is a configuration failure" $?
+printf "ENGINE=grep\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q 'PATTERN is empty'; check "pattern: an empty PATTERN fails, never passes silently" $?
+printf "PATTERN='foo('\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q 'not a valid ERE'; check "pattern: an invalid ERE fails" $?
+printf "PATTERN='x'\nENGINE=perl\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q 'ENGINE=perl'; check "pattern: an unknown ENGINE fails" $?
+# paths with spaces, a colon and non-ASCII; binary files are not counted
+r="$(mk)"; put "$r" pattern
+printf "PATTERN='TODO'\nINCLUDE='src'\n" > "$r/.agents/rules/pattern.env"
+printf 'TODO a\nTODO b\n' > "$r/src/my file: ação.ts"; printf 'TODO\0\1\2\n' > "$r/src/blob.bin"; commit "$r"
+run "$r" pattern; printf '%s\n' "$out" | grep -qF '  src/my file: ação.ts: 2 match(es) (allowed 0)' && ! printf '%s\n' "$out" | grep -q 'blob.bin'; check "pattern: spaces, a colon and non-ASCII in a path; binary skipped" $?
+# installed under the rule's own id
+r="$(mk)"; install_asset "$r" "$RS/pattern.sh" scripts/sensors/no-todo.sh; sed -i.bak 's/^id=pattern$/id=no-todo/' "$r/scripts/sensors/no-todo.sh"; rm -f "$r/scripts/sensors/no-todo.sh.bak"
+printf "RULE_ID=no-todo\nPATTERN='TODO'\nINCLUDE='src'\n" > "$r/.agents/rules/no-todo.env"; echo 'TODO x' > "$r/src/a.ts"; commit "$r"
+run "$r" no-todo; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^no-todo	heuristic	fail	' && printf '%s\n' "$out" | grep -qF 'rules/no-todo.env'; check "pattern: installed as <rule-id>.sh it reads its own env and baseline" $?
+# engines that are not installed skip with the reason (the tools are never installed by keel)
+r="$(mk)"; put "$r" pattern; echo 'rule: {}' > "$r/rule.yml"; echo 'x' > "$r/src/a.ts"
+for eng in ast-grep semgrep; do
+  printf "ENGINE=%s\nRULE_FILE=rule.yml\nINCLUDE='src'\n" "$eng" > "$r/.agents/rules/pattern.env"; commit "$r"
+  if command -v "$eng" >/dev/null 2>&1; then
+    echo "  skip pattern: $eng is installed here, so the missing-tool path cannot be tested"
+  else
+    run "$r" pattern; [ $rc -eq 2 ] && printf '%s\n' "$out" | head -1 | grep -q "^pattern	heuristic	skip	$eng is not installed"; check "pattern: ENGINE=$eng not installed -> skip with the reason" $?
+    run "$r" pattern KEEL_MEASURE=1; [ $rc -eq 2 ]; check "pattern: ENGINE=$eng not installed -> measure skips too" $?
+  fi
+done
+# engines with a stub on PATH: the output is reduced to path<TAB>count
+mkdir -p "$r/bin"
+cat > "$r/bin/ast-grep" <<'STUB'
+#!/bin/sh
+printf '%s\n' "$*" > "${STUB_ARGS:-/dev/null}"
+[ -n "${STUB_ERR:-}" ] && printf '%s\n' "$STUB_ERR" >&2
+[ -n "${STUB_FILE:-}" ] && cat "$STUB_FILE"
+exit "${STUB_EXIT:-0}"
+STUB
+sed 's|ast-grep|semgrep|' "$r/bin/ast-grep" > "$r/bin/semgrep"; chmod +x "$r/bin/ast-grep" "$r/bin/semgrep"
+printf 'x\n' > "$r/src/b.ts"; commit "$r"
+W_STUB="$r/stub-ast.json"
+printf '{"text":"a","file":"src/a.ts","range":{}}\n{"text":"b","file":"src/a.ts","range":{}}\n{"text":"c","file":"./src/b.ts","range":{}}\n' > "$W_STUB"
+printf "ENGINE=ast-grep\nRULE_FILE=rule.yml\nINCLUDE='src'\nMESSAGE='Bad node.'\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern PATH="$r/bin:$PATH" STUB_FILE="$W_STUB" STUB_EXIT=1 STUB_ARGS="$r/args.txt"
+[ $rc -eq 1 ] && printf '%s\n' "$out" | grep -qF '  src/a.ts: 2 match(es) (allowed 0)' && printf '%s\n' "$out" | grep -qF '  src/b.ts: 1 match(es) (allowed 0)'; check "pattern: ast-grep --json output is reduced to per-file counts" $?
+grep -q -- '--rule rule.yml' "$r/args.txt" && grep -q 'src/a.ts' "$r/args.txt"; check "pattern: ast-grep is given the rule file and the candidate files" $?
+printf '# measured_at: 2026-10-20 review_by: 2027-04-20\nsrc/a.ts\t2\nsrc/b.ts\t1\n' > "$r/.agents/baselines/pattern.tsv"
+run "$r" pattern PATH="$r/bin:$PATH" STUB_FILE="$W_STUB" STUB_EXIT=1; [ $rc -eq 0 ]; check "pattern: ast-grep findings within the baseline pass" $?
+rm "$r/.agents/baselines/pattern.tsv"
+run "$r" pattern PATH="$r/bin:$PATH" STUB_ERR="error: bad rule" STUB_EXIT=2
+[ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q 'ast-grep failed: error: bad rule'; check "pattern: an engine that prints only an error fails, never passes" $?
+run "$r" pattern PATH="$r/bin:$PATH"; [ $rc -eq 0 ]; check "pattern: an engine with no findings and no error passes" $?
+printf '{"results":[{"check_id":"r","path":"src/a.ts","start":{"line":1}},{"check_id":"r","path": "src/a.ts"}],"errors":[],"paths":{"scanned":["src/a.ts"]}}\n' > "$r/stub-sg.json"
+printf "ENGINE=semgrep\nRULE_FILE=rule.yml\nINCLUDE='src'\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern PATH="$r/bin:$PATH" STUB_FILE="$r/stub-sg.json" STUB_ARGS="$r/args2.txt"
+[ $rc -eq 1 ] && printf '%s\n' "$out" | grep -qF '  src/a.ts: 2 match(es) (allowed 0)'; check "pattern: semgrep --json output is reduced to per-file counts" $?
+grep -q -- '--config rule.yml' "$r/args2.txt"; check "pattern: semgrep is given the rule file" $?
+printf "ENGINE=semgrep\nRULE_FILE=missing.yml\n" > "$r/.agents/rules/pattern.env"
+run "$r" pattern PATH="$r/bin:$PATH"; [ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q "RULE_FILE 'missing.yml'"; check "pattern: a missing RULE_FILE fails" $?
+
 # ================= gate slow runs the slow sensors
 r="$(mk)"; install_asset "$r" assets/core/gate.sh scripts/gate.sh; cp "$KEEL/assets/core/gate.env" "$r/.agents/gate.env"
 mkdir -p "$r/scripts/sensors/slow" "$r/coverage"; install_asset "$r" "$RS/slow/diff-coverage.sh" scripts/sensors/slow/diff-coverage.sh

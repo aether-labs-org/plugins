@@ -45,3 +45,22 @@ src/old-*.ts'                            # pathspecs, one per line, where the ru
 - `LEGACY` lists the zones that still break the rule. The nested `AGENTS.md` of those directories says
   `Follow <EXEMPLAR>, not <legacy path>` and `Legacy zone:` with a pointer to the rule's plan. Neither
   key changes what a sensor checks, so `guard` leaves them alone.
+
+## The `pattern` sensor
+
+`assets/core/sensors/rules/pattern.sh` is a generic, TSV-baselined sensor for a team's own approved
+syntactic rule. It is copied as `scripts/sensors/<rule-id>.sh` with `id=<rule-id>` set inside its
+`keel:repo-specific` block, so each pattern rule has its own env file and baseline.
+
+| Key | Meaning |
+| --- | --- |
+| `PATTERN` | an ERE for `grep -E`; required when `ENGINE=grep` |
+| `ENGINE` | `grep` (default), `ast-grep` or `semgrep`; the last two run only when installed, else the sensor skips |
+| `RULE_FILE` | for `ast-grep` and `semgrep`: the committed rule file |
+| `INCLUDE`, `EXCLUDE` | git pathspecs, one per line; `INCLUDE` empty means every tracked file |
+| `CLASS` | `heuristic` (default) or `correctness` |
+| `MESSAGE`, `FIX` | what is wrong, and the right fix in the repository's terms; both go into the guidance |
+
+The count is per file (matching lines for `grep`, findings for the other engines) and is compared with
+`.agents/baselines/<rule-id>.tsv`. `guard` treats a changed `PATTERN` or `RULE_FILE` (or an edited
+rule file) as a loosening, because it changes what is caught.
