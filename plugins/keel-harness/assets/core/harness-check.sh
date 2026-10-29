@@ -310,6 +310,103 @@ check_baselines() {
   done
 }
 
+# --- plan-stale, progress-size and acceptance-untested (F3b)
+gate_env_int() { # gate_env_int KEY DEFAULT -> the integer value of KEY= in .agents/gate.env (never sourced; CRLF tolerated), else DEFAULT
+  local v
+  v="$(tr -d '\r' < .agents/gate.env 2> /dev/null | sed -n "s/^$1=\\([0-9][0-9]*\\).*/\\1/p" | head -1)"
+  printf '%s' "${v:-$2}"
+}
+epoch_days() { # epoch_days YYYY-MM-DD -> days since 1970-01-01 (no date(1), so it is the same on GNU and BSD)
+  local y m d era yoe doy doe
+  y="${1%%-*}"; m="${1#*-}"; d="${m#*-}"; m="${m%%-*}"
+  y=$((10#$y)); m=$((10#$m)); d=$((10#${d%%[!0-9]*}))
+  if [ "$m" -le 2 ]; then y=$((y - 1)); m=$((m + 9)); else m=$((m - 3)); fi
+  era=$((y / 400)); yoe=$((y - era * 400)); doy=$(((153 * m + 2) / 5 + d - 1))
+  doe=$((yoe * 365 + yoe / 4 - yoe / 100 + doy))
+  printf '%s' $((era * 146097 + doe - 719468))
+}
+check_plan_stale() {
+  local f st last limit age today_d
+  limit="$(gate_env_int PLAN_STALE_DAYS 30)"
+  today_d="$(epoch_days "$today")"
+  for f in .agents/plans/*.md; do
+    [ -f "$f" ] || continue
+    st="$(tr -d '\r' < "$f" | sed -n 's/^Status:[[:space:]]*//p' | head -1)"
+    st="${st%"${st##*[![:space:]]}"}"
+    [ "$st" = active ] || continue
+    last="$(git log -1 --format=%cs -- "$f" 2> /dev/null)"
+    [ -n "$last" ] || continue # not committed yet: fresh
+    [ -z "$(git status --porcelain -- "$f" 2> /dev/null)" ] || continue # edited since the last commit: fresh
+    age=$((today_d - $(epoch_days "$last")))
+    if [ "$age" -gt "$limit" ]; then
+      warn plan-stale "$f" "Status: active and untouched for $age days (limit $limit, PLAN_STALE_DAYS in .agents/gate.env)" "close it with keel plan-close or update it"
+    fi
+  done
+}
+
+check_progress_size() {
+  local f=.agents/progress.md n limit
+  [ -f "$f" ] || return 0
+  limit="$(gate_env_int PROGRESS_MAX_LINES 200)"
+  n=$(wc -l < "$f" | tr -d ' ')
+  if [ "$n" -gt "$limit" ]; then
+    warn progress-size "$f" "$n lines, over the $limit-line limit (PROGRESS_MAX_LINES in .agents/gate.env)" "summarise older entries into an ADR or delete them; git history keeps them"
+  fi
+}
+
+# spec_items FILE -> one line per list item under a heading that contains "Acceptance" (continuation lines joined)
+spec_items() {
+  tr -d '\r' < "$1" | awk '
+    function flush() { if (item != "") print item; item = "" }
+    /^```/ { fence = !fence; next }
+    fence { next }
+    /^#+[ \t]/ {
+      flush(); lvl = match($0, /[^#]/) - 1
+      if (tolower($0) ~ /acceptance/) { on = 1; alvl = lvl } else if (on && lvl <= alvl) { on = 0 }
+      next
+    }
+    !on { next }
+    /^[-*+][ \t]/ || /^[0-9]+[.)][ \t]/ { flush(); item = $0; next }
+    /^[ \t]*$/ { next }
+    /^[ \t]/ { if (item != "") item = item " " $0; next }
+    { flush() }
+    END { flush() }'
+}
+# item_tested TEXT -> 0 when the item names an existing path with "test" or "spec" in it, as a
+# backticked path or after a `test:` marker
+item_tested() {
+  local t p
+  {
+    printf '%s\n' "$1" | grep -o '`[^`]*`' | tr -d '`'
+    printf '%s\n' "$1" | grep -oE 'test:[[:space:]]*`?[^[:space:]`,;)]+' | sed -E 's/^test:[[:space:]]*`?//'
+  } > "$tmp/cands"
+  while IFS= read -r t; do
+    p="${t#./}"; p="${p%%::*}"; p="${p%%#*}"
+    case "$p" in *:[0-9]*) p="${p%:[0-9]*}" ;; esac
+    [ -n "$p" ] || continue
+    case "$(printf '%s' "$p" | tr '[:upper:]' '[:lower:]')" in
+      *test* | *spec*) [ -e "$p" ] && return 0 ;;
+    esac
+  done < "$tmp/cands"
+  return 1
+}
+check_acceptance_untested() {
+  local s n item w
+  for s in docs/specs/*.md specs/*/spec.md; do
+    [ -f "$s" ] || continue
+    spec_items "$s" > "$tmp/items"
+    n=0
+    while IFS= read -r item; do
+      [ -n "$item" ] || continue
+      item_tested "$item" || n=$((n + 1))
+    done < "$tmp/items"
+    if [ "$n" -gt 0 ]; then
+      w=criteria; [ "$n" -eq 1 ] && w=criterion
+      warn acceptance-untested "$s" "$n acceptance $w name no test" "name the test that proves each criterion: a backticked path to an existing test or spec file, or test: <path>"
+    fi
+  done
+}
+
 # --- review-due
 check_review_due() {
   local d
@@ -333,6 +430,9 @@ check_sensor_unavailable
 check_rule_inconsistent
 check_topic_size
 check_baselines
+check_plan_stale
+check_progress_size
+check_acceptance_untested
 check_review_due
 
 if [ "$nwarn" -eq 0 ]; then

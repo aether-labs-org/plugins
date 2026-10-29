@@ -1,4 +1,4 @@
-# The fifteen checks
+# The eighteen checks
 
 `harness-check.sh` is the only implementation of these checks. `assess` runs the plugin's latest copy
 and adds what a script cannot: the explanation of each warning and the proposed fix.
@@ -22,4 +22,7 @@ manufactures a warning for a check that found nothing; a clean harness is a vali
 | `topic-size` | `docs/architecture.md`, `docs/conventions.md` or `docs/testing.md` is over 300 lines | `rules` (split by subtopic) |
 | `baseline-malformed` | a TSV baseline without its header or with a row that is not `path<TAB>integer` | re-measure with `KEEL_MEASURE=1` |
 | `baseline-stale` | a baseline past its `review_by` whose current total is not below the stored total | fix violations, then re-measure downward |
+| `plan-stale` | a plan in `.agents/plans/` with `Status: active` whose last commit is older than `PLAN_STALE_DAYS` (`.agents/gate.env`, default 30); an uncommitted plan counts as fresh | close it with `keel plan-close <file> done\|abandoned <ref>`, or update it |
+| `progress-size` | `.agents/progress.md` is over `PROGRESS_MAX_LINES` lines (default 200) | summarise older entries into an ADR (`rules`) or delete them; git history keeps them |
+| `acceptance-untested` | a spec in `docs/specs/*.md` or `specs/*/spec.md` has acceptance criteria (bullets under an `Acceptance` heading) that name no existing test or spec file; one warning per spec, with the count | name the test that proves each criterion (D46: keel reads specs, never writes them) |
 | `review-due` | `harness_review_by` has passed | `build` (re-read, then move the date six months on) |

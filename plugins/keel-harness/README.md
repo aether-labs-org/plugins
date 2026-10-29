@@ -16,7 +16,7 @@ Answers two questions, read-only (`disallowed-tools: Write Edit NotebookEdit`):
   on a seven-axis rubric (bootstrap, guides, fast sensors, slow sensors, enforcement, context, rules),
   and whether it is greenfield or brownfield.
 - **A harness installed**: is it still healthy? It runs the portable validator (`harness-check.sh`,
-  15 checks), explains each warning, proposes the fix and compares the repository's copy of the validator
+  18 checks), explains each warning, proposes the fix and compares the repository's copy of the validator
   with the plugin's.
 
 - **Reads:** stack markers, scripts, sensors, every instruction file the target agents load, `docs/`,

@@ -60,6 +60,9 @@ for id in agents-size stale-command agents-not-loaded dangling-pointer hook-miss
           rule-inconsistent topic-size baseline-malformed baseline-stale review-due; do
   hasc "$id"; check "check id: $id" $?
 done
+for id in plan-stale progress-size acceptance-untested; do
+  hasc "$id"; check "check id (F3b): $id" $?
+done
 ! grep -qi "capture rate" "$f" "$chk"; check "no history-dependent checks" $?
 ! grep -qi "is not installed by keel\|not installed by keel" "$f"; check "assess no longer says keel does not install enforcement" $?
 ev="$root/plugins/keel-harness/evals/assess-validator-drift"

@@ -197,6 +197,118 @@ r="$(mkclean)"; addrule "$r"; printf '# measured_at: 2026-10-20 review_by: 2027-
 [ "$(warns)" = 1 ] && printf '%s\n' "$out" | grep -q '^warn	review-due'; check "an empty baseline past review_by is not stale" $?
 hc "$r" KEEL_TODAY=2027-01-01; [ $rc -eq 0 ]; check "before review dates -> clean" $?
 
+# ================= F3b: plan-stale, progress-size, acceptance-untested
+# mkplan REPO NAME STATUS [DATE] -> .agents/plans/NAME.md, committed at DATE (or left uncommitted when DATE is "-")
+mkplan() {
+  local r="$1" n="$2" st="$3" d="${4:-2026-10-01}"
+  mkdir -p "$r/.agents/plans"
+  printf '# Plan: %s\nStatus: %s\nCreated: 2026-09-01\n\n## Acceptance\n- `file-size` reports 0 files over 300 lines\n\n## Steps\n1. split\n' "$n" "$st" > "$r/.agents/plans/$n.md"
+  [ "$d" = "-" ] || (cd "$r" && git add -A && GIT_AUTHOR_DATE="${d}T12:00:00" GIT_COMMITTER_DATE="${d}T12:00:00" git commit -q -m "plan $n")
+}
+T=KEEL_TODAY=2026-10-29
+
+# plan-stale
+r="$(mkclean)"; mkplan "$r" p active 2026-09-01; hc "$r" $T; only plan-stale .agents/plans/p.md && printf '%s\n' "$out" | grep -q 'keel plan-close'; check "plan-stale: an active plan untouched for 58 days warns, fix names keel plan-close" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-10-10; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: an active plan touched 19 days ago is clean" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-09-29; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: exactly 30 days is not older than the limit" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-09-28; hc "$r" $T; only plan-stale p.md; check "plan-stale: 31 days warns" $?
+r="$(mkclean)"; mkplan "$r" p "done" 2026-08-01; mkplan "$r" q abandoned 2026-08-01; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: done and abandoned plans are not stale" $?
+r="$(mkclean)"; mkplan "$r" p active -; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: an uncommitted plan counts as fresh" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-08-01; printf 'edit\n' >> "$r/.agents/plans/p.md"; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: a plan with uncommitted edits counts as fresh" $?
+r="$(mkclean)"; mkdir -p "$r/.agents/plans"; printf '# Plan\nnothing\n' > "$r/.agents/plans/n.md"; commit "$r"; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: a file with no Status: line is not an active plan" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-09-01; mkplan "$r" q active 2026-08-01; hc "$r" $T; [ $rc -eq 1 ] && [ "$(warns)" = 2 ]; check "plan-stale: one warning per stale plan" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-09-01; printf 'CEILING_SECONDS=30\nPLAN_STALE_DAYS=100\n' > "$r/.agents/gate.env"; commit "$r"; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: PLAN_STALE_DAYS=100 in gate.env raises the limit" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-10-10; printf 'PLAN_STALE_DAYS=10\n' > "$r/.agents/gate.env"; commit "$r"; hc "$r" $T; only plan-stale p.md; check "plan-stale: PLAN_STALE_DAYS=10 in gate.env lowers the limit" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-10-10; printf 'PLAN_STALE_DAYS=10\r\n' > "$r/.agents/gate.env"; commit "$r"; hc "$r" $T; only plan-stale p.md; check "plan-stale: a CRLF gate.env is read" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-09-01; printf 'PLAN_STALE_DAYS=soon\n' > "$r/.agents/gate.env"; commit "$r"; hc "$r" $T; only plan-stale p.md; check "plan-stale: a non-numeric limit falls back to 30" $?
+grep -q '^PLAN_STALE_DAYS=30' "$KEEL/assets/core/gate.env"; check "gate.env carries PLAN_STALE_DAYS=30" $?
+grep -q '^PROGRESS_MAX_LINES=200' "$KEEL/assets/core/gate.env"; check "gate.env carries PROGRESS_MAX_LINES=200" $?
+r="$(mkclean)"; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: silent without a plans directory" $?
+
+# progress-size
+r="$(mkclean)"; seq 1 201 | sed 's/.*/2026-10-01 done p.md abc/' > "$r/.agents/progress.md"; hc "$r"; only progress-size .agents/progress.md && printf '%s\n' "$out" | grep -q 'summarise older entries into an ADR'; check "progress-size: 201 lines warns, fix says summarise into an ADR" $?
+r="$(mkclean)"; seq 1 200 | sed 's/.*/2026-10-01 done p.md abc/' > "$r/.agents/progress.md"; hc "$r"; [ $rc -eq 0 ]; check "progress-size: 200 lines is clean" $?
+r="$(mkclean)"; seq 1 60 | sed 's/.*/x/' > "$r/.agents/progress.md"; printf 'PROGRESS_MAX_LINES=50\n' > "$r/.agents/gate.env"; commit "$r"; hc "$r"; only progress-size progress.md; check "progress-size: PROGRESS_MAX_LINES=50 in gate.env lowers the limit" $?
+r="$(mkclean)"; seq 1 300 | sed 's/.*/x/' > "$r/.agents/progress.md"; printf 'PROGRESS_MAX_LINES=400\n' > "$r/.agents/gate.env"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "progress-size: PROGRESS_MAX_LINES=400 raises the limit" $?
+r="$(mkclean)"; hc "$r"; [ $rc -eq 0 ]; check "progress-size: silent without a progress file" $?
+
+# acceptance-untested
+mkspec() { mkdir -p "$(dirname "$1")"; cat > "$1"; }
+r="$(mkclean)"; mkspec "$r/docs/specs/login.md" <<'S'
+# Login
+## Goals
+- Something vague that is not a criterion
+## Acceptance criteria
+- A user can log in
+- A user can log out
+S
+commit "$r"; hc "$r"; only acceptance-untested docs/specs/login.md && printf '%s\n' "$out" | grep -q '2 acceptance' && printf '%s\n' "$out" | grep -q 'name the test that proves each criterion'; check "acceptance-untested: two untested bullets -> one warning with the count, bullets under Goals not counted" $?
+mkdir -p "$r/tests"; echo t > "$r/tests/login.test.ts"
+mkspec "$r/docs/specs/login.md" <<'S'
+# Login
+## Acceptance criteria
+- A user can log in (`tests/login.test.ts`)
+- A user can log out
+S
+commit "$r"; hc "$r"; only acceptance-untested login.md && printf '%s\n' "$out" | grep -q '1 acceptance'; check "acceptance-untested: a backticked existing test path passes the bullet" $?
+mkspec "$r/docs/specs/login.md" <<'S'
+# Login
+## Acceptance criteria
+- A user can log in, test: tests/login.test.ts
+- A user can log out, test: `tests/login.test.ts`
+S
+commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "acceptance-untested: a test: marker with a path passes (backticked or not)" $?
+mkspec "$r/docs/specs/login.md" <<'S'
+# Login
+## Acceptance criteria
+- A user can log in (`tests/nosuch.test.ts`)
+- A user can log out (`src/login.ts`)
+- A user can reset (`make test`)
+S
+echo x > "$r/src/login.ts"; commit "$r"; hc "$r"; only acceptance-untested login.md && printf '%s\n' "$out" | grep -q '3 acceptance'; check "acceptance-untested: a missing path, a path without test or spec in its name and a command do not pass" $?
+mkspec "$r/docs/specs/login.md" <<'S'
+# Login
+## Acceptance criteria
+- A user can log in
+  covered by `tests/login.test.ts`
+- A user can log out
+  - nested detail without a test
+S
+commit "$r"; hc "$r"; only acceptance-untested login.md && printf '%s\n' "$out" | grep -q '1 acceptance'; check "acceptance-untested: continuation lines belong to their bullet; nested bullets are not extra criteria" $?
+mkdir -p "$r/spec"; echo s > "$r/spec/login_spec.rb"
+mkspec "$r/docs/specs/login.md" <<'S'
+# Login
+### Acceptance
+1. A user can log in (`spec/login_spec.rb`)
+
+### Out of scope
+- Not a criterion
+S
+commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "acceptance-untested: any heading level, numbered items, spec in the name, section ends at the next heading" $?
+r="$(mkclean)"; mkdir -p "$r/tests"; echo t > "$r/tests/a.test.ts"
+mkspec "$r/specs/001-login/spec.md" <<'S'
+# Feature
+### Acceptance Scenarios
+1. **Given** a user, **When** they log in, **Then** they see the home page
+S
+commit "$r"; hc "$r"; only acceptance-untested specs/001-login/spec.md; check "acceptance-untested: Spec Kit's specs/*/spec.md is read" $?
+mkspec "$r/docs/specs/a.md" <<'S'
+## Acceptance
+- one
+S
+mkspec "$r/docs/specs/b.md" <<'S'
+## Acceptance
+- two
+S
+commit "$r"; hc "$r"; [ $rc -eq 1 ] && [ "$(warns)" = 3 ]; check "acceptance-untested: one warning per spec file" $?
+r="$(mkclean)"; mkspec "$r/docs/specs/n.md" <<'S'
+# No criteria here
+## Goals
+- vague
+S
+commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "acceptance-untested: a spec with no Acceptance section is silent" $?
+r="$(mkclean)"; hc "$r"; [ $rc -eq 0 ]; check "acceptance-untested: silent when there are no specs" $?
+
 r="$(mkclean)"; sed -i 's/^printf .*/exit 2/' "$r/scripts/sensors/lint.sh"; commit "$r"; hc "$r"; only sensor-unavailable lint.sh; check "sensor-unavailable: fast sensor exits 2 for a tracked file" $?
 r="$(mkclean)"; : > "$r/stub.marker"; sed -i 's|^printf .*|printf "%s" "${SCOPE:-}" > "$PWD/scope.seen"; printf "%s\\t%s\\t%s\\t%s\\n" "$id" "$class" pass ok|' "$r/scripts/sensors/lint.sh"; commit "$r"; hc "$r"; [ "$(cat "$r/scope.seen" 2>/dev/null)" = "src/a.ts" ]; check "sensor-unavailable runs the sensor with SCOPE set to one tracked file" $?
 rm -f "$r/scope.seen"
