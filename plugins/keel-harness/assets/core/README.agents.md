@@ -17,7 +17,7 @@ one `warn` line per broken condition, or `harness is clean`.
 | `.agents/baselines/archunit/`, `depcruise-known-violations.json` | Native architecture baselines (ArchUnit freeze store, dependency-cruiser known violations); import-linter's is `IGNORE_IMPORTS` in `architecture.env` | Only shrink |
 | `.agents/gate.env` | `CEILING_SECONDS` and `SLOW_CEILING_SECONDS` | Yes |
 | `.agents/state.yml` | Metadata only (`schema_version`, `mode`, `harness_review_by`, `adr_dir`) | Rarely |
-| `.agents/run/` | Run state (logs, fingerprints, lock), git-ignored | Never: delete it to reset |
+| `.agents/run/` | Run state (logs, fingerprints, lock) and `tmp/`, the temp-dir fallback when `TMPDIR` is unusable; git-ignored | Never: delete it to reset |
 | `.agents/plans/` | Local migration plans (gitignored) | Yes |
 | `scripts/gate.sh` | Runs `make gate-fast` / `make gate-slow` | No (managed) |
 | `scripts/lib/` | Helpers sourced by sensors (`baseline.sh`, `junit.sh`) | No (managed) |

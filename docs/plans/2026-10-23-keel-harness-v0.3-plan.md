@@ -24,7 +24,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F1 Measure | ◐ closed partial 2026-10-28 | `2026-10-24-…-f1-plan.md`, `2026-10-28-…-f1b-plan.md` | 5 read-only cases at `cf495ff` (USD 5.18); F1b stopped at its smoke run (USD 0.22); the 10 tool cases move to E3 (D50) | — |
 | E1 Doctor evals | ✅ done 2026-10-28 | `2026-10-28-…-e1-plan.md` | `c8b71ca`, `823458f`; `doctor-validator-drift` Δ +0.13; `writes-nothing` confounded | E2 |
 | E2 Eval graders | ✅ done 2026-10-29 | `2026-10-28-…-e2-plan.md` | `0c6e040`, `bb5c87d`; 1053 `ok` (no shellcheck); USD 2.91 of 6; `doctor-*` Δ +0.17 / +0.28; `no-bash-write` flags `mkdir` of `TMPDIR` | E3, F2c |
-| H1 Temp-dir hardening | ☐ **next**, before E3 | to write | found validating E2 (below) | owner's call |
+| H1 Temp-dir hardening | ✅ done 2026-10-29 | `2026-10-29-…-h1-plan.md` | `7dbef9b`; 1264 `ok` (1112 before, 152 new in `keel_tmpdir_test.sh`: 37 `ok` / 115 FAIL on the old code); `validate --strict` and `shellcheck -S warning` clean; all 16 call sites; `exit 3` of `harness-check` goes into `assess` at merge | E3 |
 | E3 Tool cases | ☐ after E2 (merged) and H1 | `2026-10-28-…-e3-plan.md` | not run yet: no `feat/keel-harness-v0.3-e3` branch on 2026-10-29 | owner's machine; AppArmor profile for `bwrap`, removed after (D50) |
 | F2a Layout | ✅ done 2026-10-24 | `2026-10-24-…-f2a-plan.md` | `13af4a2`; 1020 `ok`; 56 files, as planned | — |
 | F2b State + ADR folder | ✅ done 2026-10-28 | `2026-10-28-…-f2b-plan.md` | `6d16fe3`; 1028 `ok` (1031 with E1) | — |
