@@ -1,8 +1,7 @@
 # keel-harness — Design Spec (v0.3)
 
 **Date:** 2026-10-23
-**Status:** proposed — not implemented. The incremental plan is
-`docs/plans/2026-10-23-keel-harness-v0.3-plan.md`.
+**Status:** release candidate 0.3.0-rc.1 (2026-10-29): implemented, not yet measured; 0.3.0 after E3 and E4 (see the master plan).
 **Supersedes:** parts of `2026-10-20-keel-harness-v0.2-design.md`. Decisions D5, D6 and D7 are revised
 in §3; every v0.2 decision not mentioned here stays.
 **Origin:** a harness-engineering review of v0.2.0 against an evaluation criterion agreed with the

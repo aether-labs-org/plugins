@@ -18,9 +18,10 @@ jq -e . "$mp" >/dev/null 2>&1; check "marketplace.json is valid JSON" $?
 
 jq -e . "$pj" >/dev/null 2>&1; check "plugin.json is valid JSON" $?
 [ "$(jq -r .name "$pj" 2>/dev/null)" = "keel-harness" ]; check "plugin name is keel-harness" $?
-[ "$(jq -r .version "$pj" 2>/dev/null)" = "0.2.0" ]; check "plugin version is 0.2.0" $?
+[ "$(jq -r .version "$pj" 2>/dev/null)" = "0.3.0-rc.1" ]; check "plugin version is 0.3.0-rc.1" $?
 grep -q "project.s own rules" "$root/.claude-plugin/marketplace.json" && grep -q "project.s own rules" "$root/README.md"; check "marketplace and root README carry the v0.2 description" $?
 grep -q "implemented in v0.2.0" "$root/docs/specs/2026-10-20-keel-harness-v0.2-design.md"; check "spec status is implemented in v0.2.0" $?
+grep -q "release candidate 0.3.0-rc.1" "$root/docs/specs/2026-10-23-keel-harness-v0.3-design.md"; check "v0.3 spec status is release candidate 0.3.0-rc.1" $?
 
 for forbidden in hooks .mcp.json bin commands; do
   [ ! -e "$root/plugins/keel-harness/$forbidden" ]

@@ -38,7 +38,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F4 Codex | backlog (D5) | — | — | — |
 | F5 Profile L | ◐ built 2026-10-29; ships per D52 after the owner's measurement | `2026-10-29-…-f5-plan.md` | `9850a21`, `47ca32f`, `74e510e`, `f46bac1` on `feat/keel-harness-v0.3-f5`; 2790 `ok` (2576 before), 0 FAIL, `validate --strict` passes, shellcheck clean; `reviewer.sh` and `journey.sh` tested with stubs and, for `journey`, on Playwright 1.48.2's real line-reporter output (no Chromium: the download is blocked here); the 3 eval cases (`reviewer-catches-violation-with/-without`, `journey-catches-regression`) not run | R: owner's paid measurement (Δ > 0 per component, else v0.4 and profile L partial, D52) |
 | F6 Feedback → infrastructure | ✅ done 2026-10-29 | `2026-10-29-…-f6-plan.md` | `c3914bf`, `5ec63ea`, `63ef483`, `72a0c9f`, `f58251b`, `c90345e` on `feat/keel-harness-v0.3-f6`; 2371 `ok` (2244 before), 0 FAIL, `validate --strict` passes, shellcheck clean; the 4 history checks bring harness-check to 24 | F5 |
-| R Release v0.3.0 | ☐ wave H | `2026-10-29-…-r-plan.md` | — | last |
+| R Release v0.3.0 | ◐ 0.3.0-rc.1 (2026-10-29); 0.3.0 after E3 and E4 | `2026-10-29-…-r-plan.md` | `a9e336f`, `5bea424`; README "Proven and unproven" table | E3 (owner's machine), E4 (cloud, paid), then R2: version 0.3.0 and the table |
 | CLI (`feat/keel-cli`) | ❄ frozen, outside v0.3 | `docs/keel-cli-plan` branch | 7 commits on an old base, not reviewed | revisit after R, or when a D48 trigger occurs |
 
 Legend: ✅ done · ◐ done with a documented gap · ☐ not started · ❄ frozen.
@@ -108,7 +108,7 @@ time after the phase they measure.
 | **F4** | Codex adapter | Medium | M | F2 | Medium | backlog |
 | **F5** | C3 reviewer; C8 journey sensor; C10 documented | Medium | L | F3 | High | Sensor tests; Δ > 0 per component, or it moves to v0.4 (D52) |
 | **F6** | History, lessons inbox, auto-memory coherence, adherence diagnosis | Medium | M | F2c | Low | Fixture tests for each `assess` report |
-| **R** | v0.3.0 release | High | S | all above | Low | Version 0.3.0; spec status; README; tests updated; `make validate` |
+| **R** ◐ | 0.3.0-rc.1 now; 0.3.0 after E3 and E4 | High | S | all above | Low | Version 0.3.0-rc.1; spec status; README with the proven/unproven table; tests updated; `make validate` |
 
 ---
 
