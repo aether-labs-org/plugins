@@ -13,6 +13,7 @@ for f in assets/core/gate.sh assets/core/gate.env assets/core/harness-check.sh a
          assets/core/sensors/rules/file-size.sh assets/core/sensors/rules/slow/mutation.sh \
          assets/core/sensors/rules/stoplists/pt.txt \
          assets/adapters/claude/claude-stop.sh assets/adapters/claude/settings-stop.json \
+         assets/adapters/claude/claude-protect.sh assets/adapters/claude/settings-protect.json assets/core/consequence.yml \
          scripts/measure.sh scripts/render.sh; do
   [ -f "$KEEL/$f" ]; check "$f exists" $?
 done
@@ -28,7 +29,7 @@ grep -q 'PLUGIN_ROOT}/assets/core/sensors/rules/' "$KEEL/skills/rules/SKILL.md";
 ! grep -rnE 'skills/(build|rules)/assets' "$KEEL" "$(dirname "$0")"/*.sh --exclude=keel_layout_test.sh >/dev/null; check "no reference to the old asset paths in the plugin or the tests" $?
 
 # F2c-1: contracts/ is the single source every skill points at (spec section 4)
-for f in sensor rule-env plan state flow; do
+for f in sensor rule-env plan state flow consequence; do
   [ -f "$KEEL/contracts/$f.md" ]; check "contracts/$f.md exists" $?
 done
 for d in skills/build/references/sensor-contract.md skills/rules/references/rule-env.md skills/rules/references/plan-template.md; do

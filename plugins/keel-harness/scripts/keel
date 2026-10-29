@@ -144,6 +144,42 @@ verify_applied() {
   if [ -f "$flow/$1.applied" ]; then ok applied; else bad applied "$flow/$1.applied is missing - the install did not go through keel apply"; fi
 }
 
+# verify_authority: the consequence map, the protect hook and its settings entry, when state.yml says
+# `authority: installed` (contracts/consequence.md). Three items; each is a skip otherwise.
+verify_authority() {
+  local why n="" f=.claude/settings.json
+  if ! grep -qE '(^|[{ ,])authority:[[:space:]]*installed' .agents/state.yml 2>/dev/null; then
+    ok authority-map "skip (authority is not installed)"
+    ok authority-settings "skip (authority is not installed)"
+    ok authority-executable "skip (authority is not installed)"
+    return
+  fi
+  why=""
+  if [ ! -f .agents/consequence.yml ]; then
+    why=".agents/consequence.yml is missing"
+  else
+    grep -qE '^harness:[[:space:]]*[^[:space:]]' .agents/consequence.yml || add_why why "no 'harness: <glob>' line"
+    n="$(grep -vE '^[[:space:]]*($|#.*|![^[:space:]].*|[a-z0-9_-]+:[[:space:]]*[^[:space:]].*)$' .agents/consequence.yml | head -n 1)"
+    [ -z "$n" ] || add_why why "line is neither a comment, '!glob' nor 'category: glob': $n"
+  fi
+  item authority-map "$why"
+  why=""
+  if [ ! -f "$f" ]; then
+    why="$f is missing"
+  else
+    grep -q '"PreToolUse"' "$f" || add_why why "no PreToolUse entry"
+    grep -qF 'scripts/hooks/claude-protect.sh' "$f" || add_why why "no entry names scripts/hooks/claude-protect.sh"
+    grep -F 'scripts/hooks/claude-protect.sh' "$f" | grep -qF '${CLAUDE_PROJECT_DIR}' || add_why why "the protect command lacks the literal \${CLAUDE_PROJECT_DIR}"
+    grep -qF 'Write|Edit|NotebookEdit' "$f" || add_why why "the matcher is not Write|Edit|NotebookEdit"
+    if command -v python3 >/dev/null 2>&1 && ! python3 -I -m json.tool "$f" >/dev/null 2>&1; then
+      add_why why "$f is not valid JSON"
+    fi
+  fi
+  item authority-settings "$why"
+  if [ -x scripts/hooks/claude-protect.sh ]; then ok authority-executable
+  else bad authority-executable "scripts/hooks/claude-protect.sh is missing or not executable"; fi
+}
+
 verify_build() {
   local why n f list
 
@@ -234,6 +270,9 @@ EOF
     ok hook-executable "skip (hook is not installed)"
     ok hook-json "skip (hook is not installed)"
   fi
+
+  # 7b. the authority layer, when the state says it is installed
+  verify_authority
 
   # 8. the install went through keel apply
   verify_applied build

@@ -26,8 +26,7 @@ repository-specific parts. You never regenerate a script from prose.
 
 Every stack also gets `sensors/common/secrets.sh` and `sensors/common/guard.sh`. For Go, Terraform and anything else in
 `references/sensors-by-language.md`, propose what that file documents, say plainly that the wrappers
-are not bundled, and install only the layers that are. Each phase installs independently and is
-resumable.
+are not bundled, and install only the layers that are. Each phase installs independently and is resumable.
 
 ## 0. Precondition
 
@@ -156,11 +155,11 @@ upgrades alike. `.agents/plans/` and `.agents/progress.md` are versioned, not ig
 
 ### Phase 5 - enforcement (ci, precommit)
 
-The Stop hook reaches only Claude Code. CI and pre-commit run the same `make gate-fast` for every
-author, and each is its own layer (`ci`, `precommit` in `.agents/state.yml`), accepted or declined on
-its own. Read `references/enforcement.md` before proposing: it has the CI workflow
-(`${CLAUDE_PLUGIN_ROOT}/assets/core/ci/keel.yml`, only its repo-specific block is edited) and the
-pre-commit merge for the hook manager the repository already uses.
+The Stop hook reaches only Claude Code. CI and pre-commit run the same `make gate-fast` for every author, and each is its own layer (`ci`, `precommit` in `.agents/state.yml`), accepted or declined on its own. Read `references/enforcement.md` before proposing: it has the CI workflow (`${CLAUDE_PLUGIN_ROOT}/assets/core/ci/keel.yml`, only its repo-specific block is edited) and the pre-commit merge for the hook manager the repository already uses.
+
+### Phase 6 - authority (consequence map, protect hook, CODEOWNERS)
+
+Gates return guidance; this layer decides what the agent may touch. Read `references/authority.md`: it installs `.agents/consequence.yml` (discovered, shown, confirmed), `scripts/hooks/claude-protect.sh` with its settings entry and the secrets deny rules, and proposes CODEOWNERS lines. Never invent an owner: ask who owns each path, and leave a line nobody answered out. The layer is `authority` in `.agents/state.yml`.
 
 ### Upgrading an earlier install
 
@@ -183,6 +182,7 @@ GATES      fast (budget {{N}}s): typecheck [correctness], lint [heuristic, basel
            scripts/gate.sh, .agents/gate.env, make gate-fast, make gate-slow
 HOOK       scripts/hooks/claude-stop.sh + a Stop entry in .claude/settings.json (fast gate, timeout 120)
 ENFORCE    ci: .github/workflows/keel.yml; precommit: {{lefthook | pre-commit | husky | none}} (references/enforcement.md)
+AUTHORITY  .agents/consequence.yml ({{categories}}), scripts/hooks/claude-protect.sh + settings entry; CODEOWNERS: {{lines with the owners given}} (references/authority.md)
 ```
 
 Once they accept, run `${CLAUDE_PLUGIN_ROOT}/scripts/keel approve build <hash>` with the hash `plan` printed; if they amend
@@ -209,7 +209,7 @@ schema_version: 3
 installed_at: 2026-10-20          # ISO date, today
 harness_review_by: 2027-04-20     # installed_at + 6 months
 mode: brownfield                  # greenfield | brownfield, confirmed by the user
-layers: { bootstrap: installed, guides: installed, fast_gate: installed, slow_gate: not_installed, hook: installed, ci: installed, precommit: not_installed, rules: not_installed }
+layers: { bootstrap: installed, guides: installed, fast_gate: installed, slow_gate: not_installed, hook: installed, authority: installed, ci: installed, precommit: not_installed, rules: not_installed }
 not_installed:                    # layer or sensor -> the reason, in keel's words
   slow_gate: "no mutation or coverage tool configured"
 ```

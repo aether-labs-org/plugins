@@ -1,0 +1,22 @@
+{
+  "_source": "Not a setting - leave this key out when merging. Hook input and decision JSON: https://code.claude.com/docs/en/hooks (PreToolUse). Rule syntax: https://code.claude.com/docs/en/permissions (Read and Edit: gitignore-style paths, a leading ! carves a path out of the rules before it, a Read deny also blocks Write, NotebookEdit only through an Edit rule). Read on 2026-10-29.",
+  "hooks": { "PreToolUse": [ { "matcher": "Write|Edit|NotebookEdit", "hooks": [ {
+    "type": "command",
+    "command": "\"${CLAUDE_PROJECT_DIR}\"/scripts/hooks/claude-protect.sh",
+    "timeout": 10
+  } ] } ] },
+  "permissions": {
+    "deny": [
+      "Read(**/.env)",
+      "Edit(**/.env)",
+      "Read(**/.env.*)",
+      "Edit(**/.env.*)",
+      "Read(!**/.env.example)",
+      "Edit(!**/.env.example)",
+      "Read(**/*.pem)",
+      "Edit(**/*.pem)",
+      "Read(**/*.key)",
+      "Edit(**/*.key)"
+    ]
+  }
+}

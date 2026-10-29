@@ -139,4 +139,25 @@ done
 grep -qE '^Propose the stack.s official LSP plugin' "$S" && has "$S" 'own accept-or-decline item' && has "$S" '`lsp` under `not_installed`'; check "guides phase proposes the LSP plugin as a separate item and records a decline under not_installed" $?
 awk '/^### Phase 2 - guides/{p=1} /^### Phase 3/{p=0} p' "$S" | grep -q 'official LSP plugin'; check "the LSP line is in the guides phase" $?
 has "$root/plugins/keel-harness/contracts/state.md" '`lsp`'; check "contracts/state.md documents the lsp not_installed key" $?
+# --- F3c-1: the authority layer (consequence map, protect hook, CODEOWNERS)
+AU="$sk/references/authority.md"
+[ -f "$AU" ]; check "references/authority.md exists" $?
+for t in 'references/authority.md' 'scripts/hooks/claude-protect.sh' '.agents/consequence.yml' 'Never invent an owner' 'authority'; do
+  has "$S" "$t"; check "SKILL.md contains: $t" $?
+done
+has "$S" 'AUTHORITY  '; check "SKILL.md proposal block has an AUTHORITY line" $?
+has "$S" 'authority: installed'; check "SKILL.md state example records authority: installed" $?
+[ "$(wc -l < "$S")" -le 245 ]; check "SKILL.md still at most 245 lines with the authority phase" $?
+for t in 'assets/core/consequence.yml' 'settings-protect.json' 'claude-protect.sh' 'CODEOWNERS' 'never invent an owner' 'Never add a line for a path nothing' \
+         'code.claude.com/docs/en/permissions' 'code.claude.com/docs/en/hooks' 'notebook_path' '_source' 'protect-missing' 'Known limit' \
+         'a line they do not answer stays out' 'Require review from Code Owners' 'git ls-files'; do
+  grep -qiF -- "$t" "$AU"; check "authority.md: $t" $?
+done
+for t in 'Long autonomous sessions (profile L)' 'keel installs nothing for this' 'https://code.claude.com/docs/en/sandboxing' 'https://code.claude.com/docs/en/devcontainer' \
+         'covers shell commands only' 'sandbox.filesystem.denyWrite' 'allowUnsandboxedCommands' 'failIfUnavailable' 'init-firewall.sh' 'dangerously-skip-permissions'; do
+  grep -qF -- "$t" "$AU"; check "authority.md sandbox section: $t" $?
+done
+! grep -q 'PostToolUse' "$sk/references/authority.md"; check "authority.md installs no PostToolUse hook" $?
+! grep -qE '@[A-Za-z][A-Za-z0-9_-]+' "$AU" || ! grep -E '@[A-Za-z][A-Za-z0-9_-]+' "$AU" | grep -vE '@(user|org/team)|@\{\{' | grep -q .; check "authority.md names no real owner (only @user, @org/team placeholders)" $?
+grep -q 'authority' "$root/plugins/keel-harness/skills/assess/references/checks.md" && grep -q 'protect-missing' "$root/plugins/keel-harness/skills/assess/references/checks.md"; check "checks.md lists protect-missing" $?
 exit $fail

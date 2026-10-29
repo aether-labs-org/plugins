@@ -11,7 +11,7 @@ installed_at: 2026-10-20          # ISO date, today
 harness_review_by: 2027-04-20     # installed_at + 6 months
 mode: brownfield                  # greenfield | brownfield, confirmed by the user
 adr_dir: docs/adr                 # the folder the ADRs live in
-layers: { bootstrap: installed, guides: installed, fast_gate: installed, slow_gate: not_installed, hook: installed, ci: installed, precommit: not_installed, rules: not_installed }
+layers: { bootstrap: installed, guides: installed, fast_gate: installed, slow_gate: not_installed, hook: installed, authority: installed, ci: installed, precommit: not_installed, rules: not_installed }
 not_installed:                    # layer or sensor -> the reason, in keel's words
   slow_gate: "no mutation or coverage tool configured"
 ```
@@ -43,11 +43,12 @@ proposed; an absent key never raises a warning.
 | `fast_gate` | `scripts/gate.sh`, the stack sensors, `make gate-fast` | `build` phase 3 | people |
 | `slow_gate` | `make gate-slow` and the slow sensors | `build` phase 3 | people |
 | `hook` | the Stop hook (`scripts/hooks/claude-stop.sh` and its `.claude/settings.json` entry) | `build` phase 4 (the Stop hook) | `harness-check` (`hook-missing` is skipped when `hook: not_installed`) |
+| `authority` | optional (since F3c-1): the consequence map `.agents/consequence.yml`, the protect hook (`scripts/hooks/claude-protect.sh` and its `PreToolUse` entry) and the secrets deny rules in `.claude/settings.json` (CODEOWNERS lines are proposed with it, only for owners the user gave) | `build` (`references/authority.md`) | `harness-check` (`protect-missing` when `authority: installed` and the map, the hook or its entry is gone); `keel verify build` items 13 to 15 |
 | `ci` | optional (since F3a): `.github/workflows/keel.yml` runs `make gate-fast` | `build` (`references/enforcement.md`) | `harness-check` (`enforcement-drift` when `ci: installed` and no workflow runs `make gate-fast`) |
 | `precommit` | optional (since F3a): a pre-commit hook runs `make gate-fast` | `build` (`references/enforcement.md`) | `harness-check` (`enforcement-drift` when `precommit: installed` and no hook runs it) |
 | `rules` | the repository's own rules (`.agents/rules/*.env`, topic files, rule sensors) | `build` writes `not_installed`; no skill flips it to `installed` yet | people |
 
-`harness-check` matches `hook: not_installed`, `ci: installed` and `precommit: installed` as literal
+`harness-check` matches `hook: not_installed`, `ci: installed`, `precommit: installed` and `authority: installed` as literal
 text in the file, so keep `layers` on one line in flow style, as above.
 
 ## Rules for editing

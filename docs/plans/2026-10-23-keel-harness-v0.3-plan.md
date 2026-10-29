@@ -32,7 +32,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F2d Assess and context | ✅ done 2026-10-29; triggering evals not run (owner) | `2026-10-29-…-f2d-plan.md` | `c378144`, `8f6128c`, `0d904a5`, `587f778` on `feat/keel-harness-v0.3-f2d`; 1941 `ok` (1759 before), `validate --strict` passes; 11 rubric axes; LSP names from the official code-intelligence page; `codemap-stale` is check 16; 9 `trigger-*` cases | owner: run `--tag trigger` (read-only) |
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
 | F3b Versioned plans | ✅ done 2026-10-29 | `2026-10-29-…-f3b-plan.md` | `a40bbcf`, `cc98527`, `1f18d9a`, `5448cf4`; 1836 `ok` (1759 before), `validate --strict` passes, shellcheck clean; the 3 new checks bring harness-check to 18 | F6 |
-| F3c Authority | ☐ F3c-1 wave D, F3c-2 wave E | `2026-10-29-…-f3c1/f3c2-plan.md` | — | after F2c |
+| F3c Authority | ◐ F3c-1 done 2026-10-29; F3c-2 wave E | `2026-10-29-…-f3c1/f3c2-plan.md` | F3c-1 on `feat/keel-harness-v0.3-f3c1`: `b7efeef`, `9c496a0`, `a6df5f9`; 1985 `ok` (1759 before, 226 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; no eval run | F3c-2 (`mandatory`, `ENFORCEMENT_LEVEL`) |
 | F3d Exemplars + catalog | ☐ F3d-1 wave E, F3d-2 wave F | `2026-10-29-…-f3d1/f3d2-plan.md` | — | after F3d-1 |
 | F4 Codex | backlog (D5) | — | — | — |
 | F5 Profile L | ☐ wave G | `2026-10-29-…-f5-plan.md` | — | after F3 and F6; ships only with Δ > 0 per component, else v0.4 (D52) |
@@ -257,21 +257,22 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f3a-plan.md`.
 
 ## F3c — Authority (C7 + R)
 
-- [ ] `contracts/consequence.md` and a generated `.agents/consequence.yml` (paths × category: auth,
-  data, infra, public contract, harness).
-- [ ] From it:
-  - deny rules merged into `.claude/settings.json`;
-  - `assets/adapters/claude/claude-protect.sh` (PreToolUse), which denies edits to `harness` paths
+- [x] `contracts/consequence.md` and a generated `.agents/consequence.yml` (paths × category: auth,
+  data, infra, public contract, harness). (F3c-1)
+- [x] From it: (F3c-1)
+  - [x] deny rules merged into `.claude/settings.json`;
+  - [x] `assets/adapters/claude/claude-protect.sh` (PreToolUse), which denies edits to `harness` paths
     and names the approved route in the reason;
-  - CODEOWNERS entries for consequential paths.
+  - [x] CODEOWNERS entries for consequential paths (proposed, owners only as the user gives them).
 - [ ] `mandatory` rules (D43):
   - `guard` rejects loosening even when an added ADR names the file;
   - their env files and exception lists are protected paths;
   - their sensors are a required CI check;
   - an amendment is a superseding ADR approved through CODEOWNERS.
-- [ ] Sandbox / devcontainer as an option for profile L, with the trade-off stated.
-- [ ] Hook and `guard` tests show that editing a baseline is denied and that a `mandatory` rule
-  cannot be loosened.
+- [x] Sandbox / devcontainer as an option for profile L, with the trade-off stated. (F3c-1,
+  `skills/build/references/authority.md`, documentation only)
+- [ ] Hook and `guard` tests show that editing a baseline is denied (hook half done in F3c-1,
+  `tests/keel_protect_test.sh`) and that a `mandatory` rule cannot be loosened (F3c-2).
 
 ## F3d — Exemplars and catalog
 
