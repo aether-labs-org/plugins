@@ -107,4 +107,24 @@ grep -q 'LINT_PATHS' "$root/plugins/keel-harness/evals/build-react/graders/lint-
 E="$root/plugins/keel-harness/skills/build/references/enforcement.md"
 has "$S" 'references/enforcement.md'; check "build proposes the ci and precommit layers (F3a)" $?
 for t in 'assets/core/ci/keel.yml' 'KEEL_GUARD_BASE' 'never a new one' 'required'; do has "$E" "$t"; check "enforcement.md: $t" $?; done
+
+# --- F2d (D42): the LSP proposal, names only from the cited official docs
+CE="$sk/references/context-engineering.md"
+for t in 'https://code.claude.com/docs/en/discover-plugins' 'https://code.claude.com/docs/en/plugins-reference' 'https://code.claude.com/docs/en/plugins/code-intelligence.md' 'read on 2026-10-29' 'no official LSP plugin found (2026-10-29)'; do
+  has "$CE" "$t"; check "context-engineering.md cites: $t" $?
+done
+for p in typescript-lsp pyright-lsp jdtls-lsp kotlin-lsp gopls-lsp rust-analyzer-lsp; do
+  grep -qF "| \`$p\` |" "$CE"; check "LSP table row: $p" $?
+  has "$CE" "/plugin install $p@claude-plugins-official"; check "LSP table install command: $p" $?
+done
+# every *-lsp name the skill and its references use is one the official page lists (the 13 on 2026-10-29)
+official=" clangd-lsp csharp-lsp gopls-lsp jdtls-lsp kotlin-lsp liquid-lsp lua-lsp php-lsp pyright-lsp ruby-lsp rust-analyzer-lsp swift-lsp typescript-lsp "
+bad=""
+for n in $(grep -rhoE '[a-z][a-z-]*-lsp' "$S" "$CE" | sort -u); do
+  case "$official" in *" $n "*) ;; *) bad="$bad $n" ;; esac
+done
+[ -z "$bad" ]; check "no invented LSP plugin name in build ($bad)" $?
+grep -qE '^Propose the stack.s official LSP plugin' "$S" && has "$S" 'own accept-or-decline item' && has "$S" '`lsp` under `not_installed`'; check "guides phase proposes the LSP plugin as a separate item and records a decline under not_installed" $?
+awk '/^### Phase 2 - guides/{p=1} /^### Phase 3/{p=0} p' "$S" | grep -q 'official LSP plugin'; check "the LSP line is in the guides phase" $?
+has "$root/plugins/keel-harness/contracts/state.md" '`lsp`'; check "contracts/state.md documents the lsp not_installed key" $?
 exit $fail
