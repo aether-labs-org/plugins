@@ -134,6 +134,19 @@ merge-base with `origin/HEAD`, else `HEAD`). To loosen a baseline, a limit, a li
 sensor deliberately, add an ADR in the same change that names each file by path and says why; then
 `make gate-fast` passes. Without it, undo the loosening and fix the code.
 
+## Autonomous runs
+
+For an agent that works for hours or over several sessions. **keel orchestrates nothing** (D47): it supplies the rails below and a
+runner you already have walks them: superpowers' `executing-plans` or `subagent-driven-development`, the Agent SDK, or a `claude -p` loop.
+1. **Plan.** One planner pass writes `.agents/plans/<plan>.md`: `Status: active`, an `## Acceptance` in the sensors' numbers or a
+   named test, small steps with a "done when" each.
+2. **Main loop.** One loop owns the plan and every edit; stateless subagents do the read-heavy work (search, read, summarise).
+3. **Gate after each step.** `make gate-fast`; the next step starts only when it passes (the Stop hook does this in Claude Code).
+4. **Review at the end.** `make gate-slow`, with the optional reviewer sensor (experimental, a model call) or an evaluator subagent
+   that has not seen the coding and checks the Acceptance against the diff.
+5. **Across sessions.** Close the plan with the `keel plan-close` command, which logs one line in `.agents/progress.md`;
+   a new session reads that file and the open plans first.
+
 ## Commands
 
 - `make gate-fast`: the fast sensors. Read line 1 of each, fix every `fail` top to bottom.
