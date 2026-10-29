@@ -221,6 +221,49 @@ done
 grep -qE '^harness:' "$MAP_SRC" && grep -qE '^secrets:' "$MAP_SRC"; check "default map declares harness and secrets" $?
 ! grep -qE '^(auth|data|infra|public-contract):' "$MAP_SRC"; check "default map declares no discovered category (build adds only what exists)" $?
 
+# --- the settings fragment
+FR="$KEEL/assets/adapters/claude/settings-protect.json"
+[ -f "$FR" ]; check "settings-protect.json exists" $?
+if command -v python3 >/dev/null 2>&1 && [ -f "$FR" ]; then
+  python3 -I - "$FR" <<'PY'
+import sys, json
+d = json.load(open(sys.argv[1]))
+e = d["hooks"]["PreToolUse"]
+assert len(e) == 1 and e[0]["matcher"] == "Write|Edit|NotebookEdit", e
+h = e[0]["hooks"]
+assert len(h) == 1 and h[0]["type"] == "command" and h[0]["timeout"] == 10, h
+assert h[0]["command"] == '"${CLAUDE_PROJECT_DIR}"/scripts/hooks/claude-protect.sh', h[0]["command"]
+deny = d["permissions"]["deny"]
+for r in ("Read(**/.env)", "Edit(**/.env)", "Read(**/.env.*)", "Edit(**/.env.*)", "Read(**/*.pem)", "Edit(**/*.pem)", "Read(**/*.key)", "Edit(**/*.key)"):
+    assert r in deny, r
+for r in deny:
+    assert r.startswith(("Read(", "Edit(")) and r.endswith(")"), r
+# a carve-out must come after the rules it carves from (permissions docs, "How path patterns match")
+assert deny.index("Read(!**/.env.example)") > deny.index("Read(**/.env.*)")
+assert deny.index("Edit(!**/.env.example)") > deny.index("Edit(**/.env.*)")
+assert "Write(" not in "".join(deny) and "NotebookEdit(" not in "".join(deny)
+PY
+  check "settings-protect.json: one PreToolUse entry (exact matcher, timeout 10, literal CLAUDE_PROJECT_DIR) and Read/Edit deny rules for the secrets globs" $?
+fi
+grep -q 'code.claude.com/docs/en/permissions' "$FR" && grep -q 'code.claude.com/docs/en/hooks' "$FR"; check "settings-protect.json cites the permissions and hooks docs" $?
+# the fragment merged into the stop-hook settings (what build does) keeps both hooks and stays valid
+if command -v python3 >/dev/null 2>&1 && [ -f "$FR" ]; then
+  python3 -I - "$FR" "$KEEL/assets/adapters/claude/settings-stop.json" <<'PY'
+import sys, json
+p = json.load(open(sys.argv[1])); s = json.load(open(sys.argv[2]))
+s["hooks"]["PreToolUse"] = p["hooks"]["PreToolUse"]
+s["permissions"] = {"deny": p["permissions"]["deny"]}
+assert "Stop" in s["hooks"] and "PreToolUse" in s["hooks"]
+json.dumps(s)
+PY
+  check "the fragment merges into the Stop-hook settings without touching the Stop entry" $?
+fi
+# every secrets glob of the default map has a Read and an Edit deny rule in the fragment
+for g in '**/.env' '**/.env.*' '**/*.pem' '**/*.key'; do
+  grep -qF "\"Read($g)\"" "$FR" && grep -qF "\"Edit($g)\"" "$FR"; check "fragment: Read and Edit deny rules for the secrets glob $g" $?
+  grep -qF "secrets: $g" "$MAP_SRC"; check "default map: secrets glob $g" $?
+done
+
 # --- contracts/consequence.md
 C="$KEEL/contracts/consequence.md"
 [ -f "$C" ]; check "contracts/consequence.md exists" $?

@@ -46,8 +46,11 @@ acceptance came from the request. `assess` writes nothing: it runs `check pre as
 `verify assess` last.
 
 **Known limit.** The agent itself runs `keel approve`. The hash proves that what was approved is what
-gets applied, not that a human said yes. The other layers are F3c's PreToolUse hook (spec section 5.3)
-and the process evals that grade "asked before writing?" (spec section 5.4).
+gets applied, not that a human said yes. The other layers are the PreToolUse hook
+`scripts/hooks/claude-protect.sh` (spec section 5.3; `contracts/consequence.md`), which denies `Write`,
+`Edit` and `NotebookEdit` on harness paths unless a `build` or `rules` approval recorded in
+`.agents/run/flow/` is current (not a Bash write, not a path outside the map), and the process evals that
+grade "asked before writing?" (spec section 5.4).
 
 ### Preconditions (`check pre`)
 
@@ -77,6 +80,9 @@ Item names are the words after `ok` / `fail`.
 | 10 | `hook-executable` | The same condition: `scripts/hooks/claude-stop.sh` is executable |
 | 11 | `hook-json` | The same condition: `.claude/settings.json` is valid JSON (`python3 -I -m json.tool`; without `python3` the item says `skip (no python3)` and counts as ok) |
 | 12 | `applied` | `.agents/run/flow/build.applied` exists: the install went through `keel apply` |
+| 13 | `authority-map` | When `state.yml` says `authority: installed`: `.agents/consequence.yml` exists, has a `harness: <glob>` line, and every line is a comment, `!glob` or `category: glob` (`contracts/consequence.md`); otherwise `ok authority-map skip (authority is not installed)` |
+| 14 | `authority-settings` | The same condition: `.claude/settings.json` has a `PreToolUse` entry with matcher `Write\|Edit\|NotebookEdit` naming `scripts/hooks/claude-protect.sh` with the literal `${CLAUDE_PROJECT_DIR}`, and is valid JSON (`python3 -I -m json.tool`; skipped without `python3`) |
+| 15 | `authority-executable` | The same condition: `scripts/hooks/claude-protect.sh` is executable |
 
 Two items stay with the skill because no script can check them: every command cited in `AGENTS.md`
 really runs, and deep content is `→ docs/X.md` pointers rather than prose.
@@ -117,7 +123,7 @@ parentheses:
   wording in the skill or contract; it does not exercise the behaviour.
 - `verify:<skill> item N`: row `N` of that skill's `keel verify` table above.
 - `eval:<case>/graders/<file>`: a grader under `evals/` (run by the owner, never by `tests/run.sh`).
-- `hook:<file>`: a hook script, as a path from the plugin root (none yet; PreToolUse arrives in F3c).
+- `hook:<file>`: a hook script, as a path from the plugin root (`hook:assets/adapters/claude/claude-protect.sh`, the PreToolUse hook of `contracts/consequence.md`).
 - `none (reason)`: nothing checks the rule. The reason is mandatory and the row is a gap.
 
 | Skill | Rule | Form | Checked by |
@@ -134,7 +140,7 @@ parentheses:
 | assess | "Never guess a number." | discipline | test:tests/assess_test.sh (text) |
 | assess | "Never emit a total" | recipe | test:tests/assess_test.sh (text) |
 | assess | "never record it as fact" | discipline | none (the mode is a sentence in the reply - a gap) |
-| build | "writes nothing before the user confirms" | discipline | verify:build item 12; test:tests/keel_cli_test.sh (apply refuses without an approval of the current proposal) |
+| build | "writes nothing before the user confirms" | discipline | verify:build item 12; test:tests/keel_cli_test.sh (apply refuses without an approval of the current proposal); hook:assets/adapters/claude/claude-protect.sh (once installed, denies a Write, Edit or NotebookEdit on a harness path without a current approval, see tests/keel_protect_test.sh) |
 | build | "You never regenerate a script from prose" | discipline | test:tests/keel_harness_check_test.sh (sensor-malformed catches a script whose id, class or mode drifted); verify:build item 5 |
 | build | "Never regenerate a script from prose" | discipline | test:tests/keel_harness_check_test.sh (sensor-malformed catches a script whose id, class or mode drifted); verify:build item 5 |
 | build | "Never invent a command" | discipline | test:tests/keel_harness_check_test.sh (stale-command catches an AGENTS.md command that does not exist); verify:build item 5 |
@@ -147,7 +153,8 @@ parentheses:
 | build | "the adapter always exits 0" | recipe | test:tests/keel_stop_hook_test.sh (the hook exits 0 for every gate result) |
 | build | "never replace it with this repository's absolute path" | discipline | verify:build item 9; test:tests/keel_cli_test.sh (hook-settings fails on an absolute path) |
 | build | "never edit the test to match" | slot | test:tests/keel_assets_test.sh |
-| build | "**Write nothing before the user accepts" | discipline | verify:build item 12; test:tests/keel_cli_test.sh (apply refuses without an approval of the current proposal) |
+| build | "**Write nothing before the user accepts" | discipline | verify:build item 12; test:tests/keel_cli_test.sh (apply refuses without an approval of the current proposal); hook:assets/adapters/claude/claude-protect.sh (once installed, denies a Write, Edit or NotebookEdit on a harness path without a current approval, see tests/keel_protect_test.sh) |
+| build | "Never invent an owner" | discipline | none (no check can tell an invented owner from a real one, the rule is in SKILL.md and references/authority.md, and a line nobody answered stays out of CODEOWNERS - a gap) |
 | rules | "always with a" | slot | eval:rules-brownfield/graders/mentions-p90.md |
 | rules | "never migrates production" | discipline | eval:rules-brownfield/graders/never-edits-src.md; eval:rules-brownfield/graders/never-writes-src.md |
 | rules | "Never present an" | discipline | eval:rules-brownfield/graders/env-origin.md (a proposed rule is recorded `ORIGIN=proposed`) |

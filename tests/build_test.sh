@@ -107,4 +107,22 @@ grep -q 'LINT_PATHS' "$root/plugins/keel-harness/evals/build-react/graders/lint-
 E="$root/plugins/keel-harness/skills/build/references/enforcement.md"
 has "$S" 'references/enforcement.md'; check "build proposes the ci and precommit layers (F3a)" $?
 for t in 'assets/core/ci/keel.yml' 'KEEL_GUARD_BASE' 'never a new one' 'required'; do has "$E" "$t"; check "enforcement.md: $t" $?; done
+
+# --- F3c-1: the authority layer (consequence map, protect hook, CODEOWNERS)
+AU="$sk/references/authority.md"
+[ -f "$AU" ]; check "references/authority.md exists" $?
+for t in 'references/authority.md' 'scripts/hooks/claude-protect.sh' '.agents/consequence.yml' 'Never invent an owner' 'authority'; do
+  has "$S" "$t"; check "SKILL.md contains: $t" $?
+done
+has "$S" 'AUTHORITY  '; check "SKILL.md proposal block has an AUTHORITY line" $?
+has "$S" 'authority: installed'; check "SKILL.md state example records authority: installed" $?
+[ "$(wc -l < "$S")" -le 245 ]; check "SKILL.md still at most 245 lines with the authority phase" $?
+for t in 'assets/core/consequence.yml' 'settings-protect.json' 'claude-protect.sh' 'CODEOWNERS' 'never invent an owner' 'Never add a line for a path nothing' \
+         'code.claude.com/docs/en/permissions' 'code.claude.com/docs/en/hooks' 'notebook_path' '_source' 'protect-missing' 'Known limit' \
+         'a line they do not answer stays out' 'Require review from Code Owners' 'git ls-files'; do
+  grep -qiF -- "$t" "$AU"; check "authority.md: $t" $?
+done
+! grep -q 'PostToolUse' "$sk/references/authority.md"; check "authority.md installs no PostToolUse hook" $?
+! grep -qE '@[A-Za-z][A-Za-z0-9_-]+' "$AU" || ! grep -E '@[A-Za-z][A-Za-z0-9_-]+' "$AU" | grep -vE '@(user|org/team)|@\{\{' | grep -q .; check "authority.md names no real owner (only @user, @org/team placeholders)" $?
+grep -q 'authority' "$root/plugins/keel-harness/skills/assess/references/checks.md" && grep -q 'protect-missing' "$root/plugins/keel-harness/skills/assess/references/checks.md"; check "checks.md lists protect-missing" $?
 exit $fail

@@ -84,6 +84,13 @@ Remove the `Stop` entry from `.claude/settings.json`. Copilot and Devin never ha
 "Before you finish" in `AGENTS.md`. `make harness-check` will warn (`hook-missing`) until you set
 `hook: not_installed` under `layers:` in `.agents/state.yml`.
 
+### Change a protected path (when `authority` is installed)
+`.agents/consequence.yml` lists the consequential paths by category. Claude Code's `Write`, `Edit` and
+`NotebookEdit` are denied on `harness` paths unless a `/keel-harness:build` or `/keel-harness:rules`
+flow is approved; the other categories ask. Edit the map by hand to add or drop a glob (a person's
+editor is never blocked), then `make harness-check`. The hook does not see Bash commands that write
+harness paths: `guard` in the gate, pre-commit and CI still catches loosenings.
+
 ### Raise the time budget
 Edit `.agents/gate.env`. The fast gate should stay fast; prefer moving a slow sensor to
 `scripts/sensors/slow/`. A higher budget needs an ADR in the same change that names `.agents/gate.env`.

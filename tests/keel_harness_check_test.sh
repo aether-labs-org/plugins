@@ -123,6 +123,26 @@ r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, precommit
 r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, precommit: installed }/' "$r/.agents/state.yml"; cp "$KEEL/assets/core/precommit/lefthook.yml" "$r/lefthook.yml"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "enforcement-drift: lefthook entry is clean" $?
 r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, ci: not_installed, precommit: not_installed }/' "$r/.agents/state.yml"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "enforcement-drift: declined layers are not checked" $?
 
+# protect-missing (F3c-1: the authority layer)
+mkauth() { # mkauth -> a clean harness with the authority layer installed
+  local r; r="$(mkclean)"
+  sed -i 's/rules: not_installed }/rules: not_installed, authority: installed }/' "$r/.agents/state.yml"
+  install_asset "$r" assets/adapters/claude/claude-protect.sh scripts/hooks/claude-protect.sh
+  cp "$KEEL/assets/core/consequence.yml" "$r/.agents/consequence.yml"
+  printf '{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": "\\"${CLAUDE_PROJECT_DIR}\\"/scripts/hooks/claude-stop.sh" } ] } ], "PreToolUse": [ { "matcher": "Write|Edit|NotebookEdit", "hooks": [ { "type": "command", "command": "\\"${CLAUDE_PROJECT_DIR}\\"/scripts/hooks/claude-protect.sh", "timeout": 10 } ] } ] } }\n' > "$r/.claude/settings.json"
+  commit "$r"
+  printf '%s\n' "$r"
+}
+r="$(mkauth)"; hc "$r"; [ $rc -eq 0 ]; check "protect-missing: a complete authority layer is clean" $?
+r="$(mkauth)"; rm "$r/.agents/consequence.yml"; commit "$r"; hc "$r"; only protect-missing claude-protect.sh && printf '%s\n' "$out" | grep -q 'consequence.yml'; check "protect-missing: no consequence map" $?
+r="$(mkauth)"; rm "$r/scripts/hooks/claude-protect.sh"; commit "$r"; hc "$r"; only protect-missing claude-protect.sh; check "protect-missing: no hook script" $?
+r="$(mkauth)"; chmod -x "$r/scripts/hooks/claude-protect.sh"; hc "$r"; only protect-missing claude-protect.sh; check "protect-missing: hook script not executable" $?
+r="$(mkauth)"; cp "$KEEL/assets/adapters/claude/settings-stop.json" "$r/.claude/settings.json"; commit "$r"; hc "$r"; only protect-missing claude-protect.sh; check "protect-missing: settings.json has no PreToolUse entry for it" $?
+r="$(mkauth)"; rm "$r/.claude/settings.json"; hc "$r"; printf '%s\n' "$out" | grep -c '^warn	protect-missing	' | grep -qx 1; check "protect-missing: no settings.json -> exactly one protect-missing warning" $?
+r="$(mkauth)"; rm "$r/.agents/consequence.yml" "$r/scripts/hooks/claude-protect.sh"; commit "$r"; hc "$r"; [ "$(printf '%s\n' "$out" | grep -c '^warn	protect-missing	')" = 1 ]; check "protect-missing: several things gone is still one warning" $?
+r="$(mkclean)"; hc "$r"; [ $rc -eq 0 ]; check "protect-missing: a harness without the authority key is not checked" $?
+r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, authority: not_installed }/' "$r/.agents/state.yml"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "protect-missing: authority: not_installed is not checked" $?
+
 # guard-missing
 r="$(mkclean)"; rm "$r/scripts/sensors/guard.sh"; commit "$r"; hc "$r"; only guard-missing scripts/sensors/guard.sh; check "guard-missing: no guard sensor" $?
 r="$(mkclean)"; rm "$r/scripts/lib/envparse.sh"; commit "$r"; hc "$r"; printf '%s\n' "$out" | grep -q '^warn	guard-missing	'; check "guard-missing: no envparse lib" $?

@@ -243,6 +243,49 @@ c="$W/b$((++nc))"; cp -a "$b" "$c"
 (cd "$c" && sed -i.bak 's/hook: installed/hook: not_installed/' .agents/state.yml && rm -f .agents/state.yml.bak .claude/settings.json scripts/hooks/claude-stop.sh)
 vb "$c"; [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q '^fail '; check "verify build: hook not_installed -> no hook item can fail" $?
 
+# F3c-1: the authority layer (consequence map, protect hook, its settings entry)
+for it in authority-map authority-settings authority-executable; do
+  printf '%s\n' "$out" | grep -q "^ok $it skip (authority is not installed)"; check "verify build: authority not installed -> $it is a skip" $?
+done
+a="$W/authority"; cp -a "$b" "$a"
+(cd "$a" && sed -i.bak 's/rules: not_installed }/rules: not_installed, authority: installed }/' .agents/state.yml && rm -f .agents/state.yml.bak
+  mkdir -p scripts/hooks && cp "$KEEL/assets/adapters/claude/claude-protect.sh" scripts/hooks/ && chmod +x scripts/hooks/claude-protect.sh
+  cp "$KEEL/assets/core/consequence.yml" .agents/consequence.yml
+  cat > .claude/settings.json <<'JSON'
+{
+  "hooks": {
+    "Stop": [ { "hooks": [ { "type": "command", "command": "\"${CLAUDE_PROJECT_DIR}\"/scripts/hooks/claude-stop.sh", "timeout": 120 } ] } ],
+    "PreToolUse": [ { "matcher": "Write|Edit|NotebookEdit", "hooks": [ { "type": "command", "command": "\"${CLAUDE_PROJECT_DIR}\"/scripts/hooks/claude-protect.sh", "timeout": 10 } ] } ]
+  },
+  "permissions": { "deny": [ "Read(**/.env)", "Edit(**/.env)" ] }
+}
+JSON
+)
+vb "$a"
+[ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q '^fail ' && ! printf '%s\n' "$out" | grep -q 'skip (authority'; check "verify build: a clean authority layer exits 0 and no authority item is skipped" $?
+for it in authority-map authority-settings authority-executable; do
+  printf '%s\n' "$out" | grep -qx "ok $it"; check "verify build reports item: $it" $?
+done
+acase() { # acase LABEL ITEM BREAK-CMD (run inside a copy of the clean authority fixture)
+  local c="$W/a$((++nc))"; cp -a "$a" "$c"
+  (cd "$c" && eval "$3") >/dev/null 2>&1
+  vb "$c"
+  [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q "^fail $2: ."
+  check "verify build (authority): $1 -> fail $2" $?
+}
+acase "the consequence map is missing" authority-map 'rm .agents/consequence.yml'
+acase "the map declares no harness path" authority-map 'grep -v "^harness:" .agents/consequence.yml > .agents/c.tmp && mv .agents/c.tmp .agents/consequence.yml'
+acase "the map has a line that is neither a comment, a !glob nor category: glob" authority-map 'echo "this is not a map line" >> .agents/consequence.yml'
+acase "settings.json has no PreToolUse entry" authority-settings 'sed -i.bak "/PreToolUse/d" .claude/settings.json; rm -f .claude/settings.json.bak'
+acase "the PreToolUse command has an absolute path, not \${CLAUDE_PROJECT_DIR}" authority-settings 'sed -i.bak "/claude-protect/s#\${CLAUDE_PROJECT_DIR}#/abs/path#" .claude/settings.json; rm -f .claude/settings.json.bak'
+acase "the PreToolUse matcher lost NotebookEdit" authority-settings 'sed -i.bak "s#Write|Edit|NotebookEdit#Write|Edit#" .claude/settings.json; rm -f .claude/settings.json.bak'
+acase "settings.json is missing" authority-settings 'rm .claude/settings.json'
+if command -v python3 >/dev/null 2>&1; then
+  acase "settings.json is not valid JSON" authority-settings 'echo "{ \"hooks\": scripts/hooks/claude-protect.sh PreToolUse \${CLAUDE_PROJECT_DIR} Write|Edit|NotebookEdit" > .claude/settings.json'
+fi
+acase "the protect hook is not executable" authority-executable 'chmod -x scripts/hooks/claude-protect.sh'
+acase "the protect hook is missing" authority-executable 'rm scripts/hooks/claude-protect.sh'
+
 # no python3 on PATH: the JSON item is a skip that counts as ok
 nopy="$W/nopybin"; mkdir -p "$nopy"
 for t in bash git grep sed awk head tail wc cat date mkdir cp rm mktemp tr cut sort dirname basename ls env chmod find cmp expr uname seq mv printf test tee xargs stat readlink; do
@@ -357,6 +400,7 @@ for s in 'keel check pre <skill>' 'keel plan <skill> <file>' 'keel approve <skil
   grep -qF -- "$s" "$F"; check "contracts/flow.md contains: $s" $?
 done
 for it in agents-md state-schema run-ignored gate-ran harness-check baselines portable-scripts guard-installed hook-settings hook-executable hook-json applied \
+          authority-map authority-settings authority-executable \
           gate-passed rule-env rule-doc status; do
   grep -qF "\`$it\`" "$F"; check "contracts/flow.md names the verify item: $it" $?
 done

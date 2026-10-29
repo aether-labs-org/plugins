@@ -310,6 +310,20 @@ check_baselines() {
   done
 }
 
+# --- protect-missing
+# The authority layer (consequence map, protect hook, its settings entry) must still be there when state.yml
+# says it is installed. One broken layer is one warning, listing what is gone.
+check_protect_missing() {
+  local why=""
+  grep -qE '(^|[{ ,])authority: *installed' .agents/state.yml || return 0
+  [ -f .agents/consequence.yml ] || why="${why}no .agents/consequence.yml; "
+  [ -x scripts/hooks/claude-protect.sh ] || why="${why}scripts/hooks/claude-protect.sh is missing or not executable; "
+  if ! { [ -f .claude/settings.json ] && grep -q '"PreToolUse"' .claude/settings.json && grep -q 'scripts/hooks/claude-protect\.sh' .claude/settings.json; }; then
+    why="${why}no PreToolUse entry in .claude/settings.json names scripts/hooks/claude-protect.sh; "
+  fi
+  [ -z "$why" ] || warn protect-missing scripts/hooks/claude-protect.sh "the authority layer is installed but ${why%; }, so edits to the harness are no longer checked" "Run /keel-harness:build to restore the consequence map and the protect hook, or set authority: not_installed in .agents/state.yml"
+}
+
 # --- review-due
 check_review_due() {
   local d
@@ -333,6 +347,7 @@ check_sensor_unavailable
 check_rule_inconsistent
 check_topic_size
 check_baselines
+check_protect_missing
 check_review_due
 
 if [ "$nwarn" -eq 0 ]; then

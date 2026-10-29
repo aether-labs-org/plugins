@@ -13,7 +13,7 @@ for f in assets/core/gate.sh assets/core/gate.env assets/core/harness-check.sh a
          assets/core/sensors/rules/file-size.sh assets/core/sensors/rules/slow/mutation.sh \
          assets/core/sensors/rules/stoplists/pt.txt \
          assets/adapters/claude/claude-stop.sh assets/adapters/claude/settings-stop.json \
-         assets/adapters/claude/claude-protect.sh assets/core/consequence.yml \
+         assets/adapters/claude/claude-protect.sh assets/adapters/claude/settings-protect.json assets/core/consequence.yml \
          scripts/measure.sh scripts/render.sh; do
   [ -f "$KEEL/$f" ]; check "$f exists" $?
 done

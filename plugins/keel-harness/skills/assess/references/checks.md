@@ -1,4 +1,4 @@
-# The fifteen checks
+# The sixteen checks
 
 `harness-check.sh` is the only implementation of these checks. `assess` runs the plugin's latest copy
 and adds what a script cannot: the explanation of each warning and the proposed fix.
@@ -22,4 +22,5 @@ manufactures a warning for a check that found nothing; a clean harness is a vali
 | `topic-size` | `docs/architecture.md`, `docs/conventions.md` or `docs/testing.md` is over 300 lines | `rules` (split by subtopic) |
 | `baseline-malformed` | a TSV baseline without its header or with a row that is not `path<TAB>integer` | re-measure with `KEEL_MEASURE=1` |
 | `baseline-stale` | a baseline past its `review_by` whose current total is not below the stored total | fix violations, then re-measure downward |
+| `protect-missing` | the `authority` layer is installed but `.agents/consequence.yml`, the executable `scripts/hooks/claude-protect.sh` or its `PreToolUse` entry in `.claude/settings.json` is gone | `build` (`references/authority.md`) |
 | `review-due` | `harness_review_by` has passed | `build` (re-read, then move the date six months on) |

@@ -16,7 +16,7 @@ Answers two questions, read-only (`disallowed-tools: Write Edit NotebookEdit`):
   on a seven-axis rubric (bootstrap, guides, fast sensors, slow sensors, enforcement, context, rules),
   and whether it is greenfield or brownfield.
 - **A harness installed**: is it still healthy? It runs the portable validator (`harness-check.sh`,
-  15 checks), explains each warning, proposes the fix and compares the repository's copy of the validator
+  16 checks), explains each warning, proposes the fix and compares the repository's copy of the validator
   with the plugin's.
 
 - **Reads:** stack markers, scripts, sensors, every instruction file the target agents load, `docs/`,
@@ -56,8 +56,11 @@ eval cases `doctor-finds-drift` and `doctor-validator-drift` are now `assess-fin
 **keel proposes, the human decides.** Facts (commands, structure, measurements) are discovered or
 measured. Norms (rules, limits, architecture, tools) may be proposed with a justification and are
 written only after approval, in rounds of questions. An approved breaking change becomes a rule, a
-baseline, an ADR and a local migration plan; keel never executes the migration. Still no action is
-blocked: the Stop hook hands the fast gate's guidance back to Claude and stops after a loop guard.
+baseline, an ADR and a local migration plan; keel never executes the migration. The Stop hook blocks
+nothing: it hands the fast gate's guidance back to Claude and stops after a loop guard. The one hook
+that blocks is the optional `authority` layer's `claude-protect.sh` (PreToolUse), which denies Claude's
+`Write`, `Edit` and `NotebookEdit` on harness files unless a `build` or `rules` flow is approved
+(`contracts/consequence.md`).
 
 ## How the flow is enforced
 
@@ -67,8 +70,8 @@ only after `keel apply` exits 0, which it does only for an approved proposal tha
 Every skill ends with `keel verify <skill>`, which replaces the old prose checklists and exits non-zero on
 any unmet item; `assess` uses it to prove it wrote nothing. State lives in `.agents/run/flow/`
 (git-ignored). The agent itself runs `keel approve`, so the hash proves that what was approved is what was
-applied, not that a human said yes; the other layers are the guard sensor, the planned PreToolUse hook and
-the process evals.
+applied, not that a human said yes; the other layers are the guard sensor, the PreToolUse protect hook
+(`claude-protect.sh`, which does not see Bash writes) and the process evals.
 
 ## Target agents
 
