@@ -75,10 +75,18 @@ grep -qi "writes nothing" "$f"; check "assess writes nothing" $?
 grep -qi "exactly one warning" "$chk"; check "one condition produces one warning" $?
 has 'cmp'; check "proposes updating scripts/harness-check.sh when it differs (cmp)" $?
 for id in agents-size stale-command agents-not-loaded dangling-pointer hook-missing run-state guard-missing enforcement-drift sensor-malformed sensor-unavailable \
-          rule-inconsistent topic-size baseline-malformed baseline-stale review-due; do
+          rule-inconsistent topic-size baseline-malformed baseline-stale codemap-stale review-due; do
   hasc "$id"; check "check id: $id" $?
 done
 ! grep -qi "capture rate" "$f" "$chk"; check "no history-dependent checks" $?
+# the count written in the title, in assess/SKILL.md and in the README equals the rows of the table
+nrows="$(grep -c '^| `' "$chk")"
+words="x x x x x x x x x x x x x x x fifteen sixteen seventeen eighteen nineteen twenty"
+word="$(printf '%s\n' "$words" | cut -d' ' -f$((nrows + 1)))"
+grep -q "^# The $word checks$" "$chk"; check "checks.md title counts its $nrows rows ($word)" $?
+grep -qF "The $word checks, what each one means" "$f"; check "assess SKILL.md counts the checks: $word" $?
+grep -qF "$nrows checks), explains" "$root/plugins/keel-harness/README.md"; check "README counts the checks: $nrows" $?
+grep '^| `codemap-stale`' "$chk" | grep -q 'Code map'; check "codemap-stale row explains the Code map" $?
 ! grep -qi "is not installed by keel\|not installed by keel" "$f"; check "assess no longer says keel does not install enforcement" $?
 ev="$root/plugins/keel-harness/evals/assess-validator-drift"
 for x in case.yaml prompt.md scaffold.sh; do [ -f "$ev/$x" ]; check "assess-validator-drift has $x" $?; done

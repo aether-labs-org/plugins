@@ -310,6 +310,29 @@ check_baselines() {
   done
 }
 
+# --- codemap-stale
+# Every backticked path in the "## Code map" section of docs/architecture.md must exist. A path is a
+# backticked token with a "/" or a file extension, no spaces, no placeholder or glob characters.
+check_codemap_stale() {
+  local f=docs/architecture.md t
+  [ -f "$f" ] || return 0
+  tr -d '\r' < "$f" | awk '/^```/ { if (on) fence = !fence; next } /^## Code map[[:space:]]*$/ { on = 1; next } on && /^## / { exit } on && !fence { print }' > "$tmp/codemap"
+  [ -s "$tmp/codemap" ] || return 0
+  grep -o '`[^`]*`' "$tmp/codemap" | tr -d '`' | sort -u > "$tmp/codemap-tokens"
+  : > "$tmp/codemap-missing"
+  while IFS= read -r t; do
+    t="${t%%#*}"
+    t="$(printf '%s' "$t" | sed 's/:[0-9][0-9]*$//')"
+    case "$t" in '' | *' '* | *'{'* | *'<'* | *'*'* | *'$'* | *'://'* | *'...'* | /* | '~'*) continue ;; esac
+    case "$t" in */*) ;; *) printf '%s' "$t" | grep -qE '^[A-Za-z0-9_.-]+\.[A-Za-z][A-Za-z0-9]*$' || continue ;; esac
+    [ -e "$t" ] || printf '%s\n' "$t" >> "$tmp/codemap-missing"
+  done < "$tmp/codemap-tokens"
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    warn codemap-stale "$f" "\`$t\` is cited in the Code map but does not exist" "update the Code map in docs/architecture.md (rules)"
+  done < "$tmp/codemap-missing"
+}
+
 # --- review-due
 check_review_due() {
   local d
@@ -333,6 +356,7 @@ check_sensor_unavailable
 check_rule_inconsistent
 check_topic_size
 check_baselines
+check_codemap_stale
 check_review_due
 
 if [ "$nwarn" -eq 0 ]; then
