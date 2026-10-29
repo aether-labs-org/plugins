@@ -138,6 +138,12 @@ each one (file, `Source:`, `Seen:`, `Proposed:`) and propose its route for the u
 Assess lists and proposes; it never promotes, edits or deletes a lesson, and never writes memory or learnings.
 Say nothing when the inbox is empty.
 
+**2d. Auto-memory coherence.** Read `references/memory.md`: find the project's Claude Code auto-memory
+directory by the steps there, read it, and report each entry that looks like it contradicts a rule (an
+env-file number or an `AGENTS.md` line). The comparison is inferential: say so, and call each row
+"looks like", not a fact. Assess never edits memory; it proposes that the user edits or deletes the entry.
+Say nothing when memory is absent, off or coherent.
+
 Two more things to do every time:
 
 - **Validator drift.** Compare the repository's copy with the plugin's:
@@ -196,6 +202,7 @@ temporary state under `.agents/run/tmp/`. So is `scripts/keel`: its assess comma
 | "I'm not sure this command writes, but it probably does not" | Not sure means do not run it. |
 | "The tool is not installed, so I'll estimate its seconds" | Write `not measured`. Never guess a number. |
 | "The harness is clean, so I'll find something to report" | A clean harness is a valid answer. This skill never manufactures a warning. |
+| "That memory entry is plainly wrong, I'll delete it" | Assess proposes; the user edits or deletes memory. The comparison is inferential, so the entry may be right and the rule stale. |
 | "A total makes the table easier to read" | Never emit a total, an overall grade or an aggregate score; the table has one row per axis and nothing else. |
 | "I know the build command, no need to look" | Never invent commands: use only what discovery found. |
 | "The scan can say the repo is brownfield" | The mode is an inference for the user to confirm; never record it as fact. |

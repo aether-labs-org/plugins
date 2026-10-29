@@ -41,10 +41,11 @@ grep '^| \*\*Headless setup' "$R" | grep -q 'no `read`' && grep '^| \*\*Headless
 grep '^| \*\*Flaky tests' "$R" | grep -q '3 times' && grep '^| \*\*Flaky tests' "$R" | grep -q 'not measured'; check "Flaky tests row: measured 3 times, unmeasured is not measured" $?
 grep '^| \*\*Observability' "$R" | grep -q 'pino' && grep '^| \*\*Observability' "$R" | grep -q 'log-format line'; check "Observability row: logging library and a log-format line" $?
 grep -qF '+N.Ns per run' "$R" && grep -qF '+N.Ns per run' "$sk/SKILL.md"; check "the per-run cost unit is in the rubric and the report contract" $?
-awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md" | grep -q 'three times'; check "phase 1 asks before running the tests three times" $?
+phase1="$(awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md")" # captured once: a pipe into grep -q can die of SIGPIPE under pipefail
+grep -q 'three times' <<< "$phase1"; check "phase 1 asks before running the tests three times" $?
 grep -q 'only after the user agrees' "$sk/SKILL.md" && grep -qi 'agreement' "$R"; check "the three runs need the user's agreement" $?
 for a in 'Reproducible build' 'Headless setup' 'Flaky tests' 'Observability'; do
-  awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md" | grep -qF -- "\`$a\`"; check "phase 1 scoring lists axis: $a" $?
+  grep -qF -- "\`$a\`" <<< "$phase1"; check "phase 1 scoring lists axis: $a" $?
 done
 ! grep -qi 'aggregate score\|overall grade' "$R" || grep -q 'There is no aggregate score' "$R"; check "still no aggregate score" $?
 
@@ -125,4 +126,17 @@ for s in 'Source:' 'Seen:' 'Proposed:' '`rule`' '`sensor`' '`adr`' '`discard`' '
   grep -qF -- "$s" "$LC"; check "learnings.md states: $s" $?
 done
 grep -qF '.agents/run/learnings/YYYY-MM-DD-<slug>.md' "$root/plugins/keel-harness/assets/core/README.agents.md"; check "README.agents.md tells agents where to write a lesson" $?
+
+# --- F6: auto-memory coherence (D41)
+M="$sk/references/memory.md"
+[ -f "$M" ]; check "memory.md exists" $?
+grep -qF 'https://code.claude.com/docs/en/memory' "$M" && grep -qF 'read 2026-10-29' "$M"; check "memory.md cites the memory docs with the date read" $?
+grep -qF '~/.claude/projects/<project>/memory/' "$M" && grep -qF 'MEMORY.md' "$M" && grep -qF 'autoMemoryDirectory' "$M"; check "memory.md states the location, the index and the override as the docs give them" $?
+grep -qF 'first 200 lines or 25 KB' "$M"; check "memory.md states what loads at session start" $?
+grep -qi 'inferential' "$M" && grep -qF 'env-file' "$M"; check "memory.md says the comparison is inferential and names the env-file numbers" $?
+grep -qF 'AGENTS.md' "$M" && grep -q 'contradiction' "$M"; check "memory.md compares with the env files and AGENTS.md" $?
+grep -qF 'never guess it' "$M"; check "memory.md does not guess the project directory" $?
+grep -qF 'edits or deletes that entry' "$M" && grep -qF 'never edits, creates or deletes a memory file' "$M"; check "memory.md proposes edit or delete and never edits memory" $?
+has 'references/memory.md'; check "assess SKILL.md points at references/memory.md" $?
+has 'Assess never edits memory'; check "assess SKILL.md: Assess never edits memory" $?
 exit $fail
