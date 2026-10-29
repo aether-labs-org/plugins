@@ -24,20 +24,20 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F1 Measure | ◐ closed partial 2026-10-28 | `2026-10-24-…-f1-plan.md`, `2026-10-28-…-f1b-plan.md` | 5 read-only cases at `cf495ff` (USD 5.18); F1b stopped at its smoke run (USD 0.22); the 10 tool cases move to E3 (D50) | — |
 | E1 Doctor evals | ✅ done 2026-10-28 | `2026-10-28-…-e1-plan.md` | `c8b71ca`, `823458f`; `doctor-validator-drift` Δ +0.13; `writes-nothing` confounded | E2 |
 | E2 Eval graders | ✅ done 2026-10-29 | `2026-10-28-…-e2-plan.md` | `0c6e040`, `bb5c87d`; 1053 `ok` (no shellcheck); USD 2.91 of 6; `doctor-*` Δ +0.17 / +0.28; `no-bash-write` flags `mkdir` of `TMPDIR` | E3, F2c |
-| H1 Temp-dir hardening | ☐ **next**, before E3 | to write | found validating E2 (below) | owner's call |
+| H1 Temp-dir hardening | ☐ running (wave A) | `2026-10-29-…-h1-plan.md` | found validating E2 (below) | — |
 | E3 Tool cases | ☐ after E2 (merged) and H1 | `2026-10-28-…-e3-plan.md` | not run yet: no `feat/keel-harness-v0.3-e3` branch on 2026-10-29 | owner's machine; AppArmor profile for `bwrap`, removed after (D50) |
 | F2a Layout | ✅ done 2026-10-24 | `2026-10-24-…-f2a-plan.md` | `13af4a2`; 1020 `ok`; 56 files, as planned | — |
 | F2b State + ADR folder | ✅ done 2026-10-28 | `2026-10-28-…-f2b-plan.md` | `6d16fe3`; 1028 `ok` (1031 with E1) | — |
-| F2c Skills and flow | ☐ after E2 | to write | — | `doctor` folds into `assess` (D51) |
-| F2d Assess and context | ☐ | — | — | after F2c |
+| F2c Skills and flow | ☐ F2c-1 running (wave A); F2c-2 (B), F2c-3 (C) | `2026-10-29-…-f2c1/f2c2/f2c3-plan.md` | — | `doctor` folds into `assess` (D51); `ENFORCEMENT_LEVEL` moved to F3c-2 |
+| F2d Assess and context | ☐ wave D | `2026-10-29-…-f2d-plan.md` | — | after F2c |
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
-| F3b Versioned plans | ☐ | — | — | after F2c (`scripts/keel verify`) |
-| F3c Authority | ☐ | — | — | after F3a |
-| F3d Exemplars + catalog | ☐ | — | — | after F2c |
+| F3b Versioned plans | ☐ wave D | `2026-10-29-…-f3b-plan.md` | — | after F2c |
+| F3c Authority | ☐ F3c-1 wave D, F3c-2 wave E | `2026-10-29-…-f3c1/f3c2-plan.md` | — | after F2c |
+| F3d Exemplars + catalog | ☐ F3d-1 wave E, F3d-2 wave F | `2026-10-29-…-f3d1/f3d2-plan.md` | — | after F3d-1 |
 | F4 Codex | backlog (D5) | — | — | — |
-| F5 Profile L | ☐ | — | — | after F3; ships only with Δ > 0 per component, else v0.4 (D52) |
-| F6 Feedback → infrastructure | ☐ | — | — | after F2c |
-| R Release v0.3.0 | ☐ | to write | — | last |
+| F5 Profile L | ☐ wave G | `2026-10-29-…-f5-plan.md` | — | after F3 and F6; ships only with Δ > 0 per component, else v0.4 (D52) |
+| F6 Feedback → infrastructure | ☐ wave E | `2026-10-29-…-f6-plan.md` | — | after F2d, F3b, F3c-1 |
+| R Release v0.3.0 | ☐ wave H | `2026-10-29-…-r-plan.md` | — | last |
 | CLI (`feat/keel-cli`) | ❄ frozen, outside v0.3 | `docs/keel-cli-plan` branch | 7 commits on an old base, not reviewed | revisit after R, or when a D48 trigger occurs |
 
 Legend: ✅ done · ◐ done with a documented gap · ☐ not started · ❄ frozen.
@@ -60,7 +60,11 @@ Legend: ✅ done · ◐ done with a documented gap · ☐ not started · ❄ fro
   - tests run every script with an unusable `TMPDIR`;
   - H1 runs before E3, because E3's `tools` cases run these sensors inside the same sandbox.
 
-**Order from here:** E2 and F3a in parallel → E3 (owner's machine) and F2c → F2d; F3b, F3d and F6 after F2c; F3c after F3a; F5 after F3; R last. E3 can run beside F2c, but F2c's acceptance for `build` and `rules` waits for E3's numbers.
+**Order from here (2026-10-29, owner: write every plan and delegate each to a subagent; the owner's session validates and merges each one):**
+A: H1 ∥ F2c-1 → B: F2c-2 → C: F2c-3 → D: F2d ∥ F3b ∥ F3c-1 → E: F3c-2 ∥ F3d-1 ∥ F6 → F: F3d-2 → G: F5 → H: R.
+Every agent follows `docs/plans/2026-10-29-keel-harness-v0.3-agent-rules.md` and runs no paid command.
+The owner's paid steps (E3, then re-running the eval groups after F2c, F3d and F5) can run at any
+time after the phase they measure.
 
 ## Global constraints
 
