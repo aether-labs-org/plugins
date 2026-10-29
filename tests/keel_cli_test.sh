@@ -331,4 +331,17 @@ EOF
 kr "$r" approve build "$H"; kr "$r" apply build
 leftover="$(find "$r" -path "$r/.git" -prune -o -type f -print | grep -v '/\.agents/run/flow/' | wc -l | tr -d ' ')"
 [ "$leftover" -eq "$((before))" ]; check "plan/approve/apply write only under .agents/run/flow/" $?
+
+# ------------------------------------------------------------------ contracts/flow.md documents what the script does
+F="$KEEL/contracts/flow.md"
+for s in 'keel check pre <skill>' 'keel plan <skill> <file>' 'keel approve <skill> <hash>' 'keel apply <skill>' 'keel verify <skill>' \
+         'keel measure' 'keel render' '.agents/run/flow/' '<skill>.approved' '<skill>.proposal' 'assess.pre' \
+         'No write before `keel apply <skill>` exits 0' 'Done means `keel verify <skill>` exits 0' 'Known limit' \
+         'runs `keel approve`' 'PreToolUse' '## Traceability'; do
+  grep -qF -- "$s" "$F"; check "contracts/flow.md contains: $s" $?
+done
+for it in agents-md state-schema run-ignored gate-ran harness-check baselines portable-scripts guard-installed hook-settings hook-executable hook-json applied \
+          gate-passed rule-env rule-doc status; do
+  grep -qF "\`$it\`" "$F"; check "contracts/flow.md names the verify item: $it" $?
+done
 finish
