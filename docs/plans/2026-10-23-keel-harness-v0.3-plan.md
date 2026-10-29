@@ -29,7 +29,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F2b State + ADR folder | ✅ done 2026-10-28 | `2026-10-28-…-f2b-plan.md` | `6d16fe3`; 1028 `ok` (1031 with E1) | — |
 | F2c Skills and flow | ☐ after E2 | to write | — | `doctor` folds into `assess` (D51) |
 | F2d Assess and context | ☐ | — | — | after F2c |
-| F3a CI + pre-commit | ☐ **next** (parallel with E2) | `2026-10-28-…-f3a-plan.md` | prototyped: 1063 `ok`; 1112 with E2 | execute |
+| F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
 | F3b Versioned plans | ☐ | — | — | after F2c (`scripts/keel verify`) |
 | F3c Authority | ☐ | — | — | after F3a |
 | F3d Exemplars + catalog | ☐ | — | — | after F2c |
