@@ -31,7 +31,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F2c Skills and flow | ✅ done 2026-10-29 (F2c-1 and F2c-2 merged; F2c-3 on `feat/keel-harness-v0.3-f2c3`); `ENFORCEMENT_LEVEL` moved to F3c; evals not re-run (owner) | `2026-10-29-…-f2c1/f2c2/f2c3-plan.md` | `646d5ae`, `dc95a1b`, `cfa7a77`; F2c-3: 1755 `ok` (1505 before), `validate --strict` passes, 9 traceability rows are written gaps (`none`); owner's paid re-run of `--tag readonly`, `--tag bash` and the new `--tag pressure` still open (D51) | owner: re-run the eval groups |
 | F2d Assess and context | ☐ wave D | `2026-10-29-…-f2d-plan.md` | — | after F2c |
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
-| F3b Versioned plans | ☐ wave D | `2026-10-29-…-f3b-plan.md` | — | after F2c |
+| F3b Versioned plans | ✅ done 2026-10-29 | `2026-10-29-…-f3b-plan.md` | `a40bbcf`, `cc98527`, `1f18d9a`, `5448cf4`; 1836 `ok` (1759 before), `validate --strict` passes, shellcheck clean; the 3 new checks bring harness-check to 18 | F6 |
 | F3c Authority | ☐ F3c-1 wave D, F3c-2 wave E | `2026-10-29-…-f3c1/f3c2-plan.md` | — | after F2c |
 | F3d Exemplars + catalog | ☐ F3d-1 wave E, F3d-2 wave F | `2026-10-29-…-f3d1/f3d2-plan.md` | — | after F3d-1 |
 | F4 Codex | backlog (D5) | — | — | — |
@@ -246,13 +246,13 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f3a-plan.md`.
 
 ## F3b — Versioned plans and progress (D6 revised, D40)
 
-- [ ] Plan template with a required **Acceptance** section in the sensors' numbers (spec-anchored,
+- [x] Plan template with a required **Acceptance** section in the sensors' numbers (spec-anchored,
   kept small). `.agents/plans/` stops being git-ignored.
-- [ ] Lifecycle `active | done | abandoned` in each plan's header. `keel` removes a `done` plan after
+- [x] Lifecycle `active | done | abandoned` in each plan's header. `keel` removes a `done` plan after
   its ADR or commit is referenced. `harness-check` warns `plan-stale` (active and untouched for 30
   days, adjustable) and `progress-size` (over 200 lines, adjustable).
-- [ ] `.agents/progress.md`, pointed at by `AGENTS.md`; `keel verify` rejects a plan without Acceptance.
-- [ ] Spec traceability (D46): specs are read from `docs/specs/` or an existing Spec Kit layout, and
+- [x] `.agents/progress.md`, pointed at by `AGENTS.md`; `keel verify` rejects a plan without Acceptance.
+- [x] Spec traceability (D46): specs are read from `docs/specs/` or an existing Spec Kit layout, and
   `harness-check` warns `acceptance-untested` when an acceptance criterion names no test.
 
 ## F3c — Authority (C7 + R)
