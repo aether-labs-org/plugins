@@ -397,6 +397,41 @@ r="$(mkclean)"; addrule "$r"; printf 'EXEMPLAR=src/a.ts\n' >> "$r/.agents/rules/
 cp "$r/.agents/rules/file-size.env" "$r/.agents/rules/second.env"; sed -i 's/RULE_ID=file-size/RULE_ID=second/; s/^EXEMPLAR=.*/EXEMPLAR=nope.ts/' "$r/.agents/rules/second.env"; commit "$r"
 hc "$r"; printf '%s\n' "$out" | grep '^warn	exemplar-missing	' | grep -q 'second.env' && [ "$(printf '%s\n' "$out" | grep -c '^warn	exemplar-missing	')" = 1 ]; check "exemplar-missing: one warning per env file with a missing exemplar" $?
 
+# mandatory-unsensored and exception-expired (D43)
+# mandrule REPO [EXTRA_LINES] -> the consistent file-size rule made mandatory, its baseline removed
+mandrule() {
+  addrule "$1"; rm -f "$1/.agents/baselines/file-size.tsv"
+  printf 'ENFORCEMENT_LEVEL=mandatory\n%s\n' "${2:-}" >> "$1/.agents/rules/file-size.env"
+  (cd "$1" && git add -A && git commit -q -m mandatory)
+}
+has() { printf '%s\n' "$out" | grep -q "^warn	$1	"; } # has <check-id>
+r="$(mkclean)"; mandrule "$r"; hc "$r"; [ $rc -eq 0 ]; check "mandatory-unsensored: a mandatory rule with its sensor -> clean" $?
+r="$(mkclean)"; mandrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=inferential/' "$r/.agents/rules/file-size.env"; hc "$r"
+[ $rc -eq 1 ] && has mandatory-unsensored && printf '%s\n' "$out" | grep -q '^warn	mandatory-unsensored	[^	]*file-size.env'; check "mandatory-unsensored: ENFORCEMENT=inferential" $?
+r="$(mkclean)"; mandrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=sensor:nope/' "$r/.agents/rules/file-size.env"; hc "$r"
+has mandatory-unsensored; check "mandatory-unsensored: names a sensor that has no file" $?
+r="$(mkclean)"; mandrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=sensor:file-size,sensor:nope/' "$r/.agents/rules/file-size.env"; hc "$r"
+has mandatory-unsensored; check "mandatory-unsensored: one of several sensors has no file" $?
+r="$(mkclean)"; mandrule "$r"; rm "$r/scripts/sensors/file-size.sh"; hc "$r"; has mandatory-unsensored; check "mandatory-unsensored: the sensor file was removed" $?
+r="$(mkclean)"; mandrule "$r"; mkdir -p "$r/scripts/sensors/slow"; mv "$r/scripts/sensors/file-size.sh" "$r/scripts/sensors/slow/file-size.sh"; hc "$r"
+! has mandatory-unsensored; check "mandatory-unsensored: a sensor under slow/ counts" $?
+r="$(mkclean)"; addrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=inferential/' "$r/.agents/rules/file-size.env"; hc "$r"
+! has mandatory-unsensored; check "mandatory-unsensored: a ratchet rule may be inferential" $?
+r="$(mkclean)"; mandrule "$r"; sed -i 's/^ENFORCEMENT_LEVEL=.*/ENFORCEMENT_LEVEL=Mandatory/' "$r/.agents/rules/file-size.env"; hc "$r"
+has mandatory-unsensored && printf '%s\n' "$out" | grep -q "ENFORCEMENT_LEVEL is 'Mandatory'"; check "mandatory-unsensored: a misspelt ENFORCEMENT_LEVEL would silently be ratchet -> warn" $?
+
+r="$(mkclean)"; mandrule "$r" "EXCEPTIONS='src/a.ts 2026-12-31'"; hc "$r" KEEL_TODAY=2026-10-29; [ $rc -eq 0 ]; check "exception-expired: a future deadline -> clean" $?
+hc "$r" KEEL_TODAY=2026-12-31; [ $rc -eq 0 ]; check "exception-expired: the deadline day itself -> clean" $?
+hc "$r" KEEL_TODAY=2027-01-01
+[ $rc -eq 1 ] && [ "$(warns)" = 1 ] && printf '%s\n' "$out" | grep -q '^warn	exception-expired	[^	]*file-size.env	.*src/a.ts.*2026-12-31'; check "exception-expired: past its date -> one warning naming path and date" $?
+r="$(mkclean)"; mandrule "$r" "EXCEPTIONS='src/a.ts 2026-10-01
+src/with space.ts 2026-09-01
+src/later.ts 2027-06-01'"; hc "$r" KEEL_TODAY=2026-10-29
+[ "$(printf '%s\n' "$out" | grep -c '^warn	exception-expired	')" = 2 ] && printf '%s\n' "$out" | grep -q 'src/with space.ts'; check "exception-expired: one warning per expired line, a path may contain spaces" $?
+r="$(mkclean)"; mandrule "$r" "EXCEPTIONS='src/a.ts soon'"; hc "$r" KEEL_TODAY=2026-10-29; has exception-expired; check "exception-expired: a line without a valid date -> warn" $?
+r="$(mkclean)"; mandrule "$r"; hc "$r"; ! has exception-expired; check "exception-expired: no EXCEPTIONS -> silent" $?
+before="$(cd "$r" && git status --porcelain)"; hc "$r" KEEL_TODAY=2027-01-01; [ "$before" = "$(cd "$r" && git status --porcelain)" ]; check "mandatory checks are read-only" $?
+
 # README.agents.md
 G="$KEEL/assets/core/README.agents.md"
 [ -f "$G" ] && [ "$(wc -l < "$G")" -le 120 ]; check "README.agents.md exists and is at most 120 lines" $?

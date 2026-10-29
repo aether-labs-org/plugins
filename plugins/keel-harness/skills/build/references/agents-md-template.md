@@ -14,6 +14,7 @@ Sections, in this order. Each is omitted when empty:
 2. `## Commands`: purpose, command, pass signal;
 3. `## Before you finish`: the exact copy below, unchanged;
 4. `## Rules`: one line per rule, each pointing at `docs/<topic>.md#<id>` (filled by the `rules` skill);
+   mandatory rules first (`ENFORCEMENT_LEVEL=mandatory`, each line starting `[mandatory]`), then the ratchet rules;
 5. `## Decisions`: a pointer to the ADR folder (`adr_dir` in `.agents/state.yml`) when ADRs exist, and
    always the progress pointer (`build` creates `.agents/progress.md`);
 6. `## Reading tool output`: at most 4 bullets.
@@ -40,7 +41,8 @@ Run `make gate-fast` and read it before you say you are done:
 Before opening a pull request, also run `make gate-slow`.
 
 ## Rules
-- {{rule statement, one verifiable sentence}} → docs/{{topic}}.md#{{id}}
+- [mandatory] {{non-negotiable rule, one verifiable sentence}} → docs/{{topic}}.md#{{id}}
+- {{ratchet rule, one verifiable sentence}} → docs/{{topic}}.md#{{id}}
 
 ## Decisions
 Why things are the way they are → {{adr_dir}}/

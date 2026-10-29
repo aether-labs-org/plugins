@@ -103,6 +103,15 @@ hook "$r" "$(fx Edit file_path "$r/.agents/consequence.yml" "$EDIT_X")"; [ "$(de
 for p in .agents/gate.env .agents/rules/file-size.env scripts/sensors/lint.sh scripts/sensors/slow/mutation.sh scripts/harness-check.sh .github/workflows/keel.yml; do
   hook "$r" "$(fx Edit file_path "$r/$p" "$EDIT_X")"; [ "$(decision)" = deny ]; check "harness path denied: $p" $?
 done
+# a mandatory rule's env file (D43) is a harness file: the hook denies Edit and Write, and the exception list in it too
+mkdir -p "$r/.agents/rules"
+printf 'RULE_ID=file-size\nENFORCEMENT=sensor:file-size\nENFORCEMENT_LEVEL=mandatory\nLIMIT=300\nEXCEPTIONS='"'"'src/old.ts 2027-01-01'"'"'\n' > "$r/.agents/rules/file-size.env"
+hook "$r" "$(fx Edit file_path "$r/.agents/rules/file-size.env" "$EDIT_X")"; [ "$(decision)" = deny ]; check "a mandatory rule env file: Edit -> deny" $?
+reason | grep -q 'harness' && reason | grep -q '\.agents/rules/file-size\.env'; check "a mandatory rule env file: the reason names the file and the harness category" $?
+hook "$r" "$(fx Write file_path "$r/.agents/rules/file-size.env" "$WRITE_X")"; [ "$(decision)" = deny ]; check "a mandatory rule env file: Write -> deny" $?
+approve "$r" rules
+hook "$r" "$(fx Edit file_path "$r/.agents/rules/file-size.env" "$EDIT_X")"; silent; check "a mandatory rule env file: a current rules approval lets the rules flow edit it (guard, not the hook, blocks loosening)" $?
+rm -f "$r/.agents/run/flow/rules.proposal" "$r/.agents/run/flow/rules.approved" "$r/.agents/run/flow/rules.applied"
 for p in .agents/run/flow/build.proposal .agents/plans/p.md .agents/progress.md; do
   hook "$r" "$(fx Write file_path "$r/$p" "$WRITE_X")"; silent; check "harness exceptions (!glob) are not protected: $p" $?
 done

@@ -32,7 +32,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F2d Assess and context | ✅ done 2026-10-29; triggering evals not run (owner) | `2026-10-29-…-f2d-plan.md` | `c378144`, `8f6128c`, `0d904a5`, `587f778` on `feat/keel-harness-v0.3-f2d`; 1941 `ok` (1759 before), `validate --strict` passes; 11 rubric axes; LSP names from the official code-intelligence page; `codemap-stale` is check 16; 9 `trigger-*` cases | owner: run `--tag trigger` (read-only) |
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
 | F3b Versioned plans | ✅ done 2026-10-29 | `2026-10-29-…-f3b-plan.md` | `a40bbcf`, `cc98527`, `1f18d9a`, `5448cf4`; 1836 `ok` (1759 before), `validate --strict` passes, shellcheck clean; the 3 new checks bring harness-check to 18 | F6 |
-| F3c Authority | ◐ F3c-1 done 2026-10-29; F3c-2 wave E | `2026-10-29-…-f3c1/f3c2-plan.md` | F3c-1 on `feat/keel-harness-v0.3-f3c1`: `b7efeef`, `9c496a0`, `a6df5f9`; 1985 `ok` (1759 before, 226 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; no eval run | F3c-2 (`mandatory`, `ENFORCEMENT_LEVEL`) |
+| F3c Authority | ✅ done 2026-10-29 (F3c-1 and F3c-2) | `2026-10-29-…-f3c1/f3c2-plan.md` | F3c-1 on `feat/keel-harness-v0.3-f3c1`: `b7efeef`, `9c496a0`, `a6df5f9`; 1985 `ok` (1759 before, 226 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; no eval run. F3c-2 on `feat/keel-harness-v0.3-f3c2`: `4b792a0`, `666068b`; 2368 `ok` (2244 before, 124 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; no eval run; the CODEOWNERS approval of a superseding ADR cannot be checked locally | — |
 | F3d Exemplars + catalog | ◐ F3d-1 done 2026-10-29; F3d-2 wave F | `2026-10-29-…-f3d1/f3d2-plan.md` | F3d-1 on `feat/keel-harness-v0.3-f3d1`: exemplars and `exemplar-missing` (check 21), `pattern.sh` (grep tested fully; ast-grep and semgrep skip when absent, parsing tested with stubs, never run against the real tools), `measure.sh pattern`, `guard` on `PATTERN`/`RULE_FILE`; no eval run | F3d-2 |
 | F4 Codex | backlog (D5) | — | — | — |
 | F5 Profile L | ☐ wave G | `2026-10-29-…-f5-plan.md` | — | after F3 and F6; ships only with Δ > 0 per component, else v0.4 (D52) |
@@ -194,7 +194,7 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
   `build`, `rules` and `assess` call it, `contracts/flow.md` has the Phases.
 - [x] `contracts/` (`sensor.md`, `rule-env.md`, `state.md`, `flow.md`, `plan.md`), moved from the skills'
   references. Done in F2c-1; `flow.md` is a stub until F2c-2 (Phases) and F2c-3 (Traceability).
-- [ ] `contracts/rule-env.md` gains `ENFORCEMENT_LEVEL=mandatory|ratchet` (default `ratchet`).
+- [x] `contracts/rule-env.md` gains `ENFORCEMENT_LEVEL=mandatory|ratchet` (default `ratchet`). (F3c-2)
   `harness-check` warns on a `mandatory` rule without a computational sensor. `AGENTS.md` lists the
   `mandatory` rules first. `rules` reads `.specify/memory/constitution.md` when it is present.
 - [x] Rewrite each SKILL.md on the template in spec §5.5, one skill at a time: **assess (with
@@ -264,14 +264,14 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f3a-plan.md`.
   - [x] `assets/adapters/claude/claude-protect.sh` (PreToolUse), which denies edits to `harness` paths
     and names the approved route in the reason;
   - [x] CODEOWNERS entries for consequential paths (proposed, owners only as the user gives them).
-- [ ] `mandatory` rules (D43):
+- [x] `mandatory` rules (D43) (F3c-2):
   - `guard` rejects loosening even when an added ADR names the file;
   - their env files and exception lists are protected paths;
   - their sensors are a required CI check;
   - an amendment is a superseding ADR approved through CODEOWNERS.
 - [x] Sandbox / devcontainer as an option for profile L, with the trade-off stated. (F3c-1,
   `skills/build/references/authority.md`, documentation only)
-- [ ] Hook and `guard` tests show that editing a baseline is denied (hook half done in F3c-1,
+- [x] Hook and `guard` tests show that editing a baseline is denied (hook half done in F3c-1,
   `tests/keel_protect_test.sh`) and that a `mandatory` rule cannot be loosened (F3c-2).
 
 ## F3d — Exemplars and catalog

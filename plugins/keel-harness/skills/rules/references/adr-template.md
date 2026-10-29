@@ -39,3 +39,18 @@ Chosen: {{option}}, because {{reason}}. Approved by {{who}} on {{date}}.
 
 The rule's section in its topic file links the ADR in its **Decision.** field and in `DECISION=` of
 its env file.
+
+## Superseding ADR for a mandatory rule
+
+A rule with `ENFORCEMENT_LEVEL=mandatory` (`contracts/rule-env.md`) is not loosened by an ADR that only names
+its files. Loosening one takes a **superseding** ADR, added in the same change: it names each file it loosens
+by path, says why, and carries one extra line pointing at an existing ADR in `adr_dir` (the one that
+introduced the rule, or the last one that changed it):
+
+```markdown
+Supersedes: docs/adr/0003-file-size-limit.md
+```
+
+Set the old ADR's status to `superseded by NNNN`. `guard` checks the line and that the target exists at the
+base commit; the approval is a human's, through CODEOWNERS and the required `keel` check, which keel cannot
+verify locally.

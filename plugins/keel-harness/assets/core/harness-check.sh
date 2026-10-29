@@ -456,6 +456,59 @@ check_exemplar_missing() {
   done
 }
 
+# --- mandatory-unsensored and exception-expired (D43)
+# A mandatory rule (ENFORCEMENT_LEVEL=mandatory) is held by a computational sensor that exists; its EXCEPTIONS
+# list (one `<path> <YYYY-MM-DD>` per line) holds only dates that have not passed.
+check_mandatory_unsensored() {
+  local f lvl v item name why n
+  for f in .agents/rules/*.env; do
+    [ -f "$f" ] || continue
+    lvl="$(envval "$f" ENFORCEMENT_LEVEL)"
+    case "$lvl" in
+      '' | ratchet) continue ;;
+      mandatory) ;;
+      *)
+        warn mandatory-unsensored "$f" "ENFORCEMENT_LEVEL is '$lvl', not mandatory or ratchet, so every tool treats the rule as ratchet" "Set ENFORCEMENT_LEVEL=mandatory or ENFORCEMENT_LEVEL=ratchet (see contracts/rule-env.md in the plugin)"
+        continue ;;
+    esac
+    why=""; n=0
+    v="$(envval "$f" ENFORCEMENT)"
+    if [ -z "$v" ] || [ "$v" = inferential ]; then
+      why="ENFORCEMENT is ${v:-empty}, so no sensor holds it"
+    else
+      for item in $(printf '%s' "$v" | tr ',' ' '); do
+        case "$item" in
+          sensor:?*)
+            n=$((n + 1)); name="${item#sensor:}"
+            [ -f "scripts/sensors/$name.sh" ] || [ -f "scripts/sensors/slow/$name.sh" ] || why="${why}sensor $name has no file in scripts/sensors/ or scripts/sensors/slow/; " ;;
+        esac
+      done
+      [ "$n" -gt 0 ] || why="ENFORCEMENT names no sensor:<id>"
+    fi
+    [ -z "$why" ] || warn mandatory-unsensored "$f" "mandatory rule without a working sensor: ${why%; }" "Write the sensor (/keel-harness:rules), or make the rule ratchet in a superseding ADR approved through CODEOWNERS"
+  done
+}
+
+check_exception_expired() {
+  local f line d p
+  for f in .agents/rules/*.env; do
+    [ -f "$f" ] || continue
+    [ "$(envval "$f" ENFORCEMENT_LEVEL)" = mandatory ] || continue
+    ( EXCEPTIONS=""; . scripts/lib/envparse.sh 2> /dev/null && keel_env_load "$f" > /dev/null 2>&1 && printf '%s\n' "$EXCEPTIONS" ) | tr -d '\r' > "$tmp/exceptions"
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line#"${line%%[![:space:]]*}"}"; line="${line%"${line##*[![:space:]]}"}"
+      case "$line" in '' | '#'*) continue ;; esac
+      d="${line##*[[:space:]]}"
+      p="${line%"$d"}"; p="${p%"${p##*[![:space:]]}"}"
+      if [ -z "$p" ] || ! printf '%s' "$d" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+        warn exception-expired "$f" "EXCEPTIONS line '$line' is not '<path> <YYYY-MM-DD>', so it excepts nothing" "Fix the line, or remove it and fix the file"
+      elif [[ "$d" < "$today" ]]; then
+        warn exception-expired "$f" "the exception for $p expired on $d" "Fix $p now: the mandatory rule fails it today. Deadlines can only shrink, so do not move the date"
+      fi
+    done < "$tmp/exceptions"
+  done
+}
+
 # --- review-due
 check_review_due() {
   local d
@@ -485,6 +538,8 @@ check_acceptance_untested
 check_codemap_stale
 check_protect_missing
 check_exemplar_missing
+check_mandatory_unsensored
+check_exception_expired
 check_review_due
 
 if [ "$nwarn" -eq 0 ]; then

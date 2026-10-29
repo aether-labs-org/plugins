@@ -32,7 +32,16 @@ Rules that hold now. Each is one anchored section (see `rule-section.md`).
 **✓ / ✗.** {{✓ `domain/` imports only `domain/`. ✗ `domain/Order` imports `org.springframework`.}}
 **When it fails.** {{Move the dependency behind a port owned by the inner layer.}}
 **Decision.** [ADR 0002](decisions/0002-architecture-style.md)
+
+## Principles
+Only principles no sensor can check, each with the person who reviews it. Omit the section when there are none.
+
+- {{Principle, one sentence}} → review:{{owner}}
 ```
+
+`## Principles` is where a Spec Kit constitution principle goes when no rule can enforce it (`rules` links the
+others to the rule's `DOC`). A principle a sensor can check is a rule, not a line here. `rules` does not write a
+`constitution.md`.
 
 The `## Code map` is curated, not generated: `rules` drafts it from `measure.sh tree 2`, the user
 confirms or corrects every bullet, and each backticked path in the section must exist

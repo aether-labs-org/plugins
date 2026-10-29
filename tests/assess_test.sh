@@ -78,13 +78,13 @@ for id in agents-size stale-command agents-not-loaded dangling-pointer hook-miss
           rule-inconsistent topic-size baseline-malformed baseline-stale codemap-stale review-due; do
   hasc "$id"; check "check id: $id" $?
 done
-for id in plan-stale progress-size acceptance-untested exemplar-missing; do
-  hasc "$id"; check "check id (F3b): $id" $?
+for id in plan-stale progress-size acceptance-untested exemplar-missing mandatory-unsensored exception-expired; do
+  hasc "$id"; check "check id (F3b, F3c-2, F3d-1): $id" $?
 done
 ! grep -qi "capture rate" "$f" "$chk"; check "no history-dependent checks" $?
 # the count written in the title, in assess/SKILL.md and in the README equals the rows of the table
 nrows="$(grep -c '^| `' "$chk")"
-words="x x x x x x x x x x x x x x x fifteen sixteen seventeen eighteen nineteen twenty twenty-one"
+words="x x x x x x x x x x x x x x x fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three"
 word="$(printf '%s\n' "$words" | cut -d' ' -f$((nrows + 1)))"
 grep -q "^# The $word checks$" "$chk"; check "checks.md title counts its $nrows rows ($word)" $?
 grep -qF "The $word checks, what each one means" "$f"; check "assess SKILL.md counts the checks: $word" $?

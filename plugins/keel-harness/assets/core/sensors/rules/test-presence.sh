@@ -19,7 +19,7 @@ if [ ! -f "$RULE_ENV" ]; then
   printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no .agents/rules/testing-strategy.env - run the rules skill"
   exit 2
 fi
-INCLUDE=""; EXCLUDE=""; MAPPINGS=""
+INCLUDE=""; EXCLUDE=""; MAPPINGS=""; ENFORCEMENT_LEVEL=""; EXCEPTIONS=""
 # shellcheck disable=SC1090,SC1091
 . "${KEEL_ENVPARSE_LIB:-scripts/lib/envparse.sh}" 2>/dev/null || {
   printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "scripts/lib/envparse.sh is missing - run /keel-harness:build"
@@ -87,14 +87,23 @@ if [ "${KEEL_MEASURE:-}" = 1 ]; then
   exit 0
 fi
 
+# --- mandatory rules (D43): no baseline; EXCEPTIONS are skipped until their deadline, then fail ---
+excepted=0
+if [ "${ENFORCEMENT_LEVEL:-ratchet}" = mandatory ]; then
+  baseline=/dev/null
+  mandatory_exceptions "$EXCEPTIONS" "$tmp/counts"
+  excepted=$(wc -l < "$tmp/counts.excepted" | tr -d ' ')
+fi
+
 over=$(awk -F'\t' '$2 > 0' "$tmp/counts" | wc -l | tr -d ' ')
+held="$over baselined"; [ "${ENFORCEMENT_LEVEL:-ratchet}" != mandatory ] || held="$excepted excepted"
 viol="$(baseline_compare "$baseline" "$tmp/counts")"; brc=$?
 if [ "$brc" -eq 2 ]; then
   printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no writable temp directory (TMPDIR or .agents/run/tmp/)"
   exit 2
 fi
 if [ "$brc" -eq 0 ]; then
-  printf '%s\t%s\t%s\t%s\n' "$id" "$class" pass "$checked files checked, all have a test ($over baselined)."
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" pass "$checked files checked, all have a test ($held)."
   exit 0
 fi
 nv=$(printf '%s\n' "$viol" | wc -l | tr -d ' ')
@@ -103,5 +112,6 @@ printf '%s\n' "$viol" | head -5 | while IFS="$(printf '\t')" read -r p _ _; do
   e="$(awk -F'\t' -v p="$p" '$1 == p { print $2; exit }' "$tmp/expected")"
   printf '  %s: no test found (expected %s)\n' "$p" "$e"
 done
+[ -s "$tmp/counts.expired" ] && awk -F'\t' '{ printf "  %s: exception expired on %s\n", $1, $2 }' "$tmp/counts.expired" | head -5
 printf '  guidance: %s\n' "$GUIDANCE"
 exit 1

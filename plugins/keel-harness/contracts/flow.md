@@ -168,3 +168,4 @@ parentheses:
 | rules | "never run by the Stop hook" | discipline | test:tests/keel_stop_hook_test.sh |
 | rules | "Plans never go under" | discipline | eval:rules-brownfield/graders/plan.md (a plan is written under `.agents/plans/`) |
 | rules | "this skill never migrates anything itself" | discipline | eval:rules-brownfield/graders/never-edits-src.md; eval:rules-brownfield/graders/never-writes-src.md |
+| rules | "never writes a `constitution.md`" | discipline | test:tests/rules_test.sh (text, and the plugin ships no constitution file or template) |

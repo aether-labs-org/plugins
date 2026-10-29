@@ -56,6 +56,10 @@ Read every instruction file the target agents load: `AGENTS.md` (root and nested
 `.devin/rules/`, `.cursor/rules/`; plus `docs/`, lint and architecture tool configs, test layout and
 existing ADRs. Existing rules are respected, not duplicated.
 
+A Spec Kit constitution (`.specify/memory/constitution.md`), when it exists, is read here too. List its
+principles; phase 5 links each one to a rule (the rule's `DOC`) or, when no sensor can check it, to a line
+of `## Principles` in `docs/architecture.md` ending `→ review:<owner>`. This skill never writes a `constitution.md`.
+
 ### Phase 4 - Reverse engineering (brownfield)
 
 For each catalog entry, measure the as-is state and report it before proposing anything. The
@@ -79,6 +83,15 @@ flag breaking proposals and state their blast radius (files affected). You may p
 (ArchUnit, dependency-cruiser, import-linter, PIT, Stryker, mutmut); install it only with approval.
 When nothing can be inferred, say so, give your recommendation and why, and ask. Never present an
 invented rule as the project's.
+
+**Mandatory or ratchet?** Ask it for every rule that has a sensor, recommended option first, with the
+trade-off (`${CLAUDE_PLUGIN_ROOT}/contracts/rule-env.md`). *Ratchet* is the default: today's violations sit in a
+baseline that can only shrink. *Mandatory* (`ENFORCEMENT_LEVEL=mandatory`) is for a rule the team treats as
+non-negotiable: no baseline, only an `EXCEPTIONS` list of `<path> <YYYY-MM-DD>` lines whose deadlines can only
+shrink, and `guard` rejects any loosening unless a superseding ADR is added and approved through CODEOWNERS
+(keel cannot check that approval locally). Recommend mandatory for security and boundary rules, ratchet for the
+rest; an inferential rule stays ratchet, since a mandatory rule needs a computational sensor. Ask the deadline
+of each exception; propose no more than the baseline's six-month horizon.
 
 **Code map (architecture topic).** Draft the `## Code map` of `docs/architecture.md` (template in
 `references/topics/architecture.md`) from the `measure.sh tree 2` output: a bird's-eye paragraph, one
@@ -121,10 +134,12 @@ Write only what was approved, in this order:
    a missing topic file from `references/topics/`. A topic file stays at or under 300 lines; past
    that, propose splitting it by subtopic.
 3. The rule's line in the right `AGENTS.md` (`nested-agents-md-template.md` for directory rules):
-   `- <statement> → docs/<topic>.md#<rule-id>`. Files stay at 100 lines or fewer.
+   `- <statement> → docs/<topic>.md#<rule-id>`. Files stay at 100 lines or fewer. In the `## Rules`
+   section the mandatory rules come first, each line starting `[mandatory]`, then the ratchet rules.
 4. `.agents/rules/<rule-id>.env` from `${CLAUDE_PLUGIN_ROOT}/contracts/rule-env.md`: the metadata (`origin:` discovered | proposed |
    user is `ORIGIN=`; `decision:` is `DECISION=`; also `RULE_ID KIND APPROVED_AT ENFORCEMENT DOC
-   PLAN`) and the parameters. Every rule has one, inferential ones included.
+   PLAN`; `ENFORCEMENT_LEVEL=mandatory` and `EXCEPTIONS` for a mandatory rule) and the parameters. Every
+   rule has one, inferential ones included.
 5. The sensors and generated tool config. Copy sensors from `${CLAUDE_PLUGIN_ROOT}/assets/core/sensors/rules/`
    to `scripts/sensors/<id>.sh`; the slow ones (`slow/mutation.sh`, `slow/diff-coverage.sh`) to
    `scripts/sensors/slow/`; the stop-list to `scripts/sensors/stoplists/`. A confirmed adopted pattern
@@ -140,6 +155,8 @@ Write only what was approved, in this order:
    `architecture-grep.sh` for the fast signal.
 6. The baseline, written only with approval; `security` sensors never get one, keel never raises one.
    TSV sensors: `KEEL_MEASURE=1 bash scripts/sensors/<id>.sh > .agents/baselines/<id>.tsv`.
+   A mandatory rule has no baseline: the same measurement becomes its `EXCEPTIONS` lines, one
+   `<path> <YYYY-MM-DD>` per measured file, each with the deadline the user chose.
    Native architecture baselines, in brownfield:
    - ArchUnit: run the `ArchitectureTest` once; `FreezingArchRule` writes `.agents/baselines/archunit/`.
    - dependency-cruiser: `node_modules/.bin/depcruise-baseline src --config .dependency-cruiser.cjs --output-to .agents/baselines/depcruise-known-violations.json`.
@@ -166,7 +183,7 @@ Each approved rule leaves these artifacts, in these shapes:
 - the proposal recorded by `keel plan rules`: every ADR, topic file, env file, sensor, baseline, generated tool config and plan, each with its path;
 - an ADR in `<adr_dir>/` when there was a real trade-off (`adr-template.md`), naming by path every baseline it introduces and every env file it loosens;
 - a section in its topic file, from `rule-section.md`, and its line in the right `AGENTS.md`: `- <statement> → docs/<topic>.md#<rule-id>`;
-- `.agents/rules/<rule-id>.env` with the fields of `contracts/rule-env.md`, inferential rules included;
+- `.agents/rules/<rule-id>.env` with the fields of `contracts/rule-env.md`, inferential rules included, and `ENFORCEMENT_LEVEL` where the user chose mandatory;
 - a sensor, or `inferential` in the env file;
 - a baseline that came from `KEEL_MEASURE=1` (or the native tool's own baseline command);
 - a plan from `contracts/plan.md`, checked by `keel verify plan`, for every non-empty baseline.
