@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: doctor-validator-drift
 description: The repository carries an older harness-check.sh that misses a condition (no guard sensor); doctor runs the plugin's own validator, names the missing guard and the validator drift, and writes nothing.
-tags: [doctor, drift]
+tags: [doctor, drift, bash]
 context:
   scaffold_script: scaffold.sh
