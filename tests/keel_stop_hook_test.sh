@@ -195,7 +195,7 @@ session "$r1" s3 1; o1="$out"; rc1=$rc
 session "$r2" s3 1; o2="$out"; rc2=$rc
 [ "$o1" = "$o2" ] && [ "$rc1" = 0 ] && [ "$rc2" = 0 ] && [ "$(lessons "$r1")" = 1 ]; check "lesson: an unwritable learnings folder changes neither the output nor the exit code" $?
 r="$(mkrepo)"; echo a > "$r/t.txt"; mkdir -p "$r/.agents/run"; echo blocker > "$r/.agents/run/fail-streaks"
-session "$r" s1 1; [ $rc -eq 0 ] && printf '%s' "$out" | grep -q '"additionalContext"'; check "lesson: an unreadable streak file does not break the hook" $?
+session "$r" s1 1; [ $rc -eq 0 ] && printf '%s' "$out" | qgrep '"additionalContext"'; check "lesson: an unreadable streak file does not break the hook" $?
 ! grep -qE 'gate\.sh +slow' "$HOOK_SRC" && ! grep -qE '(^|[^a-z])(sleep|curl|wget)( |$)' "$HOOK_SRC"; check "lesson: the hook adds no sleep and no network call (120 s timeout)" $?
 
 # --- settings

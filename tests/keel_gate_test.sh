@@ -109,7 +109,7 @@ stub_sensor "$r" scripts/sensors/c.sh c correctness skip "no tool" 2
 (cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
 h="$r/.agents/run/history/fast.tsv"
 [ "$(wc -l < "$h" 2>/dev/null | tr -d ' ')" = 3 ]; check "history: one line per sensor" $?
-awk -F'\t' 'NF == 4 && $1 ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/ && $4 ~ /^[0-9]+$/' "$h" | wc -l | grep -qx 3; check "history: <UTC time> <id> <status> <ms>" $?
+awk -F'\t' 'NF == 4 && $1 ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/ && $4 ~ /^[0-9]+$/' "$h" | wc -l | qgrep -x 3; check "history: <UTC time> <id> <status> <ms>" $?
 [ "$(awk -F'\t' '$2 == "a" { print $3 } $2 == "b" { print $3 } $2 == "c" { print $3 }' "$h" | tr '\n' ' ')" = "pass fail skip " ]; check "history: pass, fail and skip statuses" $?
 [ "$(cut -f1 "$h" | sort -u | wc -l | tr -d ' ')" = 1 ]; check "history: the sensors of one run share one timestamp" $?
 (cd "$r" && bash scripts/gate.sh slow >/dev/null 2>&1)
@@ -164,5 +164,5 @@ r="$(mkrepo)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
 (cd "$r" && TMPDIR=/nonexistent-keel bash scripts/gate.sh >/dev/null 2>&1); [ $? -eq 0 ]; check "history: no usable TMPDIR does not change the exit code" $?
 [ -s "$r/.agents/run/history/fast.tsv" ]; check "history: still appended when TMPDIR is unusable" $?
-! grep -n 'mktemp' "$KEEL/assets/core/gate.sh" | grep -v 'keel_tmpdir()' | grep -q .; check "gate.sh uses mktemp only through keel_tmpdir" $?
+! grep -n 'mktemp' "$KEEL/assets/core/gate.sh" | grep -v 'keel_tmpdir()' | qgrep .; check "gate.sh uses mktemp only through keel_tmpdir" $?
 finish

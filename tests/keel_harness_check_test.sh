@@ -449,11 +449,11 @@ rep() { # rep CHAR COUNT -> CHAR repeated COUNT times, space separated
   for ((i = 0; i < $2; i++)); do out="$out $1"; done
   printf '%s' "$out"
 }
-has() { printf '%s\n' "$out" | grep -q "^warn	$1	"; } # has <check-id>
+has() { printf '%s\n' "$out" | qgrep "^warn	$1	"; } # has <check-id>
 
 # sensor-always-green
-r="$(mkclean)"; mkhist "$r" fast lint $(rep p 30); hc "$r"; only sensor-always-green scripts/sensors/lint.sh && printf '%s\n' "$out" | grep -q 'carry load'; check "sensor-always-green: 30 passes in a row warns" $?
-printf '%s\n' "$out" | grep "^warn	sensor-always-green" | grep -q "review it; remove it or move it to the slow gate$"; check "sensor-always-green: the fix is review, remove or move to the slow gate" $?
+r="$(mkclean)"; mkhist "$r" fast lint $(rep p 30); hc "$r"; only sensor-always-green scripts/sensors/lint.sh && printf '%s\n' "$out" | qgrep 'carry load'; check "sensor-always-green: 30 passes in a row warns" $?
+printf '%s\n' "$out" | grep "^warn	sensor-always-green" | qgrep "review it; remove it or move it to the slow gate$"; check "sensor-always-green: the fix is review, remove or move to the slow gate" $?
 r="$(mkclean)"; mkhist "$r" fast lint $(rep p 29); hc "$r"; [ $rc -eq 0 ]; check "sensor-always-green: 29 passes is below the threshold, silent" $?
 r="$(mkclean)"; mkhist "$r" fast lint $(rep p 15) f $(rep p 20); hc "$r"; ! has sensor-always-green; check "sensor-always-green: a single failure in the window silences it" $?
 r="$(mkclean)"; mkhist "$r" fast lint $(rep p 15) s $(rep p 20); hc "$r"; ! has sensor-always-green; check "sensor-always-green: a skipped run is not a pass" $?
@@ -463,14 +463,14 @@ r="$(mkclean)"; cp "$r/scripts/sensors/lint.sh" "$r/scripts/sensors/slow/mut.sh"
 
 # sensor-always-red
 r="$(mkclean)"; mkhist "$r" fast lint $(rep f 10); hc "$r"; only sensor-always-red scripts/sensors/lint.sh; check "sensor-always-red: 10 failures in a row is one warning (not also failure-recurring)" $?
-printf '%s\n' "$out" | grep "^warn	sensor-always-red" | grep -q "fix the cause or re-baseline with an ADR$"; check "sensor-always-red: the fix is the cause or an ADR" $?
+printf '%s\n' "$out" | grep "^warn	sensor-always-red" | qgrep "fix the cause or re-baseline with an ADR$"; check "sensor-always-red: the fix is the cause or an ADR" $?
 r="$(mkclean)"; mkhist "$r" fast lint $(rep f 9); hc "$r"; ! has sensor-always-red; check "sensor-always-red: 9 failures is below the threshold" $?
 r="$(mkclean)"; mkhist "$r" fast lint p $(rep f 9); hc "$r"; ! has sensor-always-red; check "sensor-always-red: a pass inside the last 10 silences it" $?
 r="$(mkclean)"; mkhist "$r" fast lint $(rep p 12) $(rep f 10); hc "$r"; only sensor-always-red lint.sh; check "sensor-always-red: only the last 10 runs count" $?
 
 # sensor-flaky
-r="$(mkclean)"; mkhist "$r" fast lint p f p f p f p f p f; hc "$r"; only sensor-flaky scripts/sensors/lint.sh && printf '%s\n' "$out" | grep -q 'heuristic'; check "sensor-flaky: alternating pass and fail warns and says it is a heuristic" $?
-printf '%s\n' "$out" | grep "^warn	sensor-flaky" | grep -q "make it deterministic$"; check "sensor-flaky: the fix is make it deterministic" $?
+r="$(mkclean)"; mkhist "$r" fast lint p f p f p f p f p f; hc "$r"; only sensor-flaky scripts/sensors/lint.sh && printf '%s\n' "$out" | qgrep 'heuristic'; check "sensor-flaky: alternating pass and fail warns and says it is a heuristic" $?
+printf '%s\n' "$out" | grep "^warn	sensor-flaky" | qgrep "make it deterministic$"; check "sensor-flaky: the fix is make it deterministic" $?
 r="$(mkclean)"; mkhist "$r" fast lint p p p f f f p p p f; hc "$r"; only sensor-flaky lint.sh; check "sensor-flaky: exactly 3 flips in the last 10 warns" $?
 r="$(mkclean)"; mkhist "$r" fast lint p p p p f f f p p p; hc "$r"; [ $rc -eq 0 ]; check "sensor-flaky: 2 flips is below the threshold" $?
 r="$(mkclean)"; mkhist "$r" fast lint p f p f p f p f p; hc "$r"; [ $rc -eq 0 ]; check "sensor-flaky: fewer than 10 runs is silent" $?
@@ -487,13 +487,13 @@ r="$(mkclean)"; mkrule_env "$r" lint
 sed -i 's/^class=heuristic/class=heuristic\nGUIDANCE="Run the linter and fix every reported problem"/' "$r/scripts/sensors/lint.sh"
 mkhist "$r" fast lint $(rep p 8) $(rep f 5) $(rep p 7); commit "$r"; hc "$r"
 only failure-recurring scripts/sensors/lint.sh; check "failure-recurring: 5 failures in the last 20 runs is one warning" $?
-printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'Run the linter and fix every reported problem'; check "failure-recurring: names the sensor's guidance (GUIDANCE= in the script)" $?
-printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'rule lint-clean' && printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'docs/conventions.md#lint-clean' && printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'AGENTS.md line'; check "failure-recurring: names the guide that would have prevented it (rule line and docs section)" $?
-printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'exemplar'; check "failure-recurring: the fix mentions the exemplar" $?
+printf '%s\n' "$out" | grep "^warn	failure-recurring" | qgrep 'Run the linter and fix every reported problem'; check "failure-recurring: names the sensor's guidance (GUIDANCE= in the script)" $?
+printf '%s\n' "$out" | grep "^warn	failure-recurring" | qgrep 'rule lint-clean' && printf '%s\n' "$out" | grep "^warn	failure-recurring" | qgrep 'docs/conventions.md#lint-clean' && printf '%s\n' "$out" | grep "^warn	failure-recurring" | qgrep 'AGENTS.md line'; check "failure-recurring: names the guide that would have prevented it (rule line and docs section)" $?
+printf '%s\n' "$out" | grep "^warn	failure-recurring" | qgrep 'exemplar'; check "failure-recurring: the fix mentions the exemplar" $?
 mkdir -p "$r/.agents/run"; printf '%s\n' 'x lint         [heuristic ] 1 problem                                     12ms' '  guidance: Fix the 1 problem shown in the last run' 'x other        [correctness] fine   3ms' > "$r/.agents/run/last-run.log"
-hc "$r"; printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'Fix the 1 problem shown in the last run'; check "failure-recurring: prefers the guidance printed in the last run's log" $?
+hc "$r"; printf '%s\n' "$out" | grep "^warn	failure-recurring" | qgrep 'Fix the 1 problem shown in the last run'; check "failure-recurring: prefers the guidance printed in the last run's log" $?
 r="$(mkclean)"; mkhist "$r" fast lint $(rep p 8) $(rep f 5) $(rep p 7); hc "$r"
-only failure-recurring lint.sh && printf '%s\n' "$out" | grep "^warn	failure-recurring" | grep -q 'no rule names this sensor'; check "failure-recurring: with no rule for the sensor it suggests writing a guide" $?
+only failure-recurring lint.sh && printf '%s\n' "$out" | grep "^warn	failure-recurring" | qgrep 'no rule names this sensor'; check "failure-recurring: with no rule for the sensor it suggests writing a guide" $?
 r="$(mkclean)"; mkhist "$r" fast lint $(rep p 8) $(rep f 4) $(rep p 8); hc "$r"; [ $rc -eq 0 ]; check "failure-recurring: 4 failures in 20 is below the threshold, silent" $?
 r="$(mkclean)"; mkhist "$r" fast lint $(rep f 5) $(rep p 30); hc "$r"; [ $rc -eq 0 ]; check "failure-recurring: failures older than the last 20 runs do not count" $?
 r="$(mkclean)"; mkhist "$r" fast lint p f f f f f; hc "$r"; only failure-recurring lint.sh; check "failure-recurring: 5 failures in a short history still counts" $?
@@ -510,5 +510,5 @@ G="$KEEL/assets/core/README.agents.md"
 for t in 'make harness-check' 'scripts/sensors/disabled/' 'KEEL_MEASURE=1' 'adr_dir' '.claude/settings.json' 'scripts/sensors/'; do grep -qF -- "$t" "$G" 2>/dev/null; check "README.agents.md mentions $t" $?; done
 # F6: a model change re-runs the read-only evals and moves harness_review_by
 grep -qF 'On a model change' "$G" && grep -qF 'read-only eval groups' "$G" && grep -qF 'harness_review_by' "$G"; check "README.agents.md: on a model change, re-run the read-only eval groups and move harness_review_by" $?
-grep -qF '## On a model change' "$KEEL/README.md" && sed -n '/^## On a model change/,/^## Evals/p' "$KEEL/README.md" | grep -q 'read-only eval groups' && sed -n '/^## On a model change/,/^## Evals/p' "$KEEL/README.md" | grep -q 'harness_review_by'; check "plugin README: on a model change, re-run the read-only eval groups and move harness_review_by" $?
+grep -qF '## On a model change' "$KEEL/README.md" && sed -n '/^## On a model change/,/^## Evals/p' "$KEEL/README.md" | qgrep 'read-only eval groups' && sed -n '/^## On a model change/,/^## Evals/p' "$KEEL/README.md" | qgrep 'harness_review_by'; check "plugin README: on a model change, re-run the read-only eval groups and move harness_review_by" $?
 finish
