@@ -63,39 +63,99 @@ Item names are the words after `ok` / `fail`.
 
 **`verify build`**
 
-| Item | Passes when |
-| --- | --- |
-| `agents-md` | `AGENTS.md` exists, has at most 100 lines, no `{{`, and a `Last updated: YYYY-MM-DD` line |
-| `state-schema` | `.agents/state.yml` has `schema_version: 3` |
-| `run-ignored` | `git check-ignore -q .agents/run/x` succeeds |
-| `gate-ran` | `.agents/run/last-run.log` exists and its last line starts with `gate: fast - ` |
-| `harness-check` | `bash scripts/harness-check.sh` exits 0 |
-| `baselines` | Every `.agents/baselines/*.tsv` starts with `# measured_at:` |
-| `portable-scripts` | `scripts/gate.sh`, `scripts/sensors/` and `scripts/lib/` contain neither `${CLAUDE_` nor `claude` as a command |
-| `guard-installed` | `scripts/sensors/guard.sh` and `scripts/lib/envparse.sh` exist |
-| `hook-settings` | When `state.yml` says `hook: installed`: `.claude/settings.json` has a `Stop` entry naming `scripts/hooks/claude-stop.sh` and the literal `${CLAUDE_PROJECT_DIR}`, and no `PostToolUse` entry running the gate |
-| `hook-executable` | The same condition: `scripts/hooks/claude-stop.sh` is executable |
-| `hook-json` | The same condition: `.claude/settings.json` is valid JSON (`python3 -I -m json.tool`; without `python3` the item says `skip (no python3)` and counts as ok) |
-| `applied` | `.agents/run/flow/build.applied` exists: the install went through `keel apply` |
+| # | Item | Passes when |
+| --- | --- | --- |
+| 1 | `agents-md` | `AGENTS.md` exists, has at most 100 lines, no `{{`, and a `Last updated: YYYY-MM-DD` line |
+| 2 | `state-schema` | `.agents/state.yml` has `schema_version: 3` |
+| 3 | `run-ignored` | `git check-ignore -q .agents/run/x` succeeds |
+| 4 | `gate-ran` | `.agents/run/last-run.log` exists and its last line starts with `gate: fast - ` |
+| 5 | `harness-check` | `bash scripts/harness-check.sh` exits 0 |
+| 6 | `baselines` | Every `.agents/baselines/*.tsv` starts with `# measured_at:` |
+| 7 | `portable-scripts` | `scripts/gate.sh`, `scripts/sensors/` and `scripts/lib/` contain neither `${CLAUDE_` nor `claude` as a command |
+| 8 | `guard-installed` | `scripts/sensors/guard.sh` and `scripts/lib/envparse.sh` exist |
+| 9 | `hook-settings` | When `state.yml` says `hook: installed`: `.claude/settings.json` has a `Stop` entry naming `scripts/hooks/claude-stop.sh` and the literal `${CLAUDE_PROJECT_DIR}`, and no `PostToolUse` entry running the gate |
+| 10 | `hook-executable` | The same condition: `scripts/hooks/claude-stop.sh` is executable |
+| 11 | `hook-json` | The same condition: `.claude/settings.json` is valid JSON (`python3 -I -m json.tool`; without `python3` the item says `skip (no python3)` and counts as ok) |
+| 12 | `applied` | `.agents/run/flow/build.applied` exists: the install went through `keel apply` |
 
 Two items stay with the skill because no script can check them: every command cited in `AGENTS.md`
 really runs, and deep content is `→ docs/X.md` pointers rather than prose.
 
 **`verify rules`**
 
-| Item | Passes when |
-| --- | --- |
-| `harness-check` | `bash scripts/harness-check.sh` exits 0 |
-| `gate-passed` | `.agents/run/last-run.log` ends with a line starting `gate: fast - PASSED` |
-| `rule-env` | Every `.agents/rules/*.env` parses with `scripts/lib/envparse.sh` and has `RULE_ID`, `KIND`, `ORIGIN` and `DOC` |
-| `rule-doc` | Every `DOC=<file>#<anchor>` names an existing file with an `<a id="<anchor>">` |
-| `applied` | `.agents/run/flow/rules.applied` exists |
+| # | Item | Passes when |
+| --- | --- | --- |
+| 1 | `harness-check` | `bash scripts/harness-check.sh` exits 0 |
+| 2 | `gate-passed` | `.agents/run/last-run.log` ends with a line starting `gate: fast - PASSED` |
+| 3 | `rule-env` | Every `.agents/rules/*.env` parses with `scripts/lib/envparse.sh` and has `RULE_ID`, `KIND`, `ORIGIN` and `DOC` |
+| 4 | `rule-doc` | Every `DOC=<file>#<anchor>` names an existing file with an `<a id="<anchor>">` |
+| 5 | `applied` | `.agents/run/flow/rules.applied` exists |
 
-**`verify assess <token>`:** the token of `git status --porcelain` minus `.agents/run/` equals the one
-`check pre assess` printed (item `status`). Without a token it fails and asks for it. `assess` writes
-nothing, so neither command writes a file.
+**`verify assess <token>`**
+
+| # | Item | Passes when |
+| --- | --- | --- |
+| 1 | `status` | The token of `git status --porcelain` minus `.agents/run/` equals the one `check pre assess` printed. Without a token it fails and asks for it |
+
+`assess` writes nothing, so neither `check pre assess` nor `verify assess` writes a file.
 
 ## Traceability
 
-Filled in F2c-3: every `never` / `always` in a skill mapped to a test, a `keel verify` item or an eval
-grader, classified by form (recipe / slot / discipline).
+Every line of a `skills/*/SKILL.md` that contains `never`, `Never`, `always`, `Always`, `**Write nothing`,
+`writes nothing` or `must` has a row here (D37). `tests/keel_traceability_test.sh` collects those lines
+mechanically and fails when one has no row, when a row's quote matches no line of its skill, or when a
+`Checked by` target does not exist.
+
+**Form** follows the failure the rule prevents (spec section 5.5): `recipe` (the shape of the output),
+`slot` (a required field of the output) or `discipline` (skipping a step, writing early, inventing a
+command).
+
+**Checked by** lists one or more targets separated by `; `, each optionally followed by a note in
+parentheses:
+
+- `test:tests/<file>.sh`: a test under `tests/`. A note `(text)` means the test only pins the rule's
+  wording in the skill or contract; it does not exercise the behaviour.
+- `verify:<skill> item N`: row `N` of that skill's `keel verify` table above.
+- `eval:<case>/graders/<file>`: a grader under `evals/` (run by the owner, never by `tests/run.sh`).
+- `hook:<file>`: a hook script, as a path from the plugin root (none yet; PreToolUse arrives in F3c).
+- `none (reason)`: nothing checks the rule. The reason is mandatory and the row is a gap.
+
+| Skill | Rule | Form | Checked by |
+| --- | --- | --- | --- |
+| assess | "always before the build skill" | recipe | none (a routing hint in the description, not a behaviour - a gap) |
+| assess | "every fix is proposed, never made" | discipline | verify:assess item 1; eval:assess-finds-drift/graders/no-write.md; eval:assess-finds-drift/graders/no-bash-write.md |
+| assess | "It writes nothing;" | discipline | test:tests/keel_cli_test.sh (check pre assess creates no .agents/) |
+| assess | "Never invent commands" | discipline | none (assess reports commands it found and writes none - a gap) |
+| assess | "never assumption" | discipline | none (same as the row above - a gap) |
+| assess | "never guess or estimate a number" | discipline | test:tests/assess_test.sh (text) |
+| assess | "never guess the checks" | discipline | test:tests/keel_tmpdir_test.sh (the validator without a temp directory) |
+| assess | "skill never manufactures a warning" | discipline | test:tests/keel_harness_check_test.sh (a clean harness reports `harness is clean`) |
+| assess | "**This skill writes nothing.**" | discipline | verify:assess item 1; eval:assess-finds-drift/graders/no-write.md; eval:assess-finds-drift/graders/no-edit.md; eval:assess-finds-drift/graders/no-notebook-edit.md; eval:assess-finds-drift/graders/no-bash-write.md; test:tests/keel_evals_test.sh (every read-only case carries the four write graders); test:tests/assess_test.sh (disallowed-tools) |
+| assess | "Never guess a number." | discipline | test:tests/assess_test.sh (text) |
+| assess | "Never emit a total" | recipe | test:tests/assess_test.sh (text) |
+| assess | "never record it as fact" | discipline | none (the mode is a sentence in the reply - a gap) |
+| build | "writes nothing before the user confirms" | discipline | verify:build item 12; test:tests/keel_cli_test.sh (apply refuses without an approval of the current proposal) |
+| build | "You never regenerate a script from prose" | discipline | test:tests/keel_harness_check_test.sh (sensor-malformed catches a script whose id, class or mode drifted); verify:build item 5 |
+| build | "Never regenerate a script from prose" | discipline | test:tests/keel_harness_check_test.sh (sensor-malformed catches a script whose id, class or mode drifted); verify:build item 5 |
+| build | "Never invent a command" | discipline | test:tests/keel_harness_check_test.sh (stale-command catches an AGENTS.md command that does not exist); verify:build item 5 |
+| build | "Never install a layer on a guess" | discipline | eval:build-java/graders/compile-not-installed.md |
+| build | "The entry point is always" | slot | none (the bootstrap target is not machine-checked - a gap) |
+| build | "never cite a script bare" | discipline | none (a gap, same as the row above) |
+| build | "Never touch the managed-by header or the line-1 contract" | discipline | test:tests/keel_harness_check_test.sh (sensor-malformed) |
+| build | "sensors never get one" | discipline | test:tests/build_test.sh (text) |
+| build | "must run with this plugin absent" | discipline | verify:build item 7; test:tests/keel_assets_test.sh (no plugin path in any asset) |
+| build | "the adapter always exits 0" | recipe | test:tests/keel_stop_hook_test.sh (the hook exits 0 for every gate result) |
+| build | "never replace it with this repository's absolute path" | discipline | verify:build item 9; test:tests/keel_cli_test.sh (hook-settings fails on an absolute path) |
+| build | "never edit the test to match" | slot | none (the guidance is in the tests sensors, no test pins its wording - a gap) |
+| build | "**Write nothing before the user accepts" | discipline | verify:build item 12; test:tests/keel_cli_test.sh (apply refuses without an approval of the current proposal) |
+| rules | "always with a" | slot | eval:rules-brownfield/graders/mentions-p90.md |
+| rules | "never migrates production" | discipline | eval:rules-brownfield/graders/never-edits-src.md; eval:rules-brownfield/graders/never-writes-src.md |
+| rules | "Never present an" | discipline | eval:rules-brownfield/graders/env-origin.md (a proposed rule is recorded `ORIGIN=proposed`) |
+| rules | "Never edit an accepted ADR" | discipline | none (no check reads ADR history - a gap) |
+| rules | "sensors never get one" | discipline | test:tests/build_test.sh (text) |
+| rules | "keel never raises one" | discipline | test:tests/keel_guard_test.sh (a grown baseline fails unless an ADR added in the same change names it) |
+| rules | "keel never raises a baseline" | discipline | test:tests/keel_guard_test.sh (a grown baseline fails unless an ADR added in the same change names it) |
+| rules | "must leave the gate green" | recipe | verify:rules item 2 |
+| rules | "never run by the Stop hook" | discipline | none (nothing asserts that the hook runs only the fast gate - a gap) |
+| rules | "Plans never go under" | discipline | eval:rules-brownfield/graders/plan.md (a plan is written under `.agents/plans/`) |
+| rules | "this skill never migrates anything itself" | discipline | eval:rules-brownfield/graders/never-edits-src.md; eval:rules-brownfield/graders/never-writes-src.md |
