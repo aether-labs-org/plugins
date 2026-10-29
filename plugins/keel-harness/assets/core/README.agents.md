@@ -23,7 +23,7 @@ one `warn` line per broken condition, or `harness is clean`.
 | `scripts/gate.sh` | Runs `make gate-fast` / `make gate-slow` | No (managed) |
 | `scripts/lib/` | Helpers sourced by sensors (`baseline.sh`, `junit.sh`) | No (managed) |
 | `scripts/sensors/*.sh` | Fast sensors, one per file | Yes |
-| `scripts/sensors/slow/*.sh` | Slow sensors (mutation, diff coverage; optional `reviewer`) | Yes |
+| `scripts/sensors/slow/*.sh` | Slow sensors (mutation, diff coverage; optional `reviewer` and `journey`) | Yes |
 | `scripts/sensors/disabled/` | Sensors switched off | Yes |
 | `scripts/sensors/stoplists/` | Word lists for the code-language sensor | Yes |
 | `scripts/hooks/claude-stop.sh` | Hands gate failures back to Claude Code | No (managed) |
@@ -63,6 +63,15 @@ A model checks the diff since the base against `AGENTS.md` and the docs sections
 2. Add the anchored `reviewer` section to `docs/conventions.md` and state the 800 in it (`make harness-check` warns otherwise).
 3. Run `make gate-slow`. The answer is `PASS` or `FAIL: <reason>` lines; anything else is a skip, never a pass. A `fail` can be
    wrong: fix the code or say why in the pull request. Never edit the rules or `reviewer.env` to make it pass.
+
+### Add the journey sensor (optional, experimental, web stacks)
+Runs your Playwright journeys in the slow gate and, on a failure, names the journey and its trace. `/keel-harness:build`
+installs `scripts/sensors/slow/journey.sh` on request; it skips until Playwright is installed.
+1. Write `.agents/rules/journey.env`: the rule keys (`RULE_ID=journey`, `ENFORCEMENT=sensor:journey`,
+   `DOC=docs/testing.md#journey`, and `KIND`, `ORIGIN`, `APPROVED_AT`), `JOURNEY_DIR=e2e` and, if Playwright's output moved,
+   `JOURNEY_RESULTS`; add the anchored `journey` section to `docs/testing.md`.
+2. Run `make gate-slow`. Open the trace it prints (`npx playwright show-trace <trace>`) and fix the behaviour; never edit the
+   journey or loosen its assertions to make it pass.
 
 ### Disable a sensor
 Move it to `scripts/sensors/disabled/`. The gate runs only top-level `*.sh` files. Move it back to
@@ -128,5 +137,5 @@ sensor deliberately, add an ADR in the same change that names each file by path 
 ## Commands
 
 - `make gate-fast`: the fast sensors. Read line 1 of each, fix every `fail` top to bottom.
-- `make gate-slow`: mutation testing and diff coverage (and the optional `reviewer`). Run it before opening a pull request.
+- `make gate-slow`: mutation testing and diff coverage (and the optional `reviewer` and `journey`). Run it before opening a pull request.
 - `make harness-check`: validates this harness.

@@ -133,6 +133,8 @@ Each stack sensor keeps everything repository-specific between two markers:
 | `sensors/typescript/tests.sh` | correctness | `scripts/sensors/tests.sh` |
 | `sensors/common/secrets.sh` | security, no baseline | `scripts/sensors/secrets.sh` |
 | `sensors/common/guard.sh` | security, no baseline | `scripts/sensors/guard.sh` (fails when the harness was loosened without an ADR) |
+| `sensors/slow/journey.sh` | correctness, opt-in, experimental | `scripts/sensors/slow/journey.sh` (Playwright journeys, `profile-l.md`) |
+| `sensors/slow/reviewer.sh` | heuristic, opt-in, experimental | `scripts/sensors/slow/reviewer.sh` (a model reviews the diff, section 7) |
 
 Python, Java/Kotlin and rule sensors are listed in `sensors-by-language.md` and in the `rules`
 catalog. The `rules` skill ships its own sensors under its `assets/sensors/` (slow ones install to

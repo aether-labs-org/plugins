@@ -53,6 +53,28 @@ first-error-is-root-cause tip.
 - **Signal vs noise**: ignore `DEBUG` unless tracing a specific subsystem (auth/DB).
 - **Root cause**: search backward from the first `ERROR` for the originating `WARN`.
 
+### Structured logs (profile L, experimental)
+
+For an agent that runs for hours, a log it can filter beats a log it must read. Tell it, in the
+`Context Engineering` section of `AGENTS.md` or in `docs/observability.md`, that the service writes
+**one JSON object per line**, with these keys on every line:
+
+```json
+{"ts":"2026-10-29T14:03:11.482Z","level":"error","service":"checkout","msg":"payment declined","trace_id":"a1b2c3","route":"POST /orders","err":"card_declined"}
+```
+
+- **Why one object per line.** `grep '"level":"error"' app.log` and `grep a1b2c3 app.log` work without a
+  parser, a stack trace stays inside one line (`"stack":"..."`) instead of splitting into lines that
+  match nothing, and the same line is machine-readable when a tool, not a person, reads it.
+- **Why fixed keys.** `ts`, `level`, `service` and `msg` are what an agent filters on; extra keys (`route`,
+  `err`, ids) carry the context. A key that changes name between services forces a guess.
+- **Why a `trace_id`.** One request crosses several lines, and several services. The agent follows it with one
+  `grep` instead of reading around timestamps.
+- **No secrets and no personal data in a line**: the agent will read it, and so will whatever stores the log.
+- **Pair it with the journey sensor.** When a Playwright journey fails (`slow/journey.sh`), the
+  trace names the step and the `trace_id` ties that step to the server's lines. State the log file or the command
+  that prints it (`docker compose logs app`) in `AGENTS.md`; never assume the agent can guess it.
+
 ### Reading sensor / tool output
 - **Test failures**: the first `FAIL`/`Error` line is the root; lines below are cascade — fix
   top-down.

@@ -56,3 +56,26 @@ TIMEOUT_SECONDS=120
 - **Calibration.** `tests/fixtures/keel/reviewer/` (in the plugin repository, not installed) holds a diff
   that violates a rule and one that does not, and a stub `REVIEWER_CMD`. The tests use only the stub. To
   calibrate a real model, run both diffs through it and expect `FAIL` then `PASS`.
+
+## 3. `journey` (C8) — `assets/core/sensors/slow/journey.sh`, class `correctness`
+
+Runs the project's Playwright journeys (user-visible flows, end to end).
+
+| Key | Meaning | Default |
+| --- | --- | --- |
+| `JOURNEY_DIR` | Where the journeys live; passed to `npx playwright test`. | `e2e` |
+| `JOURNEY_RESULTS` | Where Playwright keeps traces. | `test-results` |
+
+- **Runs** `npx playwright test <JOURNEY_DIR> --reporter=line --trace=retain-on-failure` and reduces the
+  line reporter to the sensor contract. Playwright has no file-level mode, so `SCOPE` is not used.
+- **Skips** when `npx` is missing, `node_modules/.bin/playwright` is missing, `JOURNEY_DIR` does not exist,
+  or Playwright reports `No tests found`.
+- **Fails** with `<n> of <total> journey(s) failed`, up to 3 `journey:` lines (the failing test's name) and
+  up to 2 `trace:` lines (`trace.zip` under `JOURNEY_RESULTS`), then guidance with the
+  `npx playwright show-trace <trace>` command and the wrong fix (editing the journey or its assertions).
+  A crash before any result is also a fail, with the last lines of output.
+- No model call, no network call of its own (the journeys may use the network the app uses).
+
+## 4. The recipe (C10) is documentation only
+
+`README.agents.md` (short) and the plugin README (full) describe it. keel orchestrates nothing (D47).
