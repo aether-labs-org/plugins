@@ -35,13 +35,13 @@ has "$C" 'https://'; check "catalog cites URLs" $?
 has "$R/adr-template.md" 'Considered Options' && has "$R/adr-template.md" 'supersede'; check "adr-template.md" $?
 RS="$R/rule-section.md"
 for s in '<a id="' '**Rule.**' '**Why.**' '**✓ / ✗.**' '**When it fails.**' '**Decision.**'; do has "$RS" "$s"; check "rule-section.md has $s" $?; done
-for k in RULE_ID KIND ORIGIN APPROVED_AT ENFORCEMENT DOC DECISION PLAN; do has "$R/rule-env.md" "$k="; check "rule-env.md names $k" $?; done
+for k in RULE_ID KIND ORIGIN APPROVED_AT ENFORCEMENT DOC DECISION PLAN; do has "$root/plugins/keel-harness/contracts/rule-env.md" "$k="; check "contracts/rule-env.md names $k" $?; done
 has "$R/topics/architecture.md" 'Codemap' && has "$R/topics/architecture.md" 'Invariants'; check "topics/architecture.md has Codemap and Invariants" $?
 for t in conventions testing; do [ -f "$R/topics/$t.md" ] && has "$R/topics/$t.md" '<a id="'; check "topics/$t.md with an example anchored section" $?; done
-has "$R/plan-template.md" 'review_by' && has "$R/plan-template.md" 'make gate-fast'; check "plan-template.md" $?
+has "$root/plugins/keel-harness/contracts/plan.md" 'review_by' && has "$root/plugins/keel-harness/contracts/plan.md" 'make gate-fast'; check "contracts/plan.md" $?
 [ -f "$R/nested-agents-md-template.md" ] && has "$R/nested-agents-md-template.md" '## Rules' && has "$R/nested-agents-md-template.md" '100 lines'; check "nested-agents-md-template.md" $?
 [ -f "$R/interview.md" ] && has "$R/interview.md" 'at most 4 questions'; check "interview.md" $?
-has "$sk/../build/SKILL.md" '/keel-harness:rules'; check "build SKILL.md offers /keel-harness:rules" $?
+has "$root/plugins/keel-harness/skills/build/SKILL.md" '/keel-harness:rules'; check "build SKILL.md offers /keel-harness:rules" $?
 has "$sk/SKILL.md" 'adr_dir:'; check "rules records adr_dir in state.yml (D45)" $?
 has "$sk/SKILL.md" 'docs/adr/'; check "rules defaults the ADR folder to docs/adr/" $?
 ! grep -rq "docs/""rules" "$root/plugins" "$root/tests"; check "per-rule doc path is gone (D28)" $?

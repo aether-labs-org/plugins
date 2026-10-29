@@ -309,7 +309,7 @@ check_review_due() {
   d="$(sed -n 's/^harness_review_by: *\([0-9-]*\).*/\1/p' .agents/state.yml | head -1)"
   [ -n "$d" ] || return 0
   if [[ "$d" < "$today" ]]; then
-    warn review-due .agents/state.yml "harness_review_by $d has passed" "Re-read the harness with /keel-harness:doctor, then move harness_review_by six months ahead"
+    warn review-due .agents/state.yml "harness_review_by $d has passed" "Re-read the harness with /keel-harness:assess, then move harness_review_by six months ahead"
   fi
 }
 

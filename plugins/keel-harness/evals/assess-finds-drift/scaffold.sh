@@ -4,7 +4,7 @@
 # TypeScript repo build-typescript uses, overlay the pre-built harness fixture
 # (Makefile, scripts/, .agents/ - already verified clean by gate-catches-defect),
 # add an AGENTS.md of our own (the shared fixture ships none - each case that
-# needs one writes it), then append 120 filler lines so exactly one of doctor's
+# needs one writes it), then append 120 filler lines so exactly one of the validator's
 # four conditions - AGENTS.md size - is broken. Commands and sensor tools
 # are left untouched and clean, so only that one condition
 # fires.

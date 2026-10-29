@@ -27,7 +27,7 @@ for forbidden in hooks .mcp.json bin commands; do
   check "plugin has no $forbidden (spec 9)" $?
 done
 
-for s in assess build doctor rules; do
+for s in assess build rules; do
   f="$root/plugins/keel-harness/skills/$s/SKILL.md"
   [ -f "$f" ]; check "skills/$s/SKILL.md exists" $?
   grep -q "^name: $s$" "$f" 2>/dev/null; check "skills/$s frontmatter name" $?

@@ -83,7 +83,7 @@ line, propose inserting `@AGENTS.md` as its first line, as its own question.
 
 ## 5. Phase 3 - the gates
 
-Read `references/sensors-by-language.md` and `references/sensor-contract.md` first. Propose only
+Read `references/sensors-by-language.md` and `${CLAUDE_PLUGIN_ROOT}/contracts/sensor.md` first. Propose only
 the sensors whose tool the repository has; a missing tool is either left out or installed as an
 honest `skip`.
 
@@ -114,7 +114,7 @@ with the sensor's own measurement and the user's approval:
 KEEL_MEASURE=1 bash scripts/sensors/lint.sh > .agents/baselines/lint.tsv
 ```
 
-`security` and `correctness` sensors never get one (see `references/sensor-contract.md`).
+`security` and `correctness` sensors never get one (see `${CLAUDE_PLUGIN_ROOT}/contracts/sensor.md`).
 
 **Makefile targets**, added beside `bootstrap`:
 
@@ -138,7 +138,7 @@ and reading it.
 
 ## 6. The output contract
 
-Every sensor emits the seven fields of `references/sensor-contract.md` section 1; the copied assets
+Every sensor emits the seven fields of `${CLAUDE_PLUGIN_ROOT}/contracts/sensor.md` section 1; the copied assets
 already do. When editing the repo-specific block keep: `guidance` on `fail` only, in this
 repository's terms and naming the wrong fix ("never edit the test to match"); `class` deciding
 baselines (`security` and `correctness` never get a TSV baseline); and the detail cap.
@@ -223,7 +223,7 @@ not_installed:                    # layer or sensor -> the reason, in keel's wor
   slow_gate: "no mutation or coverage tool configured"
 ```
 
-Use the real reason for each `not_installed` entry; never a generic one. Ignore the generated files (section 7); `.agents/state.yml`, `.agents/gate.env` and `.agents/baselines/` are committed.
+Each key's type, writer and reader are in `${CLAUDE_PLUGIN_ROOT}/contracts/state.md`. Use the real reason for each `not_installed` entry; never a generic one. Ignore the generated files (section 7); `.agents/state.yml`, `.agents/gate.env` and `.agents/baselines/` are committed.
 
 ## 10. Self-verify
 

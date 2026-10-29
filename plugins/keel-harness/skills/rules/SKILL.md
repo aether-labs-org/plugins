@@ -20,8 +20,9 @@ justification, and this skill **writes only what the user approved**. It never m
 code: an approved breaking change becomes a rule, a baseline, an ADR and a local plan.
 
 Reference files live next to this one: `references/catalog.md` (the entries and their sources),
-`interview.md`, `adr-template.md`, `rule-section.md`, `rule-env.md`, `plan-template.md`,
-`nested-agents-md-template.md` and `topics/`. Read the catalog entry before proposing its rule.
+`interview.md`, `adr-template.md`, `rule-section.md`, `nested-agents-md-template.md` and `topics/`.
+The shared contracts are in `${CLAUDE_PLUGIN_ROOT}/contracts/`: `rule-env.md` and `plan.md`. Read the
+catalog entry before proposing its rule.
 
 ## 0. Precondition
 
@@ -97,7 +98,7 @@ Write only what was approved, in this order:
    that, propose splitting it by subtopic.
 3. The rule's line in the right `AGENTS.md` (`nested-agents-md-template.md` for directory rules):
    `- <statement> → docs/<topic>.md#<rule-id>`. Files stay at 100 lines or fewer.
-4. `.agents/rules/<rule-id>.env` from `rule-env.md`: the metadata (`origin:` discovered | proposed |
+4. `.agents/rules/<rule-id>.env` from `${CLAUDE_PLUGIN_ROOT}/contracts/rule-env.md`: the metadata (`origin:` discovered | proposed |
    user is `ORIGIN=`; `decision:` is `DECISION=`; also `RULE_ID KIND APPROVED_AT ENFORCEMENT DOC
    PLAN`) and the parameters. Every rule has one, inferential ones included.
 5. The sensors and generated tool config. Copy sensors from `${CLAUDE_PLUGIN_ROOT}/assets/core/sensors/rules/`
@@ -128,7 +129,7 @@ suites stay the project's own targets, cited in `AGENTS.md`.
 ## 8. Plan
 
 For each approved rule whose baseline is non-empty, write a local migration plan
-`.agents/plans/YYYY-MM-DD-<rule-id>.md` from `plan-template.md`, with acceptance criteria in the
+`.agents/plans/YYYY-MM-DD-<rule-id>.md` from `${CLAUDE_PLUGIN_ROOT}/contracts/plan.md`, with acceptance criteria in the
 sensor's numbers, and record it as `PLAN=` in the rule's env file. Plans never go under `docs/`
 (they are gitignored) and this skill never migrates anything itself.
 

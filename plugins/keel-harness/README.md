@@ -10,11 +10,17 @@ only judgment.
 
 ### `/keel-harness:assess`
 
-Diagnoses how ready a repository is for AI coding agents on a seven-axis rubric (bootstrap, guides,
-fast sensors, slow sensors, enforcement, context, rules) and infers whether it is greenfield or
-brownfield.
+Answers two questions, read-only (`disallowed-tools: Write Edit NotebookEdit`):
 
-- **Reads:** stack markers, scripts, sensors, every instruction file the target agents load, `docs/`
+- **No harness installed** (`.agents/state.yml` absent): how ready the repository is for AI coding agents,
+  on a seven-axis rubric (bootstrap, guides, fast sensors, slow sensors, enforcement, context, rules),
+  and whether it is greenfield or brownfield.
+- **A harness installed**: is it still healthy? It runs the portable validator (`harness-check.sh`,
+  15 checks), explains each warning, proposes the fix and compares the repository's copy of the validator
+  with the plugin's.
+
+- **Reads:** stack markers, scripts, sensors, every instruction file the target agents load, `docs/`,
+  the validator's output
 - **Writes:** nothing
 
 ### `/keel-harness:build`
@@ -38,10 +44,12 @@ what the user approved and never migrates production code.
   ADRs in the repository's ADR folder (`docs/adr/` by default); `.agents/rules/<id>.env`; rule sensors, baselines and generated tool config
   (ArchUnit test, `.dependency-cruiser.cjs`, `.importlinter`); local plans in `.agents/plans/`
 
-### `/keel-harness:doctor`
+### Breaking change in v0.3
 
-Runs the repository's own validator (`harness-check.sh`, 15 checks), explains each warning and proposes
-the fix. Writes nothing.
+`/keel-harness:doctor` is removed (D51). Its job moved into `/keel-harness:assess`: with a harness installed,
+`assess` runs the same validator and explains each warning. The checks and their tests are unchanged. The
+eval cases `doctor-finds-drift` and `doctor-validator-drift` are now `assess-finds-drift` and
+`assess-validator-drift`; the rows below that predate F2c keep the numbers they were measured with.
 
 ## The v0.2 rule
 
@@ -78,6 +86,9 @@ on the changed files; it is never run by the hook and never wired to CI.
 
 ## Evals (`claude plugin eval`, manual and paid)
 
+`assess-finds-drift` and `assess-validator-drift` were `doctor-finds-drift` and `doctor-validator-drift` before F2c;
+the E1 and E2 rows below use the new names for numbers measured under the old ones.
+
 Run from `plugins/keel-harness/`, one grant group at a time. `--allow-tools` applies to every case in
 a run, and `--case` keeps only its last value, so each group is selected by its tag:
 
@@ -99,7 +110,7 @@ Code's Bash tool creates. Host prerequisites per case:
 | `build-python` | python3 with `venv`, network |
 | `build-java`, `rules-architecture-java` | JDK 17+, network (Gradle wrapper) |
 | `rules-greenfield` | none beyond the tool allow-list |
-| `doctor-finds-drift`, `doctor-validator-drift` | node/npm, network, `gitleaks`; `--allow-tools Bash` (the doctor skill runs the validator) |
+| `assess-finds-drift`, `assess-validator-drift` | node/npm, network, `gitleaks`; `--allow-tools Bash` (`assess` runs the validator) |
 
 v0.2 numbers, **partial baseline**: 5 of the 15 cases measured (the read-only ones). `rules-effect-with`
 and `rules-effect-without` are meant to run with `--ablation none` and be compared by hand, since that
@@ -122,7 +133,7 @@ have not run.
   `claude plugin eval` the Bash sandbox mounted the working directory, `.git`, `.claude` and `$TMPDIR`
   read-only, so `gate-catches-defect` could not write `gate-output.txt` (WITH 0.20, W-OUT 0.20, one run
   per arm). Spent USD 0.22. See findings.
-- Total spent: USD 5.18 (smoke 0.12, `should-not-trigger` 0.36, `assess-*` 1.68, `doctor-*` 3.03).
+- Total spent: USD 5.18 (smoke 0.12, `should-not-trigger` 0.36, `assess-*` 1.68, `assess-*-drift` 3.03).
 - Cost (USD) is each case's total `costUsd` over 3 runs x 2 arms (judge cost was 0). The smoke run is not
   included in the per-case costs. Raw results: `docs/evals/keel-v0.3-f0/`.
 
@@ -140,9 +151,9 @@ have not run.
 | `rules-greenfield` | not run | | | host-blocked (nested bwrap) | |
 | `rules-architecture-java` | not run | | | host-blocked (nested bwrap) | |
 | `rules-effect-with` / `-without` | not run | | | host-blocked (nested bwrap) | |
-| `doctor-finds-drift` | 1.00 | 0.33 | +0.67 | pass | 1.52 |
+| `assess-finds-drift` | 1.00 | 0.33 | +0.67 | pass | 1.52 |
 | `doctor-agents-not-loaded` | 1.00 | 1.00 | 0.00 | retired in E1, see findings | 1.51 |
-| `doctor-validator-drift` (E1) | 0.80 | 0.67 | +0.13 | weak; `writes-nothing` confounded, see E1 results | 0.59 |
+| `assess-validator-drift` (E1) | 0.80 | 0.67 | +0.13 | weak; `writes-nothing` confounded, see E1 results | 0.59 |
 
 ### Findings (partial baseline at `cf495ff`)
 
@@ -156,16 +167,16 @@ not separate the two arms in this measurement. It is a candidate for the existen
 delete after three consecutive runs with Δ ≤ 0); this is one measurement session, and nothing is deleted
 in F1.
 
-**E1 (2026-10-28): `doctor-agents-not-loaded` retired, `doctor-validator-drift` added.** A model without
+**E1 (2026-10-28): `doctor-agents-not-loaded` retired, `assess-validator-drift` added.** A model without
 the plugin already knows the `@AGENTS.md` bridge, and `harness-check.sh`'s `agents-not-loaded` check is
-covered by `tests/keel_harness_check_test.sh`. The new case tests what only the plugin's `doctor` adds:
+covered by `tests/keel_harness_check_test.sh`. The new case tests what only the plugin's `doctor` (now folded into `assess`) adds:
 the repository carries an older `harness-check.sh` that has no `guard-missing` check and reports no
 guard problem, the guard sensor is missing, and only the plugin's current validator names it. Both
-`doctor-*` cases now grant `Bash`, which the skill needs to run the validator: F1's `doctor-*` runs
+`assess-*-drift` cases now grant `Bash`, which the skill needs to run the validator: F1's `assess-*-drift` runs
 could not run it. The scaffold's AGENTS.md also points at `dist/`, which the scaffold never builds, so
 `dangling-pointer` is an extra warning in both cases; the graders do not count warnings.
 
-**E1 results (2026-10-28, commit `c8b71ca`).** Both `doctor-*` cases, 3 runs per arm (with-without),
+**E1 results (2026-10-28, commit `c8b71ca`).** Both `assess-*-drift` cases, 3 runs per arm (with-without),
 `--allow-tools Bash`, in a Claude Code cloud container (Ubuntu 24.04, Claude Code 2.1.312, `gitleaks`
 8.24.2, nested bwrap working). Spent USD 1.17 of the approved USD 8 (measured run 1.10, plus a 0.06
 diagnostic run; a first attempt died in every scaffold before any agent turn and cost 0). Raw results:
@@ -173,21 +184,21 @@ diagnostic run; a first attempt died in every scaffold before any agent turn and
 
 | Case | WITH | W-OUT | Δ | WITH / W-OUT without `writes-nothing` | Cost (USD) |
 | --- | --- | --- | --- | --- | --- |
-| `doctor-finds-drift` | 0.44 | 0.67 | -0.22 | 0.67 / 1.00 | 0.52 |
-| `doctor-validator-drift` | 0.80 | 0.67 | +0.13 | 1.00 / 0.83 | 0.59 |
+| `assess-finds-drift` | 0.44 | 0.67 | -0.22 | 0.67 / 1.00 | 0.52 |
+| `assess-validator-drift` | 0.80 | 0.67 | +0.13 | 1.00 / 0.83 | 0.59 |
 
-- **Not comparable with F1.** F1's `doctor-finds-drift` row (1.00 / 0.33) ran without Bash; these runs
+- **Not comparable with F1.** F1's `assess-finds-drift` row (1.00 / 0.33) ran without Bash; these runs
   grant it, so the WITH arm can run the validator and the W-OUT arm can run any command.
 - **`writes-nothing` failed in all 12 runs, in both arms.** Whenever Claude Code's Bash tool runs, it
   creates an empty directory `.claude/.cc-writes/` in the working directory (reproduced with a one-`ls`
   case and `--keep-temp`), and the grader's `**/*` matches it. It measures the Bash tool, not the agent,
-  and costs every run 1/3 (`doctor-finds-drift`) or 1/5 (`doctor-validator-drift`) of its score. The
+  and costs every run 1/3 (`assess-finds-drift`) or 1/5 (`assess-validator-drift`) of its score. The
   grader was not changed in E1; the column above shows the scores without it. Running
   `harness-check.sh` itself writes nothing.
-- **`doctor-validator-drift` separates the arms only weakly.** WITH named the missing guard and the
+- **`assess-validator-drift` separates the arms only weakly.** WITH named the missing guard and the
   validator drift in 3 of 3 runs; W-OUT named the guard in 3 of 3 and the drift in 2 of 3. The Δ comes
   from that one W-OUT run. WITH needed 4 to 5 turns, W-OUT 10.
-- **`doctor-finds-drift` has Δ ≤ 0.** W-OUT named the AGENTS.md size drift in 3 of 3 runs, WITH in 2 of
+- **`assess-finds-drift` has Δ ≤ 0.** W-OUT named the AGENTS.md size drift in 3 of 3 runs, WITH in 2 of
   3. The trace files were not retained, so why the one WITH run missed it is not known. With Bash, the
   no-plugin arm can find the drift itself.
 - **Host fix.** The eval strips the proxy and CA variables from the scaffold's environment, so `npm
@@ -197,16 +208,16 @@ diagnostic run; a first attempt died in every scaffold before any agent turn and
 
 No case scored below 1.0 in the WITH arm. In the W-OUT arm the failing graders were: `rubric-axes` and
 `rubric-states` (`assess-mature-repo`), `context-partial` (`assess-claude-md`), `names-the-drift`
-(`doctor-finds-drift`), each in all 3 runs.
+(`assess-finds-drift`), each in all 3 runs.
 
 **Confounders.**
-- All five cases allow only `[Read, Glob, Grep, Skill]`. The `doctor` skill's first step runs
+- All five cases allow only `[Read, Glob, Grep, Skill]`. The `doctor` skill's (now `assess`) first step runs
   `harness-check.sh` through Bash, which these cases do not grant. The WITH arm still scored 1.00 on both
-  `doctor-*` cases, but the result files keep no transcripts (the trace files were not retained), so
+  `assess-*-drift` cases, but the result files keep no transcripts (the trace files were not retained), so
   whether the validator ran or the agent read the files by hand is not known from this data.
-- The recorded turns of the `doctor-*` runs (WITH 12 to 21, W-OUT 16 to 23) go above the `max_turns: 20` in
+- The recorded turns of the `assess-*-drift` runs (WITH 12 to 21, W-OUT 16 to 23) go above the `max_turns: 20` in
   their prompts; the result files do not say how turns are counted.
-- The `doctor-*` run exceeded its USD 3 ceiling by USD 0.03 through runs already in flight; no run was
+- The `assess-*-drift` run exceeded its USD 3 ceiling by USD 0.03 through runs already in flight; no run was
   skipped and the exit code was 0.
 - Claude Code changed from 2.1.310 to 2.1.312 between the smoke run and the measured runs.
 
@@ -241,21 +252,21 @@ for the missing npm `cafile` (see the F1b host fix; cost 0). Raw results: `docs/
 | `assess-claude-md` | 1.00 | 0.60 | +0.40 | 0.44 |
 | `assess-mature-repo` | 1.00 | 0.33 | +0.67 | 0.38 |
 | `should-not-trigger` | 1.00 | 1.00 | 0.00 | 0.18 |
-| `doctor-finds-drift` | 0.72 | 0.56 | +0.17 | 0.52 |
-| `doctor-validator-drift` | 0.97 | 0.68 | +0.28 | 0.66 |
+| `assess-finds-drift` | 0.72 | 0.56 | +0.17 | 0.52 |
+| `assess-validator-drift` | 0.97 | 0.68 | +0.28 | 0.66 |
 
 - **`assess-claude-md`, `assess-mature-repo`:** same as F1 (1.00 / 0.60 and 1.00 / 0.33). The graders now
   check tool calls instead of `file_exists`; no run called a write tool.
 - **`should-not-trigger`:** same as F1; its grader now also covers the `rules` skill.
-- **`doctor-finds-drift`:** F1 had 1.00 / 0.33 without Bash and E1 had 0.44 / 0.67 with Bash and the
+- **`assess-finds-drift`:** F1 had 1.00 / 0.33 without Bash and E1 had 0.44 / 0.67 with Bash and the
   `file_exists` grader. Now 0.72 / 0.56. WITH missed `names-the-drift` in 1 of 3 runs.
-- **`doctor-validator-drift`:** E1 had 0.80 / 0.67. Now 0.97 / 0.68.
-- **`no-bash-write` flags `mkdir` of a scratch `TMPDIR`.** It failed in 7 of 12 `doctor-*` runs
-  (`doctor-finds-drift`: WITH 2 of 3, W-OUT 0 of 3; `doctor-validator-drift`: WITH 2 of 3, W-OUT 3 of 3).
+- **`assess-validator-drift`:** E1 had 0.80 / 0.67. Now 0.97 / 0.68.
+- **`no-bash-write` flags `mkdir` of a scratch `TMPDIR`.** It failed in 7 of 12 `assess-*-drift` runs
+  (`assess-finds-drift`: WITH 2 of 3, W-OUT 0 of 3; `assess-validator-drift`: WITH 2 of 3, W-OUT 3 of 3).
   All 7 flagged commands were `mkdir -p /tmp/claude-eval-*/home/<dir>` (or `export TMPDIR=...; mkdir -p
   "$TMPDIR"`) followed by `TMPDIR=<dir> bash harness-check.sh`. The agent makes a writable `TMPDIR`
   outside the repository because `harness-check.sh` needs one. The grader follows the plan and counts it
-  as a write, so it costs a run 0.05 to 0.08 and the `doctor-*` rows above are slightly low. The decision
+  as a write, so it costs a run 0.05 to 0.08 and the `assess-*-drift` rows above are slightly low. The decision
   on whether to exempt `/tmp` is the owner's.
 
 ## v0.1 eval baseline (historical)
@@ -266,6 +277,7 @@ need `--allow-tools Write Edit Bash` (they install/run real commands), plus `soc
 and `bwrap` on the host. Both scaffolds also run `npm install`, so they need network access when
 they run.
 
+- Case names: `doctor-finds-drift` is `assess-finds-drift` since F2c.
 - Date: 2026-09-21
 - Claude Code version: 2.1.278
 
@@ -275,7 +287,7 @@ they run.
 | `should-not-trigger` | 1.00 | 1.00 | 0.00 | pass (correct result) |
 | `build-typescript` | 0.57–1.00 | 0.43 | +0.14 to +0.57 | pass, confounded — see below |
 | `gate-catches-defect` | 0.20 (single-arm, `--ablation none`) | n/a | n/a | environment-blocked — see below |
-| `doctor-finds-drift` | 1.00 | 0.33 | +0.67 | pass |
+| `doctor-finds-drift` (now `assess-finds-drift`) | 1.00 | 0.33 | +0.67 | pass |
 
 `assess-mature-repo` and `doctor-finds-drift` were freshly re-run for this table (3/3 runs each
 arm). `should-not-trigger`, `build-typescript` and `gate-catches-defect` carry over the numbers

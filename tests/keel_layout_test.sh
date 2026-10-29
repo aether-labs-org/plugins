@@ -26,4 +26,18 @@ missing="$(grep -rhoE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+' "$KEEL/skills"
 check "build cites the stack sensors (assets/core/sensors/), not the rule sensors" $?
 grep -q 'PLUGIN_ROOT}/assets/core/sensors/rules/' "$KEEL/skills/rules/SKILL.md"; check "rules copies its sensors from assets/core/sensors/rules/" $?
 ! grep -rnE 'skills/(build|rules)/assets' "$KEEL" "$(dirname "$0")"/*.sh --exclude=keel_layout_test.sh >/dev/null; check "no reference to the old asset paths in the plugin or the tests" $?
+
+# F2c-1: contracts/ is the single source every skill points at (spec section 4)
+for f in sensor rule-env plan state flow; do
+  [ -f "$KEEL/contracts/$f.md" ]; check "contracts/$f.md exists" $?
+done
+for d in skills/build/references/sensor-contract.md skills/rules/references/rule-env.md skills/rules/references/plan-template.md; do
+  [ ! -e "$KEEL/$d" ]; check "$d moved to contracts/" $?
+done
+! grep -rnE '\.\./(build|rules|assess)/' "$KEEL/skills" >/dev/null; check "no SKILL.md or reference reaches into a sibling skill (../build/, ../rules/, ../assess/)" $?
+! grep -rnE '(^|[^/])(references/(sensor-contract|rule-env|plan-template)\.md)' "$KEEL/skills" "$KEEL/contracts" >/dev/null; check "no skill cites a contract at its old references/ path" $?
+grep -q '## Phases' "$KEEL/contracts/flow.md" && grep -q '## Traceability' "$KEEL/contracts/flow.md"; check "contracts/flow.md has Phases and Traceability headings" $?
+for k in schema_version installed_at harness_review_by mode adr_dir layers not_installed bootstrap guides fast_gate slow_gate hook ci precommit rules; do
+  grep -q "\`$k\`" "$KEEL/contracts/state.md" 2>/dev/null; check "contracts/state.md documents $k" $?
+done
 finish
