@@ -212,4 +212,69 @@ printf 'Baseline src/big.txt in .agents/baselines/file-size.tsv.\nSupersedes: do
 run "$r"; [ $rc -eq 0 ]; check "mandatory: a baseline row for a mandatory rule passes with a superseding ADR naming the baseline" $?
 r="$(mk)"; printf 'src/big.txt\t20\n' >> "$r/.agents/baselines/file-size.tsv"; printf 'Baseline .agents/baselines/file-size.tsv.\n' > "$r/docs/adr/0002-base.md"
 run "$r"; [ $rc -eq 0 ]; check "ratchet: the same baseline row passes with an ADR naming the file" $?
+
+# ===== type strictness (D44, F3d-2): tsconfig strict, mypy strict, pyright typeCheckingMode
+# mkts PATH CONTENT -> the harness plus one committed config file
+mkts() { local r; r="$(mk)"; mkdir -p "$r/$(dirname "$1")"; printf '%s\n' "$2" > "$r/$1"; (cd "$r" && git add -A && git commit -q -m cfg); printf '%s\n' "$r"; }
+TSS='{
+  // "strict": false
+  "compilerOptions": { "target": "es2022", "strict": true, },
+}'
+r="$(mkts tsconfig.json "$TSS")"; run "$r"; [ $rc -eq 0 ]; check "type-strictness: an unchanged tsconfig passes (JSONC comments and trailing commas)" $?
+printf '%s\n' "${TSS//\"strict\": true/\"strict\": false}" > "$r/tsconfig.json"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'tsconfig.json: type-strictness: strict true -> false'; check "type-strictness: tsconfig strict true -> false fails" $?
+printf '# ADR 0011\nWe turn off strict in `tsconfig.json` while the migration runs.\n' > "$r/docs/adr/0011-strict.md"; run "$r"
+[ $rc -eq 0 ] && printf '%s' "$out" | head -1 | qgrep '1 loosening(s)'; check "type-strictness: an ADR added in the change that names tsconfig.json passes" $?
+r="$(mkts tsconfig.json "$TSS")"; printf '{ "compilerOptions": { "target": "es2022" } }\n' > "$r/tsconfig.json"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'tsconfig.json: type-strictness: strict true -> (unset)'; check "type-strictness: removing strict fails" $?
+r="$(mkts tsconfig.json "$TSS")"; rm "$r/tsconfig.json"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'tsconfig.json: type-strictness: file removed'; check "type-strictness: deleting a strict tsconfig fails" $?
+r="$(mkts tsconfig.json '{ "compilerOptions": { "strict": true, "noImplicitAny": true } }')"
+printf '{ "compilerOptions": { "strict": true, "noImplicitAny": false } }\n' > "$r/tsconfig.json"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'type-strictness: noImplicitAny true -> false'; check "type-strictness: switching one strict flag off under strict fails" $?
+r="$(mkts tsconfig.json '{ "compilerOptions": { "strict": true, "noImplicitAny": true } }')"
+printf '{ "compilerOptions": { "strict": true } }\n' > "$r/tsconfig.json"; run "$r"; [ $rc -eq 0 ]; check "type-strictness: dropping a flag that strict already implies passes" $?
+r="$(mkts tsconfig.json '{ "compilerOptions": { "strict": false } }')"
+printf '{ "compilerOptions": { "strict": true } }\n' > "$r/tsconfig.json"; run "$r"; [ $rc -eq 0 ]; check "type-strictness: turning strict on passes" $?
+r="$(mkts tsconfig.json '{ "compilerOptions": { "noUncheckedIndexedAccess": true } }')"
+printf '{ "compilerOptions": { } }\n' > "$r/tsconfig.json"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'noUncheckedIndexedAccess true -> (unset)'; check "type-strictness: a flag outside the strict family is not implied by strict" $?
+r="$(mkts packages/web/tsconfig.build.json "$TSS")"; sed -i.bak 's/"strict": true/"strict": false/' "$r/packages/web/tsconfig.build.json"; rm -f "$r/packages/web/tsconfig.build.json.bak"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'packages/web/tsconfig.build.json: type-strictness: strict true -> false'; check "type-strictness: a nested tsconfig.*.json is read too" $?
+r="$(mkts tsconfig.json '{ "compilerOptions": { "target": "es5" } }')"; printf '{ "compilerOptions": { "target": "es2020", "strict": false } }\n' > "$r/tsconfig.json"; run "$r"
+[ $rc -eq 0 ]; check "type-strictness: a tsconfig that was never strict is not loosened" $?
+
+PYM='[project]
+name = "x"
+
+[tool.mypy]
+strict = true
+disallow_untyped_defs = true
+'
+r="$(mkts pyproject.toml "$PYM")"; run "$r"; [ $rc -eq 0 ]; check "type-strictness: unchanged pyproject passes" $?
+sed -i.bak 's/^strict = true/strict = false/' "$r/pyproject.toml"; rm -f "$r/pyproject.toml.bak"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'pyproject.toml: type-strictness: mypy strict true -> false'; check "type-strictness: pyproject [tool.mypy] strict true -> false fails" $?
+r="$(mkts pyproject.toml "$PYM")"; sed -i.bak '/^disallow_untyped_defs/d' "$r/pyproject.toml"; rm -f "$r/pyproject.toml.bak"; run "$r"
+[ $rc -eq 0 ]; check "type-strictness: disallow_untyped_defs removed while strict stays passes (strict implies it)" $?
+r="$(mkts mypy.ini $'[mypy]\ndisallow_untyped_defs = True')"; sed -i.bak 's/True/False/' "$r/mypy.ini"; rm -f "$r/mypy.ini.bak"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'mypy.ini: type-strictness: mypy disallow_untyped_defs true -> false'; check "type-strictness: mypy.ini disallow_untyped_defs True -> False fails" $?
+r="$(mkts setup.cfg $'[mypy]\nstrict = True   # all of it')"; printf '[mypy]\npython_version = 3.12\n' > "$r/setup.cfg"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'setup.cfg: type-strictness: mypy strict true -> (unset)'; check "type-strictness: setup.cfg [mypy] strict removed fails" $?
+r="$(mkts mypy.ini $'[mypy]\nstrict = False')"; printf '[mypy]\nstrict = True\n' > "$r/mypy.ini"; run "$r"; [ $rc -eq 0 ]; check "type-strictness: mypy strict False -> True passes" $?
+
+PYR='[tool.pyright]
+typeCheckingMode = "strict"
+'
+r="$(mkts pyproject.toml "$PYR")"; sed -i.bak 's/"strict"/"standard"/' "$r/pyproject.toml"; rm -f "$r/pyproject.toml.bak"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'pyproject.toml: type-strictness: pyright typeCheckingMode strict -> standard'; check "type-strictness: pyproject pyright strict -> standard fails" $?
+r="$(mkts pyrightconfig.json '{ "typeCheckingMode": "strict" }')"; run "$r"; [ $rc -eq 0 ]; check "type-strictness: unchanged pyrightconfig passes" $?
+printf '{ "typeCheckingMode": "basic" }\n' > "$r/pyrightconfig.json"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'pyrightconfig.json: type-strictness: pyright typeCheckingMode strict -> basic'; check "type-strictness: pyrightconfig.json strict -> basic fails" $?
+printf 'We lower typeCheckingMode in pyrightconfig.json.\n' > "$r/docs/adr/0012.md"; run "$r"; [ $rc -eq 0 ]; check "type-strictness: an ADR naming pyrightconfig.json passes" $?
+r="$(mkts pyrightconfig.json '{ "typeCheckingMode": "strict" }')"; printf '{ }\n' > "$r/pyrightconfig.json"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'pyright typeCheckingMode strict -> standard'; check "type-strictness: removing the mode falls back to standard, which is lower than strict" $?
+r="$(mkts pyrightconfig.json '{ "typeCheckingMode": "basic" }')"; printf '{ "typeCheckingMode": "strict" }\n' > "$r/pyrightconfig.json"; run "$r"; [ $rc -eq 0 ]; check "type-strictness: basic -> strict passes" $?
+r="$(mkts pyrightconfig.json '{ "typeCheckingMode": "basic" }')"; printf '{ }\n' > "$r/pyrightconfig.json"; run "$r"; [ $rc -eq 0 ]; check "type-strictness: basic -> unset (standard) passes" $?
+r="$(mkts pyrightconfig.json '{ "typeCheckingMode": "basic" }')"; printf '{ "typeCheckingMode": "off" }\n' > "$r/pyrightconfig.json"; run "$r"
+[ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'pyright typeCheckingMode basic -> off'; check "type-strictness: basic -> off fails" $?
 finish
