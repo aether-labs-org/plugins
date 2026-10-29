@@ -444,6 +444,18 @@ check_protect_missing() {
   [ -z "$why" ] || warn protect-missing scripts/hooks/claude-protect.sh "the authority layer is installed but ${why%; }, so edits to the harness are no longer checked" "Run /keel-harness:build to restore the consequence map and the protect hook, or set authority: not_installed in .agents/state.yml"
 }
 
+# --- exemplar-missing
+# A rule's EXEMPLAR (the canonical file to copy, C1b) must still exist.
+check_exemplar_missing() {
+  local f v
+  for f in .agents/rules/*.env; do
+    [ -f "$f" ] || continue
+    v="$(envval "$f" EXEMPLAR)"
+    [ -n "$v" ] || continue
+    [ -e "$v" ] || warn exemplar-missing "$f" "EXEMPLAR $v does not exist" "Point EXEMPLAR at the file that is canonical today, or remove it, in $f and in the nested AGENTS.md line that cites it (rules)"
+  done
+}
+
 # --- review-due
 check_review_due() {
   local d
@@ -472,6 +484,7 @@ check_progress_size
 check_acceptance_untested
 check_codemap_stale
 check_protect_missing
+check_exemplar_missing
 check_review_due
 
 if [ "$nwarn" -eq 0 ]; then

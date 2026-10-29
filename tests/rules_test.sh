@@ -73,4 +73,13 @@ bash -n "$EV/rules-brownfield/harness.sh"; check "eval harness helper parses" $?
 has "$S" 'keel verify plan'; check "rules runs keel verify plan on each plan" $?
 has "$S" '## Acceptance'; check "rules writes an Acceptance section" $?
 has "$S" 'PLAN='; check "rules still records PLAN=" $?
+
+# --- F3d-1: exemplars and legacy zones (C1b)
+RE="$root/plugins/keel-harness/contracts/rule-env.md"
+has "$RE" 'EXEMPLAR=' && has "$RE" 'LEGACY='; check "contracts/rule-env.md documents EXEMPLAR= and LEGACY=" $?
+has "$RE" 'exemplar-missing'; check "rule-env.md names the exemplar-missing check" $?
+has "$R/nested-agents-md-template.md" 'Follow {{EXEMPLAR}}, not {{legacy path}}' && has "$R/nested-agents-md-template.md" 'Legacy zone:'; check "nested template has the Follow X, not Y and Legacy zone lines" $?
+has "$S" 'EXEMPLAR=' && has "$S" 'LEGACY=' && has "$S" 'only after the user confirms'; check "rules proposes an exemplar and writes it only after confirmation" $?
+has "$S" 'With no clear best file'; check "rules proposes no exemplar without a clear best file" $?
+[ "$(wc -l < "$S")" -le 250 ]; check "rules SKILL.md still at most 250 lines after F3d-1" $?
 exit $fail

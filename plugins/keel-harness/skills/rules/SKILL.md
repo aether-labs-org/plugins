@@ -85,6 +85,13 @@ bullet per important module as `` `path/` — what lives there``, then the invar
 in the architecture round as an inference to confirm or correct, and write only confirmed bullets whose
 path exists. With no tree to read (greenfield), leave the section out.
 
+**Exemplars.** When a measurement shows one file that clearly meets a rule better than the rest (the
+smallest file of the top size bucket, the module with the fewest cross-layer imports), propose it as the
+rule's `EXEMPLAR=` and the directories that still break the rule as `LEGACY=`. State the evidence. Write both
+keys, and the `Follow <EXEMPLAR>, not <legacy path>` and `Legacy zone:` lines of the nested `AGENTS.md`
+(`references/nested-agents-md-template.md`), only after the user confirms. With no clear best file,
+propose none.
+
 ### Phase 6 - Rounds
 
 Approve, amend or reject proposals in rounds of at most 4 questions each, the recommended option

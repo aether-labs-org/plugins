@@ -383,6 +383,20 @@ r="$(mkclean)"; sed -i 's/^printf .*/exit 2/' "$r/scripts/sensors/lint.sh"; comm
 r="$(mkclean)"; : > "$r/stub.marker"; sed -i 's|^printf .*|printf "%s" "${SCOPE:-}" > "$PWD/scope.seen"; printf "%s\\t%s\\t%s\\t%s\\n" "$id" "$class" pass ok|' "$r/scripts/sensors/lint.sh"; commit "$r"; hc "$r"; [ "$(cat "$r/scope.seen" 2>/dev/null)" = "src/a.ts" ]; check "sensor-unavailable runs the sensor with SCOPE set to one tracked file" $?
 rm -f "$r/scope.seen"
 
+# exemplar-missing (F3d-1: C1b)
+r="$(mkclean)"; addrule "$r"; mkdir -p "$r/src/good"; echo 1 > "$r/src/good/Best.ts"
+printf "EXEMPLAR=src/good/Best.ts\nLEGACY='src/old/\nsrc/legacy-*.ts'\n" >> "$r/.agents/rules/file-size.env"; commit "$r"
+hc "$r"; [ $rc -eq 0 ]; check "exemplar-missing: an existing EXEMPLAR (and a LEGACY list) is clean" $?
+r="$(mkclean)"; addrule "$r"; printf 'EXEMPLAR=src/good/Gone.ts\n' >> "$r/.agents/rules/file-size.env"; commit "$r"
+hc "$r"; only exemplar-missing file-size.env && printf '%s\n' "$out" | grep -qF 'src/good/Gone.ts'; check "exemplar-missing: an EXEMPLAR path that does not exist warns, naming it" $?
+r="$(mkclean)"; addrule "$r"; printf "EXEMPLAR='src/good/Gone.ts'  # the canonical one\n" >> "$r/.agents/rules/file-size.env"; commit "$r"
+hc "$r"; only exemplar-missing file-size.env; check "exemplar-missing: a quoted EXEMPLAR with a trailing comment is read" $?
+r="$(mkclean)"; addrule "$r"; hc "$r"; [ $rc -eq 0 ]; check "exemplar-missing: a rule with no EXEMPLAR is silent" $?
+r="$(mkclean)"; addrule "$r"; printf 'EXEMPLAR=\n' >> "$r/.agents/rules/file-size.env"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "exemplar-missing: an empty EXEMPLAR is silent" $?
+r="$(mkclean)"; addrule "$r"; printf 'EXEMPLAR=src/a.ts\n' >> "$r/.agents/rules/file-size.env"; commit "$r"
+cp "$r/.agents/rules/file-size.env" "$r/.agents/rules/second.env"; sed -i 's/RULE_ID=file-size/RULE_ID=second/; s/^EXEMPLAR=.*/EXEMPLAR=nope.ts/' "$r/.agents/rules/second.env"; commit "$r"
+hc "$r"; printf '%s\n' "$out" | grep '^warn	exemplar-missing	' | grep -q 'second.env' && [ "$(printf '%s\n' "$out" | grep -c '^warn	exemplar-missing	')" = 1 ]; check "exemplar-missing: one warning per env file with a missing exemplar" $?
+
 # README.agents.md
 G="$KEEL/assets/core/README.agents.md"
 [ -f "$G" ] && [ "$(wc -l < "$G")" -le 120 ]; check "README.agents.md exists and is at most 120 lines" $?

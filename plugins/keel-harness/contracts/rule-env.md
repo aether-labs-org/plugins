@@ -28,3 +28,20 @@ Parameters per sensor: `file-size` (`LIMIT`, `INCLUDE`, `EXCLUDE`), `folder-layo
 Keys are UPPER_CASE. `guard` treats a `*MIN*` key that goes down, a `*LIMIT*`/`*MAX*` key that goes up,
 a longer `ALLOWED`/`EXCLUDE`/`IGNORE_IMPORTS`, a shorter `INCLUDE`/`FORBIDDEN`, a changed `ENFORCEMENT`
 or a deleted env file as a loosening that needs an ADR in the same change.
+
+## Exemplar and legacy zones (any rule)
+
+Two optional keys in any rule env file point agents at the canonical example (C1b):
+
+```sh
+EXEMPLAR=src/orders/OrderService.ts      # the one file to copy for this rule
+LEGACY='src/billing/
+src/old-*.ts'                            # pathspecs, one per line, where the rule is not met yet
+```
+
+- `EXEMPLAR` is a repository path. `rules` proposes it only when the measurement shows a clear best
+  file and writes it only after the user confirms it. `harness-check` warns (`exemplar-missing`) when
+  the path no longer exists.
+- `LEGACY` lists the zones that still break the rule. The nested `AGENTS.md` of those directories says
+  `Follow <EXEMPLAR>, not <legacy path>` and `Legacy zone:` with a pointer to the rule's plan. Neither
+  key changes what a sensor checks, so `guard` leaves them alone.
