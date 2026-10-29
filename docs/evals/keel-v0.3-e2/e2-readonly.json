@@ -1,0 +1,1211 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.312",
+  "startedAt": "2026-10-29T02:01:57.788Z",
+  "durationSeconds": 267,
+  "costUsd": 1.0043906,
+  "partial": false,
+  "suite": {
+    "root": "/home/user/plugins/plugins/keel-harness",
+    "ablation": "with-without",
+    "tagFilters": [
+      "readonly"
+    ],
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "keel-harness",
+        "version": "0.2.0",
+        "path": "/home/user/plugins/plugins/keel-harness"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "assess-claude-md",
+      "dir": "evals/assess-claude-md",
+      "source": "mixed",
+      "promptMarkdown": "I want to start using AI coding agents on this repository. Is it ready? What is missing?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 25,
+      "graders": [
+        {
+          "name": "context-partial",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "Context\\s*\\|\\s*partial",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "names-the-bridge",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "@AGENTS\\.md",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "no-bash-write",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "Bash",
+            "input_match": "\"command\"\\s*:\\s*\"(?:[^\"\\\\]|\\\\.)*(?:(?<![0-9&])>>?(?!&|\\s*/dev/null)|\\btee\\b|\\brm\\s|\\bmv\\s|\\bcp\\s|\\bsed\\s+-i|\\btouch\\s|\\bmkdir\\s|\\bgit\\s+(?:add|commit|apply|checkout|reset|stash)\\b|\\bnpm\\s+(?:i|install|ci)\\b)",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "no-edit",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "Edit",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "no-notebook-edit",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "NotebookEdit",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "no-write",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "Write",
+            "min": 0,
+            "max": 0
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 11,
+            "costUsd": 0.08216999999999999,
+            "judgeCostUsd": 0,
+            "durationSeconds": 21,
+            "startedAt": "2026-10-29T02:01:58.013Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-4LrqSl/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Context\\s*\\|\\s*partial",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 13,
+            "costUsd": 0.0890909,
+            "judgeCostUsd": 0,
+            "durationSeconds": 21,
+            "startedAt": "2026-10-29T02:02:18.699Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-NaYzFv/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Context\\s*\\|\\s*partial",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 13,
+            "costUsd": 0.08952330000000001,
+            "judgeCostUsd": 0,
+            "durationSeconds": 22,
+            "startedAt": "2026-10-29T02:02:39.220Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-ve7Qa4/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Context\\s*\\|\\s*partial",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.6,
+            "passed": false,
+            "turns": 10,
+            "costUsd": 0.055483199999999996,
+            "judgeCostUsd": 0,
+            "durationSeconds": 17,
+            "startedAt": "2026-10-29T02:03:01.040Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-zNrNCD/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.6,
+            "passed": false,
+            "turns": 10,
+            "costUsd": 0.059785,
+            "judgeCostUsd": 0,
+            "durationSeconds": 21,
+            "startedAt": "2026-10-29T02:03:18.017Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-zgIgmi/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.6,
+            "passed": false,
+            "turns": 11,
+            "costUsd": 0.0646153,
+            "judgeCostUsd": 0,
+            "durationSeconds": 23,
+            "startedAt": "2026-10-29T02:03:38.831Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-Qt3cg6/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 0.6,
+        "passRateWithout": 0,
+        "delta": 0.4
+      }
+    },
+    {
+      "name": "assess-mature-repo",
+      "dir": "evals/assess-mature-repo",
+      "source": "mixed",
+      "promptMarkdown": "I want to start using AI coding agents on this repository. Is it ready? What is missing?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 25,
+      "graders": [
+        {
+          "name": "evidence-path",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "`[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "no-bash-write",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "Bash",
+            "input_match": "\"command\"\\s*:\\s*\"(?:[^\"\\\\]|\\\\.)*(?:(?<![0-9&])>>?(?!&|\\s*/dev/null)|\\btee\\b|\\brm\\s|\\bmv\\s|\\bcp\\s|\\bsed\\s+-i|\\btouch\\s|\\bmkdir\\s|\\bgit\\s+(?:add|commit|apply|checkout|reset|stash)\\b|\\bnpm\\s+(?:i|install|ci)\\b)",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "no-edit",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "Edit",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "no-notebook-edit",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "NotebookEdit",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "no-write",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "Write",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "rubric-axes",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "Bootstrap[\\s\\S]*Guides[\\s\\S]*Fast sensors[\\s\\S]*Slow sensors[\\s\\S]*Enforcement[\\s\\S]*Context[\\s\\S]*Rules",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "rubric-states",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "\\|\\s*(present|partial|absent)\\s*\\|",
+            "flags": "i",
+            "match": "count:7"
+          }
+        },
+        {
+          "name": "skill-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?assess\""
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 11,
+            "costUsd": 0.081342,
+            "judgeCostUsd": 0,
+            "durationSeconds": 20,
+            "startedAt": "2026-10-29T02:04:02.186Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-9tepIh/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Bootstrap[\\s\\S]*Guides[\\s\\S]*Fast sensors[\\s\\S]*Slow sensors[\\s\\S]*Enforcement[\\s\\S]*Context[\\s\\S]*Rules",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": true,
+                "weight": 2,
+                "explanation": "found 7 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": true,
+                "scored": false
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 10,
+            "costUsd": 0.075854,
+            "judgeCostUsd": 0,
+            "durationSeconds": 17,
+            "startedAt": "2026-10-29T02:04:22.500Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-zeyrJr/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Bootstrap[\\s\\S]*Guides[\\s\\S]*Fast sensors[\\s\\S]*Slow sensors[\\s\\S]*Enforcement[\\s\\S]*Context[\\s\\S]*Rules",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": true,
+                "weight": 2,
+                "explanation": "found 7 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": true,
+                "scored": false
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 10,
+            "costUsd": 0.07330919999999999,
+            "judgeCostUsd": 0,
+            "durationSeconds": 18,
+            "startedAt": "2026-10-29T02:04:39.677Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-umZO6Z/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Bootstrap[\\s\\S]*Guides[\\s\\S]*Fast sensors[\\s\\S]*Slow sensors[\\s\\S]*Enforcement[\\s\\S]*Context[\\s\\S]*Rules",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": true,
+                "weight": 2,
+                "explanation": "found 7 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": true,
+                "scored": false
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.3333333333333333,
+            "passed": false,
+            "turns": 8,
+            "costUsd": 0.0490944,
+            "judgeCostUsd": 0,
+            "durationSeconds": 15,
+            "startedAt": "2026-10-29T02:04:57.992Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-SgIdSc/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": false,
+                "weight": 2,
+                "explanation": "found 0 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.3333333333333333,
+            "passed": false,
+            "turns": 8,
+            "costUsd": 0.0491848,
+            "judgeCostUsd": 0,
+            "durationSeconds": 15,
+            "startedAt": "2026-10-29T02:05:12.646Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-FzidGj/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": false,
+                "weight": 2,
+                "explanation": "found 0 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.3333333333333333,
+            "passed": false,
+            "turns": 9,
+            "costUsd": 0.053858500000000004,
+            "judgeCostUsd": 0,
+            "durationSeconds": 18,
+            "startedAt": "2026-10-29T02:05:27.533Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-Gor0Cp/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": false,
+                "weight": 2,
+                "explanation": "found 0 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 0.3333333333333333,
+        "passRateWithout": 0,
+        "delta": 0.6666666666666667
+      }
+    },
+    {
+      "name": "should-not-trigger",
+      "dir": "evals/should-not-trigger",
+      "source": "prose",
+      "promptMarkdown": "In git, what is the difference between rebasing and merging?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 5,
+      "graders": [
+        {
+          "name": "skill-silent",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?(assess|build|doctor|rules)\"",
+            "min": 0,
+            "max": 0,
+            "arm": "both"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.032352,
+            "judgeCostUsd": 0,
+            "durationSeconds": 7,
+            "startedAt": "2026-10-29T02:05:45.209Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-LFbRQJ/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-silent",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.031571999999999996,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-29T02:05:52.073Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-A3C2Fe/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-silent",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.032304,
+            "judgeCostUsd": 0,
+            "durationSeconds": 7,
+            "startedAt": "2026-10-29T02:05:58.519Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-6ZYbtQ/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-silent",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.028054,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-29T02:06:05.582Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-lRIKTz/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-silent",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.028394,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-29T02:06:11.737Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-ed9XIV/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-silent",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.028404,
+            "judgeCostUsd": 0,
+            "durationSeconds": 7,
+            "startedAt": "2026-10-29T02:06:17.992Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-xQeu9n/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "skill-silent",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 1,
+        "passRateWithout": 1,
+        "delta": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 3,
+    "casesPassed": 3,
+    "overallScore": 1,
+    "overallPassRate": 1,
+    "meanDelta": 0.3555555555555556
+  }
+}

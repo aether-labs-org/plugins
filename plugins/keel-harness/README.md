@@ -230,6 +230,34 @@ run (`gate-catches-defect`, one run per arm). Raw results: `docs/evals/keel-v0.3
 - The owner stopped F1b here instead of running the eval as a non-root user, which would need that user
   to get the Claude Code login.
 
+**E2 results (2026-10-29, commit `bb5c87d`).** Groups `readonly` (3 cases) and `bash` (2 cases), 3 runs per
+arm (with-without), in a Claude Code cloud container (Ubuntu 24.04, Claude Code 2.1.312, `gitleaks`
+8.24.2, nested bwrap working, `shellcheck` not installed). Spent USD 2.91 of the approved USD 6
+(smoke 0.38, diagnostic run 0.35, `readonly` 1.00, `bash` 1.17). The first smoke died in every scaffold
+for the missing npm `cafile` (see the F1b host fix; cost 0). Raw results: `docs/evals/keel-v0.3-e2/`.
+
+| Case | WITH | W-OUT | Δ | Cost (USD) |
+| --- | --- | --- | --- | --- |
+| `assess-claude-md` | 1.00 | 0.60 | +0.40 | 0.44 |
+| `assess-mature-repo` | 1.00 | 0.33 | +0.67 | 0.38 |
+| `should-not-trigger` | 1.00 | 1.00 | 0.00 | 0.18 |
+| `doctor-finds-drift` | 0.72 | 0.56 | +0.17 | 0.52 |
+| `doctor-validator-drift` | 0.97 | 0.68 | +0.28 | 0.66 |
+
+- **`assess-claude-md`, `assess-mature-repo`:** same as F1 (1.00 / 0.60 and 1.00 / 0.33). The graders now
+  check tool calls instead of `file_exists`; no run called a write tool.
+- **`should-not-trigger`:** same as F1; its grader now also covers the `rules` skill.
+- **`doctor-finds-drift`:** F1 had 1.00 / 0.33 without Bash and E1 had 0.44 / 0.67 with Bash and the
+  `file_exists` grader. Now 0.72 / 0.56. WITH missed `names-the-drift` in 1 of 3 runs.
+- **`doctor-validator-drift`:** E1 had 0.80 / 0.67. Now 0.97 / 0.68.
+- **`no-bash-write` flags `mkdir` of a scratch `TMPDIR`.** It failed in 7 of 12 `doctor-*` runs
+  (`doctor-finds-drift`: WITH 2 of 3, W-OUT 0 of 3; `doctor-validator-drift`: WITH 2 of 3, W-OUT 3 of 3).
+  All 7 flagged commands were `mkdir -p /tmp/claude-eval-*/home/<dir>` (or `export TMPDIR=...; mkdir -p
+  "$TMPDIR"`) followed by `TMPDIR=<dir> bash harness-check.sh`. The agent makes a writable `TMPDIR`
+  outside the repository because `harness-check.sh` needs one. The grader follows the plan and counts it
+  as a write, so it costs a run 0.05 to 0.08 and the `doctor-*` rows above are slightly low. The decision
+  on whether to exempt `/tmp` is the owner's.
+
 ## v0.1 eval baseline (historical)
 
 Run `claude plugin eval . --scaffold` from `plugins/keel-harness/` (each case runs 3 times per arm,
