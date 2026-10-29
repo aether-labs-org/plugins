@@ -67,6 +67,21 @@ done
 R="$(new_repo)"; echo c > "$R/a.txt"; commit; out="$(m tests)"; printf '%s\n' "$out" | grep -qx 'mutation_tool none' && printf '%s\n' "$out" | grep -qx 'coverage_tool none'; check "tests: none tools" $?
 ro tests tests
 
+# --- pattern
+R="$(new_repo)"; mkdir -p "$R/src" "$R/lib"
+printf 'console.log(1);\nok();\nconsole.log(2);\nconsole.debug(3);\n' > "$R/src/a.ts"; printf 'console.log(9);\n' > "$R/src/b.ts"
+printf 'console.log(5);\n' > "$R/lib/c.ts"; printf 'clean();\n' > "$R/src/clean.ts"; printf 'console.log\0\1\n' > "$R/src/blob.bin"
+printf 'console.log(7);\n' > "$R/src/my file: ação.ts"; commit
+out="$(m pattern 'console\.(log|debug)\(' src)"
+printf '%s\n' "$out" | grep -qx 'checked 5' && printf '%s\n' "$out" | grep -qx 'files 3' && printf '%s\n' "$out" | grep -qx 'total 5'; check "pattern: checked, files with a match and total matching lines (binary skipped)" $?
+printf '%s\n' "$out" | grep -qx "$(printf '3\tsrc/a.ts')" && printf '%s\n' "$out" | grep -qx "$(printf '1\tsrc/my file: ação.ts')"; check "pattern: the top files, with a space, a colon and non-ASCII in a path" $?
+[ "$(printf '%s\n' "$out" | sed -n '4p')" = "$(printf '3\tsrc/a.ts')" ]; check "pattern: the largest count comes first" $?
+out="$(m pattern 'console\.log')"; printf '%s\n' "$out" | grep -qx 'files 4' && printf '%s\n' "$out" | grep -qx 'total 5'; check "pattern: no pathspec measures every tracked file" $?
+out="$(m pattern 'nothing-like-this')"; printf '%s\n' "$out" | grep -qx 'files 0' && printf '%s\n' "$out" | grep -qx 'total 0'; check "pattern: no match gives zeros" $?
+ro pattern pattern 'console' src
+m pattern >/dev/null; [ $? -eq 64 ]; check "pattern: no ERE -> rc 64" $?
+m pattern 'foo(' >/dev/null; [ $? -eq 64 ]; check "pattern: an invalid ERE -> rc 64" $?
+
 # --- unknown
 R="$(new_repo)"; m bogus >/dev/null; [ $? -eq 64 ]; check "unknown subcommand rc 64" $?
 # --- language (runs the code-language sensor from the plugin, in a repository without scripts/lib/)

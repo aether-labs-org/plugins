@@ -10,6 +10,7 @@
 #   framework-imports <path_prefix>    framework_prefix<TAB>count
 #   tests                              main/test/unit/integration/e2e counts and tools
 #   language <stoplist> [pathspec...]  runs sensors/code-language.sh in measure mode
+#   pattern <ERE> [pathspec...]        checked, files with a match, total matching lines, then the top 10 files
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -192,6 +193,24 @@ cmd_language() {
     bash "$here/../assets/core/sensors/rules/code-language.sh"
 }
 
+# pattern <ERE> [pathspec...]: matching lines per file, as the pattern sensor counts them (grep -E, C locale)
+cmd_pattern() {
+  local pat="${1:-}"
+  [ -n "$pat" ] || { echo "usage: pattern <ERE> [pathspec...]" >&2; return 64; }
+  shift
+  printf '' | LC_ALL=C grep -E -e "$pat" >/dev/null 2>&1
+  [ $? -ne 2 ] || { echo "pattern: not a valid ERE: $pat" >&2; return 64; }
+  git ls-files -z -- "$@" > "$tmp/pfiles"
+  tr '\0' '\n' < "$tmp/pfiles" | grep -c . > "$tmp/pchecked"
+  : > "$tmp/pcounts"
+  if [ -s "$tmp/pfiles" ]; then
+    LC_ALL=C xargs -0 grep -IcHE -e "$pat" -- < "$tmp/pfiles" 2>/dev/null |
+      awk '{ n = match($0, /:[0-9]+$/); if (n > 0) { c = substr($0, n + 1) + 0; if (c > 0) printf "%d\t%s\n", c, substr($0, 1, n - 1) } }' > "$tmp/pcounts"
+  fi
+  awk -F'\t' -v chk="$(cat "$tmp/pchecked")" '{ t += $1 } END { printf "checked %d\nfiles %d\ntotal %d\n", chk, NR, t }' "$tmp/pcounts"
+  sort -t "$(printf '\t')" -k1,1nr -k2,2 "$tmp/pcounts" | head -10
+}
+
 sub="${1:-}"; [ $# -gt 0 ] && shift
 case "$sub" in
   file-size) cmd_file_size "$@" ;;
@@ -200,5 +219,6 @@ case "$sub" in
   framework-imports) cmd_framework_imports "$@" ;;
   tests) cmd_tests ;;
   language) cmd_language "$@" ;;
-  *) echo "usage: measure.sh file-size|tree|imports|framework-imports|tests|language ..." >&2; exit 64 ;;
+  pattern) cmd_pattern "$@" ;;
+  *) echo "usage: measure.sh file-size|tree|imports|framework-imports|tests|language|pattern ..." >&2; exit 64 ;;
 esac
