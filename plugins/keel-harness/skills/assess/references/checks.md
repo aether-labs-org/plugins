@@ -1,4 +1,4 @@
-# The twenty checks
+# The twenty-four checks
 
 `harness-check.sh` is the only implementation of these checks. `assess` runs the plugin's latest copy
 and adds what a script cannot: the explanation of each warning and the proposed fix.
@@ -27,4 +27,8 @@ manufactures a warning for a check that found nothing; a clean harness is a vali
 | `acceptance-untested` | a spec in `docs/specs/*.md` or `specs/*/spec.md` has acceptance criteria (bullets under an `Acceptance` heading) that name no existing test or spec file; one warning per spec, with the count | name the test that proves each criterion (D46: keel reads specs, never writes them) |
 | `codemap-stale` | a backticked path in the `## Code map` of `docs/architecture.md` no longer exists (silent when the file or the section is absent) | `rules` (update the Code map in `docs/architecture.md`) |
 | `protect-missing` | the `authority` layer is installed but `.agents/consequence.yml`, the executable `scripts/hooks/claude-protect.sh` or its `PreToolUse` entry in `.claude/settings.json` is gone | `build` (`references/authority.md`) |
+| `sensor-always-green` | a sensor passed in every one of at least 30 recorded runs of `.agents/run/history/<fast\|slow>.tsv` and never failed or skipped. Asks whether it still carries load. `security` sensors are exempt, because passing is their job. Silent below 30 runs, so also when `HISTORY_RUNS` is under 30 | review it; remove it or move it to the slow gate (removing a committed sensor needs an ADR, see `guard`) |
+| `sensor-always-red` | a sensor failed in each of its last 10 recorded runs | fix the cause or re-baseline with an ADR (`rules`) |
+| `sensor-flaky` | a sensor flipped between pass and fail at least 3 times in its last 10 recorded runs. A heuristic: the history does not record changes, so real changes between runs can look like flakiness | make it deterministic |
+| `failure-recurring` | a sensor failed in at least 5 of its last 20 recorded runs and is not already reported as always-red or flaky. The warning quotes the sensor's guidance and names the guide that would have prevented it: the `AGENTS.md` line and `docs/` section of the rule that names the sensor, or a prompt to write one | improve that guide (`AGENTS.md` line, `docs/` section, exemplar) through `rules` |
 | `review-due` | `harness_review_by` has passed | `build` (re-read, then move the date six months on) |

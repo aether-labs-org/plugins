@@ -126,7 +126,7 @@ harness. Exit 2 means `.agents/state.yml` is missing, so this is the readiness q
 at `/keel-harness:build` and continue with phase 1; that is a precondition, not a warning. Exit 3
 means no writable temp directory (`TMPDIR`, else `.agents/run/tmp/`): report it, never guess the checks.
 
-**2b. Explain each warning.** The twenty checks, what each one means and where its fix goes are in
+**2b. Explain each warning.** The twenty-four checks, what each one means and where its fix goes are in
 `references/checks.md`. For each warning the validator prints, say in plain words what is wrong, name
 the file, and propose the fix through `/keel-harness:build` or `/keel-harness:rules` as that table
 says. **One broken condition produces exactly one warning.** Stay silent about checks that found
@@ -160,8 +160,10 @@ next step to close it. Say nothing about `present` or `partial` axes beyond the 
 total, no overall grade and no aggregate score: see `references/rubric.md` for why.
 
 **Health report.** List the warnings (check id, file, what is wrong, the proposed fix), then the
-validator drift line. Report and propose, then stop. The health check looks once, not across time:
-checks that need run history (how often a sensor's failures are real) are not part of it.
+validator drift line. Report and propose, then stop. Most checks look once; four read the gate's
+run history in `.agents/run/history/` (the sensor and failure checks in `references/checks.md`) and
+stay silent until enough runs exist. The history records statuses and
+timings, not why a run failed or what changed between runs.
 
 ## Discipline
 

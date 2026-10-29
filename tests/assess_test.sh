@@ -81,10 +81,15 @@ done
 for id in plan-stale progress-size acceptance-untested; do
   hasc "$id"; check "check id (F3b): $id" $?
 done
-! grep -qi "capture rate" "$f" "$chk"; check "no history-dependent checks" $?
+for id in sensor-always-green sensor-always-red sensor-flaky failure-recurring; do
+  hasc "$id"; check "check id (F6): $id" $?
+done
+has ".agents/run/history/"; check "assess SKILL.md says the history checks read .agents/run/history/" $?
+! has "looks once, not across time"; check "assess SKILL.md no longer says the health check looks once" $?
+! grep -qi "capture rate" "$f" "$chk"; check "no capture-rate check (keel does not record why a run failed)" $?
 # the count written in the title, in assess/SKILL.md and in the README equals the rows of the table
 nrows="$(grep -c '^| `' "$chk")"
-words="x x x x x x x x x x x x x x x fifteen sixteen seventeen eighteen nineteen twenty"
+words="x x x x x x x x x x x x x x x fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six twenty-seven twenty-eight twenty-nine thirty"
 word="$(printf '%s\n' "$words" | cut -d' ' -f$((nrows + 1)))"
 grep -q "^# The $word checks$" "$chk"; check "checks.md title counts its $nrows rows ($word)" $?
 grep -qF "The $word checks, what each one means" "$f"; check "assess SKILL.md counts the checks: $word" $?

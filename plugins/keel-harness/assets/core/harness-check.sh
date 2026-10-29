@@ -444,6 +444,93 @@ check_protect_missing() {
   [ -z "$why" ] || warn protect-missing scripts/hooks/claude-protect.sh "the authority layer is installed but ${why%; }, so edits to the harness are no longer checked" "Run /keel-harness:build to restore the consequence map and the protect hook, or set authority: not_installed in .agents/state.yml"
 }
 
+# --- sensor-always-green, sensor-always-red, sensor-flaky and failure-recurring (F6)
+# These read .agents/run/history/<fast|slow>.tsv, which gate.sh appends to: <UTC time><TAB><sensor
+# id><TAB><pass|fail|skip><TAB><ms>, one line per sensor per run, oldest first. They are silent when
+# there is no history, fewer runs than a check's threshold, or no script left for the sensor.
+history_sensor_file() { # history_sensor_file MODE ID -> the sensor's script, nothing when it is gone
+  local p="scripts/sensors/$2.sh"
+  [ "$1" = slow ] && p="scripts/sensors/slow/$2.sh"
+  [ -f "$p" ] && printf '%s' "$p"
+  return 0
+}
+history_guidance() { # history_guidance MODE ID SCRIPT -> the sensor's guidance as one line
+  local log=.agents/run/last-run.log g=""
+  [ "$1" = slow ] && log=.agents/run/last-run-slow.log
+  # The last run's log has the guidance the sensor printed when it failed; else the script's GUIDANCE=.
+  [ -f "$log" ] && g="$(awk -v id="$2" 'f && /^  guidance:/ { sub(/^  guidance:[ ]*/, ""); print; exit } f && !/^  / { f = 0 } $2 == id && !/^  / { f = 1 }' "$log")"
+  if [ -z "$g" ] && [ -f "$3" ]; then
+    g="$(sed -n 's/^[[:space:]]*GUIDANCE=//p' "$3" | head -1 | sed -e "s/^[\"']//" -e "s/[\"']\$//")"
+  fi
+  [ -n "$g" ] || g="the sensor prints none"
+  printf '%s' "$g" | tr '\t\r' '  ' | cut -c1-200
+}
+history_guide() { # history_guide ID -> where the guide for this sensor's rule lives, and what to check in it
+  local f v rule doc
+  for f in .agents/rules/*.env; do
+    [ -f "$f" ] || continue
+    v="$(envval "$f" ENFORCEMENT | tr -d ' ')"
+    case ",$v," in
+      *",sensor:$1,"*)
+        rule="$(envval "$f" RULE_ID)"; doc="$(envval "$f" DOC)"
+        printf 'the guide for rule %s (its AGENTS.md line and %s): make the line say what %s enforces and give the section a worked example' "${rule:-?}" "${doc:-its docs/ section}" "$1"
+        return 0 ;;
+    esac
+  done
+  printf 'no rule names this sensor: add an AGENTS.md line, a docs/ section or an exemplar that says what %s enforces' "$1"
+}
+check_history() {
+  local mode f id n green red flips fails script cls g
+  for mode in fast slow; do
+    f=".agents/run/history/$mode.tsv"
+    [ -f "$f" ] || continue
+    tr -d '\r' < "$f" | awk -F'\t' '
+      NF >= 4 && ($3 == "pass" || $3 == "fail" || $3 == "skip") {
+        if (!($2 in n)) order[++k] = $2
+        n[$2]++; s[$2, n[$2]] = $3
+      }
+      END {
+        for (i = 1; i <= k; i++) {
+          id = order[i]; N = n[id]
+          green = 1
+          for (j = 1; j <= N; j++) if (s[id, j] != "pass") { green = 0; break }
+          from = N - 9; if (from < 1) from = 1
+          red = (N >= 10); flips = 0; prev = ""
+          for (j = from; j <= N; j++) {
+            if (s[id, j] != "fail") red = 0
+            if (s[id, j] != "skip") { if (prev != "" && prev != s[id, j]) flips++; prev = s[id, j] }
+          }
+          from = N - 19; if (from < 1) from = 1
+          fails = 0
+          for (j = from; j <= N; j++) if (s[id, j] == "fail") fails++
+          printf "%s\t%d\t%d\t%d\t%d\t%d\n", id, N, green, red, flips, fails
+        }
+      }' > "$tmp/history-stats" 2> /dev/null
+    while IFS="$TAB" read -r id n green red flips fails; do
+      case "$id" in '' | *[!A-Za-z0-9_.-]*) continue ;; esac
+      script="$(history_sensor_file "$mode" "$id")"
+      [ -n "$script" ] || continue
+      cls="$(sed -n 's/^class=//p' "$script" | head -1 | tr -d '\r"')"
+      if [ "$red" -eq 1 ]; then
+        warn sensor-always-red "$script" "failed in each of the last 10 $mode-gate runs" "fix the cause or re-baseline with an ADR"
+        continue
+      fi
+      if [ "$n" -ge 10 ] && [ "$flips" -ge 3 ]; then
+        warn sensor-flaky "$script" "alternated between pass and fail $flips times in the last 10 $mode-gate runs; changes between runs are not recorded, so this is a heuristic and real changes could explain it" "make it deterministic"
+        continue
+      fi
+      if [ "$n" -ge 30 ] && [ "$green" -eq 1 ] && [ "$cls" != security ]; then
+        warn sensor-always-green "$script" "passed in each of $n recorded $mode-gate runs and never failed; does it still carry load?" "review it; remove it or move it to the slow gate"
+        continue
+      fi
+      if [ "$fails" -ge 5 ]; then
+        g="$(history_guidance "$mode" "$id" "$script")"
+        warn failure-recurring "$script" "failed in $fails of its last 20 $mode-gate runs. Its guidance says: $g. Prevent it with $(history_guide "$id")" "improve that guide (AGENTS.md line, docs/ section, exemplar) so agents stop hitting the sensor"
+      fi
+    done < "$tmp/history-stats"
+  done
+}
+
 # --- review-due
 check_review_due() {
   local d
@@ -472,6 +559,7 @@ check_progress_size
 check_acceptance_untested
 check_codemap_stale
 check_protect_missing
+check_history
 check_review_due
 
 if [ "$nwarn" -eq 0 ]; then
