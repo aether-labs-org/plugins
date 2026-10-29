@@ -23,7 +23,7 @@ one `warn` line per broken condition, or `harness is clean`.
 | `scripts/gate.sh` | Runs `make gate-fast` / `make gate-slow` | No (managed) |
 | `scripts/lib/` | Helpers sourced by sensors (`baseline.sh`, `junit.sh`) | No (managed) |
 | `scripts/sensors/*.sh` | Fast sensors, one per file | Yes |
-| `scripts/sensors/slow/*.sh` | Slow sensors (mutation, diff coverage) | Yes |
+| `scripts/sensors/slow/*.sh` | Slow sensors (mutation, diff coverage; optional `reviewer`) | Yes |
 | `scripts/sensors/disabled/` | Sensors switched off | Yes |
 | `scripts/sensors/stoplists/` | Word lists for the code-language sensor | Yes |
 | `scripts/hooks/claude-stop.sh` | Hands gate failures back to Claude Code | No (managed) |
@@ -51,6 +51,18 @@ Drop an executable file in `scripts/sensors/` (fast) or `scripts/sensors/slow/` 
 - print at most 5 detail lines indented by two spaces, and a `guidance: ` block only on failure;
 - read `SCOPE` (changed files, newline separated; empty means the whole repository).
 Files starting with `_` and subdirectories are never run by the gate.
+
+### Add the reviewer sensor (optional, experimental)
+A model checks the diff since the base against `AGENTS.md` and the docs sections it cites, in the slow gate only. It is
+**a model call on every `make gate-slow`, billed to you, and the diff is sent to the command you name**.
+`/keel-harness:build` installs `scripts/sensors/slow/reviewer.sh` on request; then:
+1. Write `.agents/rules/reviewer.env`: the rule keys (`RULE_ID=reviewer`, `KIND`, `ORIGIN`, `APPROVED_AT`,
+   `ENFORCEMENT=sensor:reviewer`, `DOC=docs/conventions.md#reviewer`), `REVIEWER_CMD=` (reads the prompt on stdin and
+   prints the verdict; split on spaces, no shell: `claude -p --model <a model other than the one that codes>`),
+   `MAX_DIFF_LINES=800` and `TIMEOUT_SECONDS=120`.
+2. Add the anchored `reviewer` section to `docs/conventions.md` and state the 800 in it (`make harness-check` warns otherwise).
+3. Run `make gate-slow`. The answer is `PASS` or `FAIL: <reason>` lines; anything else is a skip, never a pass. A `fail` can be
+   wrong: fix the code or say why in the pull request. Never edit the rules or `reviewer.env` to make it pass.
 
 ### Disable a sensor
 Move it to `scripts/sensors/disabled/`. The gate runs only top-level `*.sh` files. Move it back to
@@ -116,5 +128,5 @@ sensor deliberately, add an ADR in the same change that names each file by path 
 ## Commands
 
 - `make gate-fast`: the fast sensors. Read line 1 of each, fix every `fail` top to bottom.
-- `make gate-slow`: mutation testing and diff coverage. Run it before opening a pull request.
+- `make gate-slow`: mutation testing and diff coverage (and the optional `reviewer`). Run it before opening a pull request.
 - `make harness-check`: validates this harness.

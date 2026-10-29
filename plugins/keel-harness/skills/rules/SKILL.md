@@ -166,7 +166,7 @@ Write only what was approved, in this order:
 
 The slow gate (`make gate-slow`: mutation and diff coverage) is never run by the Stop hook and never
 wired to CI; `AGENTS.md` tells agents to run it before opening a pull request. Integration and e2e
-suites stay the project's own targets, cited in `AGENTS.md`.
+suites stay the project's own targets, cited in `AGENTS.md`. Profile L can add one optional, experimental (D52) slow sensor, `reviewer` (`slow/reviewer.sh`): a model call and tokens on every `make gate-slow`, through the user's own `REVIEWER_CMD`, with the diff sent to it. Offer it only when the user asks, with that cost stated; its `reviewer.env` and docs section follow `${CLAUDE_PLUGIN_ROOT}/contracts/profile-l.md`.
 
 ### Phase 8 - Plan
 

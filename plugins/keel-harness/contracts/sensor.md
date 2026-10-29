@@ -21,7 +21,7 @@ regenerate a wrapper from this document; this document explains the contract tho
 | 1 | **pass signal** | The exact, literal output that means "clean". An agent never has to judge whether output *looks* good. | line 1 `status` (`pass`) and its one-line summary |
 | 2 | **guidance** | On failure, what to do next **in the repository's own terms** - which file, which decision, what action. Never a restatement of the tool's error. | the `guidance: ` block on `fail` |
 | 3 | **scope** | What the sensor looked at: the changed files (`SCOPE`) or the whole repository. A sensor whose tool has no file-level mode says so. | `SCOPE` in, the summary out |
-| 4 | **cost** | Wall time in milliseconds, measured by `gate.sh` from outside. The money cost of the gates is **US$0.00**: no sensor calls a language model. | `gate.sh` report |
+| 4 | **cost** | Wall time in milliseconds, measured by `gate.sh` from outside. The money cost of the gates is **US$0.00**, with one opt-in exception: `slow/reviewer.sh` (section 7) calls the model its user configured, and the slow gate's verdict line then says so instead of printing `US$0.00`. | `gate.sh` report |
 | 5 | **bounded verbosity** | At most 5 detail lines per sensor, indented two spaces; `gate.sh` truncates its stdout at 40 lines and keeps the full run in `.agents/run/last-run.log` (`.agents/run/last-run-slow.log` for the slow gate). | the sensor, then `gate.sh` |
 | 6 | **class** | `security`, `correctness` or `heuristic` (section 2). | line 1 |
 | 7 | **ceiling** | `CEILING_SECONDS` (default 30) and `SLOW_CEILING_SECONDS` (default 600) in `.agents/gate.env`. The total over the budget is flagged `(over ceiling)`; a sensor that alone blows the fast budget is left out or moved to the slow gate, and `.agents/state.yml` says which and why. | `.agents/gate.env` |
@@ -103,7 +103,7 @@ Rules that follow from it:
   `"$tmp/..."` with an empty `tmp`: it lands at the filesystem root.
 - **A sensor never `cd`s.** `gate.sh` runs every sensor from the repository root.
 - **Never `set -e` past the tool call**: translate a non-zero tool exit, do not die of it.
-- **No network, no model call, no plugin paths** (section 5).
+- **No network, no model call, no plugin paths** (sections 5 and 6). The one exception is `slow/reviewer.sh` (section 7).
 
 Check field order explicitly, not just field count: a line 1 of `fail<TAB>typecheck<TAB>correctness<TAB>1.06s`
 has four fields but corrupts every downstream reader.
@@ -142,5 +142,26 @@ catalog. The `rules` skill ships its own sensors under its `assets/sensors/` (sl
 
 Installed scripts are plain `bash` (3.2-compatible, no `jq`) that live in the user's repository and
 must run identically with this plugin absent: no `${CLAUDE_*}` variable, no path into the plugin
-directory, no `claude` invocation, no network call. Verify it by running `make gate-fast` in a
+directory, no `claude` invocation, no network call (the opt-in `slow/reviewer.sh` runs the user's own
+`REVIEWER_CMD`, section 7). Verify it by running `make gate-fast` in a
 shell that has never heard of the plugin.
+
+## 7. The one sensor that calls a model: `slow/reviewer.sh` (profile L, experimental)
+
+`assets/core/sensors/slow/reviewer.sh` (class `heuristic`) is the only installed script allowed to
+call a model, and only through `REVIEWER_CMD`, the command the user wrote into
+`.agents/rules/reviewer.env`. keel names no model and ships no key; the user decides what runs and what it costs.
+It lives in `scripts/sensors/slow/` only: the fast gate and the Stop hook never run it, and a test greps
+every other installed script for a model or network call. It follows the protocol of section 3 with these specifics (keys, prompt and calibration: `profile-l.md`):
+
+- **Opt-in.** No `reviewer.env`, an empty `REVIEWER_CMD`, or a command not on `PATH` is a `skip`.
+- **Input.** The diff since the base (`KEEL_GUARD_BASE`, else the merge-base with `origin/HEAD`, else
+  `HEAD`, as `guard`; `SCOPE` is not used), `AGENTS.md`, and every docs section `AGENTS.md` cites. They go
+  to `REVIEWER_CMD` on stdin, so the diff leaves the machine.
+- **Budget.** `MAX_DIFF_LINES` (default 800; a larger diff is a `skip`) and `TIMEOUT_SECONDS` (default 120;
+  a command still running then is stopped and the sensor `skip`s).
+- **Verdict.** Lines `PASS` or `FAIL: <reason>`. Any `FAIL` line fails (at most 5 are printed). A reply with
+  neither, an empty reply, a non-zero exit or a timeout is a `skip`: **never a pass**.
+- **Cost.** Every `make gate-slow` with the file present is one model call. When it ran, the verdict line of
+  the slow gate says `model cost: reviewer sensor ran ...` rather than `US$0.00`.
+- **Status.** Experimental and unproven (D52) until a with/without measurement shows a gain.

@@ -4,7 +4,7 @@
 # Fast runs scripts/sensors/*.sh, slow runs scripts/sensors/slow/*.sh (sorted by name; files whose
 # name starts with `_` and subdirectories are ignored). Budgets come from .agents/gate.env.
 # Each run also appends one line per sensor to .agents/run/history/<mode>.tsv (see "History" below).
-# No plugin, no network, no model.
+# No plugin, no network, no model (the one opt-in exception, slow/reviewer.sh, is its own sensor).
 set -uo pipefail
 mode="${1:-fast}"
 case "$mode" in fast | slow) ;; *) echo "usage: gate.sh [fast|slow]" >&2; exit 64 ;; esac
@@ -64,7 +64,7 @@ fi
 export SCOPE
 n_scope=$(printf '%s' "$SCOPE" | grep -c .)
 
-report=""; total_ms=0; n=0; failed=0; skipped=0; hist=""
+report=""; total_ms=0; n=0; failed=0; skipped=0; hist=""; model_cost="US\$0.00"
 for s in "$dir"/*.sh; do
   [ -f "$s" ] || continue
   id="$(basename "$s" .sh)"
@@ -85,6 +85,9 @@ for s in "$dir"/*.sh; do
     2) mark="$m_skip"; st=skip; skipped=$((skipped + 1)) ;;
     *) mark="$m_fail"; st=fail; failed=$((failed + 1)) ;;
   esac
+  # The opt-in reviewer sensor (slow gate only) is the one sensor that calls a model, through the
+  # command the user configured; when it ran, the gate cannot say the model cost is zero.
+  [ "$id" = reviewer ] && [ "$rc" -ne 2 ] && model_cost="reviewer sensor ran (the model call it made is not metered here)"
   hist="${hist}${id}	${st}	${ms}
 "
 
@@ -113,7 +116,7 @@ fi
 {
   printf '%s' "$report"
   printf '\n%s\n' "$scope_line"
-  printf 'gate: %s - %s | ceiling %ss, spent %s%s | model cost: US$0.00\n' "$mode" "$verdict" "$ceiling" "$spent" "$over"
+  printf 'gate: %s - %s | ceiling %ss, spent %s%s | model cost: %s\n' "$mode" "$verdict" "$ceiling" "$spent" "$over" "$model_cost"
 } > "$log"
 
 # History: <UTC ISO time><TAB><sensor id><TAB><status><TAB><ms>, one line per sensor, the lines of one
