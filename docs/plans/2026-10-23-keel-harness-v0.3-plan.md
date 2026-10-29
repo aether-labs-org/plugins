@@ -28,7 +28,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | E3 Tool cases | ☐ after E2 (merged) and H1 | `2026-10-28-…-e3-plan.md` | not run yet: no `feat/keel-harness-v0.3-e3` branch on 2026-10-29 | owner's machine; AppArmor profile for `bwrap`, removed after (D50) |
 | F2a Layout | ✅ done 2026-10-24 | `2026-10-24-…-f2a-plan.md` | `13af4a2`; 1020 `ok`; 56 files, as planned | — |
 | F2b State + ADR folder | ✅ done 2026-10-28 | `2026-10-28-…-f2b-plan.md` | `6d16fe3`; 1028 `ok` (1031 with E1) | — |
-| F2c Skills and flow | ◐ F2c-1 done 2026-10-29 | `2026-10-29-…-f2c1-plan.md` | `646d5ae`, `dc95a1b`, `cfa7a77`; 1151 `ok` (1085 before); `validate --strict` passes; owner's paid run of `assess-*-drift` and `assess-*` still open (D51) | F2c-2 (`scripts/keel`), F2c-3 (skill template, traceability) |
+| F2c Skills and flow | ◐ F2c-1 done 2026-10-29 | `2026-10-29-…-f2c1-plan.md` | `646d5ae`, `dc95a1b`, `cfa7a77`; 1156 `ok` (1085 before); `validate --strict` passes; owner's paid run of `assess-*-drift` and `assess-*` still open (D51) | F2c-2 (`scripts/keel`), F2c-3 (skill template, traceability) |
 | F2d Assess and context | ☐ | — | — | after F2c |
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
 | F3b Versioned plans | ☐ | — | — | after F2c (`scripts/keel verify`) |
