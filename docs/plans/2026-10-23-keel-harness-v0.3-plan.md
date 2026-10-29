@@ -28,7 +28,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | E3 Tool cases | ☐ after E2 (merged) and H1 | `2026-10-28-…-e3-plan.md` | not run yet: no `feat/keel-harness-v0.3-e3` branch on 2026-10-29 | owner's machine; AppArmor profile for `bwrap`, removed after (D50) |
 | F2a Layout | ✅ done 2026-10-24 | `2026-10-24-…-f2a-plan.md` | `13af4a2`; 1020 `ok`; 56 files, as planned | — |
 | F2b State + ADR folder | ✅ done 2026-10-28 | `2026-10-28-…-f2b-plan.md` | `6d16fe3`; 1028 `ok` (1031 with E1) | — |
-| F2c Skills and flow | ◐ F2c-1 done 2026-10-29 (validated, merged); F2c-2 (B), F2c-3 (C) | `2026-10-29-…-f2c1/f2c2/f2c3-plan.md` | `646d5ae`, `dc95a1b`, `cfa7a77`; 1156 `ok` (1085 before); `validate --strict` passes; owner's paid run of `assess-*-drift` and `assess-*` still open (D51) | F2c-2 (`scripts/keel`), F2c-3 (skill template, traceability) |
+| F2c Skills and flow | ◐ F2c-1 done 2026-10-29 (validated, merged); F2c-2 done 2026-10-29 (`scripts/keel`, branch `feat/keel-harness-v0.3-f2c2`, not merged); F2c-3 (C) | `2026-10-29-…-f2c1/f2c2/f2c3-plan.md` | `646d5ae`, `dc95a1b`, `cfa7a77`; 1156 `ok` (1085 before); `validate --strict` passes; owner's paid run of `assess-*-drift` and `assess-*` still open (D51) | F2c-2 (`scripts/keel`), F2c-3 (skill template, traceability) |
 | F2d Assess and context | ☐ wave D | `2026-10-29-…-f2d-plan.md` | — | after F2c |
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
 | F3b Versioned plans | ☐ wave D | `2026-10-29-…-f3b-plan.md` | — | after F2c |
@@ -189,8 +189,9 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
   - The validator and its tests stay unchanged.
   - The `doctor-*` eval cases move to `assess`.
   - The README names the removed `/keel-harness:doctor` as a breaking change.
-- [ ] `scripts/keel` with `plan | approve | apply | verify | measure | check`; approvals in
-  `.agents/run/flow/`; `apply` refuses without an approval matching the proposal hash.
+- [x] `scripts/keel` with `plan | approve | apply | verify | measure | check`; approvals in
+  `.agents/run/flow/`; `apply` refuses without an approval matching the proposal hash. Done in F2c-2;
+  `build`, `rules` and `assess` call it, `contracts/flow.md` has the Phases.
 - [x] `contracts/` (`sensor.md`, `rule-env.md`, `state.md`, `flow.md`, `plan.md`), moved from the skills'
   references. Done in F2c-1; `flow.md` is a stub until F2c-2 (Phases) and F2c-3 (Traceability).
 - [ ] `contracts/rule-env.md` gains `ENFORCEMENT_LEVEL=mandatory|ratchet` (default `ratchet`).

@@ -341,6 +341,10 @@ for s in assess build rules; do
 done
 grep -q 'scripts/keel' "$KEEL/skills/build/SKILL.md" && ! grep -q 'keel verify build' "$KEEL/skills/rules/SKILL.md"; check "build and rules do not call each other's verify" $?
 
+# ------------------------------------------------------------------ the README explains the enforcement
+grep -q "^## How the flow is enforced" "$KEEL/README.md" && grep -q "scripts/keel" "$KEEL/README.md"; check "README has a How the flow is enforced section naming scripts/keel" $?
+grep -q "agent itself runs .keel approve." "$KEEL/README.md"; check "README states the limit: the agent runs keel approve" $?
+
 # ------------------------------------------------------------------ contracts/flow.md documents what the script does
 F="$KEEL/contracts/flow.md"
 for s in 'keel check pre <skill>' 'keel plan <skill> <file>' 'keel approve <skill> <hash>' 'keel apply <skill>' 'keel verify <skill>' \

@@ -59,6 +59,17 @@ written only after approval, in rounds of questions. An approved breaking change
 baseline, an ADR and a local migration plan; keel never executes the migration. Still no action is
 blocked: the Stop hook hands the fast gate's guidance back to Claude and stops after a loop guard.
 
+## How the flow is enforced
+
+The order of a skill's phases is code, not prose (`scripts/keel`, `contracts/flow.md`). `build` and `rules`
+write their proposal with `keel plan`, record the user's answer with `keel approve <hash>` and may write
+only after `keel apply` exits 0, which it does only for an approved proposal that has not changed since.
+Every skill ends with `keel verify <skill>`, which replaces the old prose checklists and exits non-zero on
+any unmet item; `assess` uses it to prove it wrote nothing. State lives in `.agents/run/flow/`
+(git-ignored). The agent itself runs `keel approve`, so the hash proves that what was approved is what was
+applied, not that a human said yes; the other layers are the guard sensor, the planned PreToolUse hook and
+the process evals.
+
 ## Target agents
 
 | Agent | What it gets |
