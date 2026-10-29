@@ -145,7 +145,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/assets/core/harness-check.sh"
 It prints one line per warning, `warn<TAB><check-id><TAB><file><TAB><message><TAB><fix>`, then
 `harness-check: N warning(s)` or `harness-check: harness is clean`. Exit 0 clean, 1 warnings, 2 no
 harness. Exit 2 means `.agents/state.yml` is missing, so this is the readiness question: say so, point
-at `/keel-harness:build` and continue with section 2; that is a precondition, not a warning.
+at `/keel-harness:build` and continue with section 2; that is a precondition, not a warning. Exit 3
+means no writable temp directory (`TMPDIR`, else `.agents/run/tmp/`): report it, never guess the checks.
 
 ## 7. Explain each warning (health)
 
