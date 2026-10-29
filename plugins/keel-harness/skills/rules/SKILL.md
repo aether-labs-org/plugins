@@ -79,6 +79,12 @@ flag breaking proposals and state their blast radius (files affected). You may p
 When nothing can be inferred, say so, give your recommendation and why, and ask. Never present an
 invented rule as the project's.
 
+**Code map (architecture topic).** Draft the `## Code map` of `docs/architecture.md` (template in
+`references/topics/architecture.md`) from the `measure.sh tree 2` output: a bird's-eye paragraph, one
+bullet per important module as `` `path/` — what lives there``, then the invariants. Put it to the user
+in the architecture round as an inference to confirm or correct, and write only confirmed bullets whose
+path exists. With no tree to read (greenfield), leave the section out.
+
 ### Phase 6 - Rounds
 
 Approve, amend or reject proposals in rounds of at most 4 questions each, the recommended option

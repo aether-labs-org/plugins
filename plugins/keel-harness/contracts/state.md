@@ -26,7 +26,7 @@ not_installed:                    # layer or sensor -> the reason, in keel's wor
 | `mode` | `greenfield` or `brownfield` | `build`; `rules` records its own confirmation (phase 2) | `rules` (greenfield skips reverse engineering); `assess` reports it as an inference |
 | `adr_dir` | repository-relative folder | `rules` (phase 1: an existing ADR folder, else `docs/adr/`) | `guard` (an ADR added in the same change justifies a loosening), the `tests` sensors' guidance, `build` (the `Decisions` pointer in `AGENTS.md`) |
 | `layers` | map of the layers below to `installed` or `not_installed` | `build` | `harness-check`; `build` (a layer already `installed` is not re-proposed, so each phase is resumable) |
-| `not_installed` | map: layer or sensor to the reason | `build` | people; `build` (the reason of a skipped layer, or of a sensor that blew the budget, with its seconds) |
+| `not_installed` | map: layer, sensor or `lsp` (a declined LSP plugin proposal) to the reason | `build` | people; `build` (the reason of a skipped layer, or of a sensor that blew the budget, with its seconds) |
 
 Use the real reason for each `not_installed` entry, never a generic one. `guard` reads only the
 presence of the file at the commit the branch started from, plus `adr_dir`.

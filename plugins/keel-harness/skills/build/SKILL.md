@@ -73,8 +73,8 @@ Fill `references/agents-md-template.md` with real, confirmed values only. Any to
 than one sentence becomes a `→ docs/X.md` pointer. Omit sections with nothing found. Read
 `references/context-engineering.md` first. The rendered file is **100 lines** or fewer. Create no
 TODO stubs: project rules and `docs/architecture.md`, `docs/conventions.md`, `docs/testing.md` come
-from `/keel-harness:rules`, which this skill offers at the end. Also create `.agents/progress.md` (a
-heading and one line on what it holds, per `contracts/plan.md`): the template points at it.
+from `/keel-harness:rules`, which this skill offers at the end. Also create `.agents/progress.md` (a heading and one line on what it holds, per `contracts/plan.md`): the template points at it.
+Propose the stack's official LSP plugin from the table in `references/context-engineering.md` as its own accept-or-decline item (a name only from that table); record a decline as `lsp` under `not_installed`.
 
 **Claude Code reads `AGENTS.md` only when no `CLAUDE.md` or `.claude/CLAUDE.md` exists.** So when
 neither exists, create `CLAUDE.md` containing exactly `@AGENTS.md`. When one exists without that

@@ -65,4 +65,25 @@ if command -v node >/dev/null 2>&1; then
 else
   echo "  skip no-formatter pattern (node not installed)"
 fi
+
+# F2d: triggering evals. Per skill: two should-trigger cases phrased as a user would (the skill is not
+# named) and one near miss. Read-only, three turns, no scaffold.
+for s in assess build rules; do
+  for c in "trigger-$s-1" "trigger-$s-2" "trigger-$s-not"; do
+    d="$EV/$c"
+    [ -f "$d/prompt.md" ] && [ -f "$d/case.yaml" ]; check "$c has prompt.md and case.yaml" $?
+    grep -q "^name: $c\$" "$d/case.yaml" 2>/dev/null; check "$c case.yaml carries its name" $?
+    grep -q '^tags: \[trigger, readonly\]$' "$d/case.yaml" 2>/dev/null; check "$c is tagged [trigger, readonly]" $?
+    grep -q '^allowed_tools: \[Read, Glob, Grep, Skill\]$' "$d/prompt.md" 2>/dev/null && grep -q '^max_turns: 3$' "$d/prompt.md"; check "$c allows Read, Glob, Grep, Skill and 3 turns" $?
+    ! grep -q 'scaffold_script' "$d/case.yaml" 2>/dev/null && [ ! -e "$d/scaffold.sh" ]; check "$c needs no scaffold" $?
+    ! grep -qiE "keel-harness|\b(assess|build|rules)\b (skill|plugin)|/keel" "$d/prompt.md" 2>/dev/null; check "$c does not name the skill or the plugin in its prompt" $?
+  done
+  for c in "trigger-$s-1" "trigger-$s-2"; do
+    grep -q 'tool: Skill' "$EV/$c/graders/skill-fired.md" 2>/dev/null && grep -qF "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?$s\"" "$EV/$c/graders/skill-fired.md" && ! grep -q '^max:' "$EV/$c/graders/skill-fired.md"; check "$c has the skill-fired grader for $s" $?
+  done
+  n="$EV/trigger-$s-not/graders/skill-silent.md"
+  grep -q 'tool: Skill' "$n" 2>/dev/null && grep -q '^min: 0$' "$n" && grep -q '^max: 0$' "$n" && grep -q '^arm: both$' "$n" && grep -q '(assess|build|rules)' "$n"; check "trigger-$s-not has a skill-silent grader (max 0, arm both)" $?
+  [ ! -e "$EV/trigger-$s-not/graders/skill-fired.md" ]; check "trigger-$s-not has no skill-fired grader" $?
+done
+grep -q 'regex' "$EV/trigger-rules-not/prompt.md"; check "trigger-rules-not is the regex near miss" $?
 finish

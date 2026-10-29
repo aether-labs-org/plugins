@@ -41,7 +41,14 @@ has "$R/adr-template.md" 'Considered Options' && has "$R/adr-template.md" 'super
 RS="$R/rule-section.md"
 for s in '<a id="' '**Rule.**' '**Why.**' '**✓ / ✗.**' '**When it fails.**' '**Decision.**'; do has "$RS" "$s"; check "rule-section.md has $s" $?; done
 for k in RULE_ID KIND ORIGIN APPROVED_AT ENFORCEMENT DOC DECISION PLAN; do has "$root/plugins/keel-harness/contracts/rule-env.md" "$k="; check "contracts/rule-env.md names $k" $?; done
-has "$R/topics/architecture.md" 'Codemap' && has "$R/topics/architecture.md" 'Invariants'; check "topics/architecture.md has Codemap and Invariants" $?
+has "$R/topics/architecture.md" '## Code map' && has "$R/topics/architecture.md" 'Invariants'; check "topics/architecture.md has Code map and Invariants" $?
+T="$R/topics/architecture.md"
+awk '/^## Code map/{p=1;next} /^## /{p=0} p' "$T" | grep -q "Bird's-eye"; check "Code map template opens with a bird's-eye paragraph" $?
+awk '/^## Code map/{p=1;next} /^## /{p=0} p' "$T" | grep -qF -- '- `{{path/}}` — '; check "Code map template has one bullet per module: \`path/\` — what lives there" $?
+awk '/^## Code map/{p=1;next} /^## /{p=0} p' "$T" | grep -qi 'invariants'; check "Code map template ends with the invariants" $?
+has "$T" 'harness-check' && has "$T" 'codemap-stale'; check "architecture topic names the codemap-stale check" $?
+has "$S" '## Code map' && has "$S" 'measure.sh" tree 2' && has "$S" 'confirm or correct'; check "rules drafts the Code map from measure.sh tree 2 and has the user confirm it" $?
+awk '/^### Phase 5/{p=1} /^### Phase 6/{p=0} p' "$S" | grep -q 'Code map'; check "the Code map is proposed in the proposals phase (architecture topic)" $?
 for t in conventions testing; do [ -f "$R/topics/$t.md" ] && has "$R/topics/$t.md" '<a id="'; check "topics/$t.md with an example anchored section" $?; done
 has "$root/plugins/keel-harness/contracts/plan.md" 'Status:' && has "$root/plugins/keel-harness/contracts/plan.md" '## Acceptance' && has "$root/plugins/keel-harness/contracts/plan.md" 'make gate-fast'; check "contracts/plan.md" $?
 [ -f "$R/nested-agents-md-template.md" ] && has "$R/nested-agents-md-template.md" '## Rules' && has "$R/nested-agents-md-template.md" '100 lines'; check "nested-agents-md-template.md" $?

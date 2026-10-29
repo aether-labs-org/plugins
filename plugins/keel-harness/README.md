@@ -13,10 +13,10 @@ only judgment.
 Answers two questions, read-only (`disallowed-tools: Write Edit NotebookEdit`):
 
 - **No harness installed** (`.agents/state.yml` absent): how ready the repository is for AI coding agents,
-  on a seven-axis rubric (bootstrap, guides, fast sensors, slow sensors, enforcement, context, rules),
+  on an eleven-axis rubric (bootstrap, guides, fast sensors, slow sensors, enforcement, context, rules, reproducible build, headless setup, flaky tests, observability),
   and whether it is greenfield or brownfield.
 - **A harness installed**: is it still healthy? It runs the portable validator (`harness-check.sh`,
-  18 checks), explains each warning, proposes the fix and compares the repository's copy of the validator
+  19 checks), explains each warning, proposes the fix and compares the repository's copy of the validator
   with the plugin's.
 
 - **Reads:** stack markers, scripts, sensors, every instruction file the target agents load, `docs/`,

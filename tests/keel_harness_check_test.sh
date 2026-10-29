@@ -187,6 +187,56 @@ r="$(mkclean)"; addrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=inferential/
 
 r="$(mkclean)"; mkdir -p "$r/docs"; seq 1 301 | sed 's/.*/x/' > "$r/docs/testing.md"; commit "$r"; hc "$r"; only topic-size docs/testing.md; check "topic-size" $?
 
+# codemap-stale (F2d, D42): a backticked path in the "## Code map" of docs/architecture.md that no longer exists
+cm() { # cm <repo> <body of docs/architecture.md>
+  mkdir -p "$1/docs/api" "$1/docs/domain"; : > "$1/docs/api/.keep"; : > "$1/docs/domain/.keep"
+  printf '%s\n' "$2" > "$1/docs/architecture.md"; commit "$1"
+}
+r="$(mkclean)"; cm "$r" '# Architecture
+
+## Code map
+
+How the code is shaped.
+
+- `src/` — the source
+- `docs/api/` — the API notes
+- `src/gone/` — removed last month
+
+## Invariants
+- `src/never-existed/` is only cited outside the Code map'
+hc "$r"; only codemap-stale docs/architecture.md && printf '%s\n' "$out" | grep -q 'src/gone/' && printf '%s\n' "$out" | grep -q 'update the Code map in docs/architecture.md (rules)'; check "codemap-stale: a missing path warns, with the fix" $?
+printf '%s\n' "$out" | grep -q 'never-existed'; [ $? -ne 0 ]; check "codemap-stale: only the Code map section is read" $?
+r="$(mkclean)"; cm "$r" '# Architecture
+
+## Code map
+- `src/` — the source
+- `docs/api/` — the API notes
+- `docs/domain/` — the domain notes
+- `scripts/gate.sh` — the gate
+- `src/a.ts:1` — a file with a line number
+- `ArchUnit` and `{{path/}}` and `a b/c` and `src/*.ts` and `https://example.com/x/y` are not paths'
+hc "$r"; [ $rc -eq 0 ]; check "codemap-stale: every cited path exists -> clean (non-paths ignored)" $?
+r="$(mkclean)"; cm "$r" '# Architecture
+
+Some prose about `src/gone/` without a Code map section.'
+hc "$r"; [ $rc -eq 0 ]; check "codemap-stale: no Code map section -> silent" $?
+r="$(mkclean)"; hc "$r"; [ ! -f "$r/docs/architecture.md" ] && [ $rc -eq 0 ]; check "codemap-stale: no docs/architecture.md -> silent" $?
+r="$(mkclean)"; cm "$r" '# Architecture
+
+## Code map
+- `src/gone/` — removed
+- `lib/gone/` — removed
+- `src/gone/` — cited twice'
+hc "$r"; [ "$(printf '%s\n' "$out" | grep -c '^warn	codemap-stale	')" = 2 ] && [ "$(warns)" = 2 ]; check "codemap-stale: one warning per missing path, a repeated path counts once" $?
+r="$(mkclean)"; cm "$r" '# Architecture
+
+## Code map
+```text
+src/gone/
+```
+- `src/` — the source'
+hc "$r"; [ $rc -eq 0 ]; check "codemap-stale: a fenced block is not read" $?
+
 r="$(mkclean)"; addrule "$r"; printf 'src/a.ts\t3\n' > "$r/.agents/baselines/file-size.tsv"; hc "$r"; only baseline-malformed file-size.tsv; check "baseline-malformed: no header" $?
 r="$(mkclean)"; addrule "$r"; printf '# measured_at: 2026-10-20 review_by: 2027-04-20\nsrc/a.ts\tmany\n' > "$r/.agents/baselines/file-size.tsv"; hc "$r"; only baseline-malformed file-size.tsv; check "baseline-malformed: non-integer count" $?
 

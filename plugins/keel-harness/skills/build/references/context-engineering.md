@@ -77,3 +77,46 @@ first-error-is-root-cause tip.
   them.
 - Monorepos: root file handles navigation and shared tooling; each package gets its own AGENTS.md
   for its stack and conventions. Keep each level scoped — don't overload any single file.
+
+---
+
+## Code intelligence (LSP) plugins — one proposal per stack (D42)
+
+A language server gives the agent live diagnostics after each edit and navigation by symbol. `build`
+proposes the stack's official plugin in its guides phase, as its own accept-or-decline item. The
+plugin is installed by the user inside Claude Code (`/plugin install <plugin>@claude-plugins-official`);
+`build` writes no file for it. A declined proposal is recorded under `not_installed` as
+`lsp: "declined: <plugin>"`.
+
+**Source.** Names come only from Claude Code's official documentation, read on 2026-10-29:
+
+- `https://code.claude.com/docs/en/discover-plugins` ("Install and manage plugins"): gives the install
+  syntax `/plugin install <plugin>@claude-plugins-official` and says Claude Code registers that
+  marketplace on first interactive start. It names no LSP plugin itself.
+- `https://code.claude.com/docs/en/plugins-reference` (served as "Plugin manifest reference"): defines
+  `lspServers` / `.lsp.json` and says "For the language servers Anthropic publishes as plugins ...
+  see Code intelligence". It names no plugin itself.
+- `https://code.claude.com/docs/en/plugins/code-intelligence.md` ("Code intelligence plugins", the
+  page the reference links to): the table below is copied from it. It says Anthropic maintains every
+  plugin in its table except `liquid-lsp`, and that a plugin "doesn't include the language server":
+  install the binary first, then the plugin.
+
+| Stack | Official plugin | Language server binary to install first | Install the plugin |
+| --- | --- | --- | --- |
+| TypeScript, JavaScript | `typescript-lsp` | `typescript-language-server` (`npm install -g typescript-language-server typescript`, as the page says) | `/plugin install typescript-lsp@claude-plugins-official` |
+| Python | `pyright-lsp` | `pyright-langserver` | `/plugin install pyright-lsp@claude-plugins-official` |
+| Java | `jdtls-lsp` | `jdtls` | `/plugin install jdtls-lsp@claude-plugins-official` |
+| Kotlin | `kotlin-lsp` | `kotlin-lsp` | `/plugin install kotlin-lsp@claude-plugins-official` |
+| Go | `gopls-lsp` | `gopls` | `/plugin install gopls-lsp@claude-plugins-official` |
+| Rust | `rust-analyzer-lsp` | `rust-analyzer` | `/plugin install rust-analyzer-lsp@claude-plugins-official` |
+| .NET (C#) | `csharp-lsp` | `csharp-ls` | `/plugin install csharp-lsp@claude-plugins-official` |
+
+For any other stack write "no official LSP plugin found (2026-10-29)" and do not propose a name. The
+page also says how to connect a server that has no official plugin (an `.lsp.json` in a plugin of your
+own); that is out of scope here. The binary install command for rows other than TypeScript is in the
+plugin's README (linked from the page), not on the page: read it, do not guess it.
+
+**Limits to state in the proposal.** The page says code intelligence plugins work in terminal sessions,
+not in cloud sessions (Claude Code does not start plugin language servers there), and that the plugin
+needs its binary on the `PATH` of the shell that starts `claude`. A monorepo with several stacks gets
+one item per stack.

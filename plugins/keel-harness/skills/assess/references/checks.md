@@ -1,4 +1,4 @@
-# The eighteen checks
+# The nineteen checks
 
 `harness-check.sh` is the only implementation of these checks. `assess` runs the plugin's latest copy
 and adds what a script cannot: the explanation of each warning and the proposed fix.
@@ -25,4 +25,5 @@ manufactures a warning for a check that found nothing; a clean harness is a vali
 | `plan-stale` | a plan in `.agents/plans/` with `Status: active` whose last commit is older than `PLAN_STALE_DAYS` (`.agents/gate.env`, default 30); an uncommitted plan counts as fresh | close it with `keel plan-close <file> done\|abandoned <ref>`, or update it |
 | `progress-size` | `.agents/progress.md` is over `PROGRESS_MAX_LINES` lines (default 200) | summarise older entries into an ADR (`rules`) or delete them; git history keeps them |
 | `acceptance-untested` | a spec in `docs/specs/*.md` or `specs/*/spec.md` has acceptance criteria (bullets under an `Acceptance` heading) that name no existing test or spec file; one warning per spec, with the count | name the test that proves each criterion (D46: keel reads specs, never writes them) |
+| `codemap-stale` | a backticked path in the `## Code map` of `docs/architecture.md` no longer exists (silent when the file or the section is absent) | `rules` (update the Code map in `docs/architecture.md`) |
 | `review-due` | `harness_review_by` has passed | `build` (re-read, then move the date six months on) |
