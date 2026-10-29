@@ -82,4 +82,8 @@ has "$R/nested-agents-md-template.md" 'Follow {{EXEMPLAR}}, not {{legacy path}}'
 has "$S" 'EXEMPLAR=' && has "$S" 'LEGACY=' && has "$S" 'only after the user confirms'; check "rules proposes an exemplar and writes it only after confirmation" $?
 has "$S" 'With no clear best file'; check "rules proposes no exemplar without a clear best file" $?
 [ "$(wc -l < "$S")" -le 250 ]; check "rules SKILL.md still at most 250 lines after F3d-1" $?
+awk '/^## adopted-patterns/{p=1;next} /^## /{p=0} p' "$C" | grep -qF 'pattern.sh'; check "catalog: adopted-patterns promotes a syntactic pattern to pattern.sh" $?
+awk '/^## adopted-patterns/{p=1;next} /^## /{p=0} p' "$C" | grep -qF 'measure.sh pattern' && awk '/^## adopted-patterns/{p=1;next} /^## /{p=0} p' "$C" | grep -qF 'RULE_FILE'; check "catalog: the promotion route measures first and names RULE_FILE for ast-grep and semgrep" $?
+has "$S" 'rules/pattern.sh' && has "$S" 'measure.sh" pattern'; check "rules copies pattern.sh for a confirmed pattern and measures it first" $?
+[ -f "$root/plugins/keel-harness/assets/core/sensors/rules/pattern.sh" ]; check "pattern.sh ships under assets/core/sensors/rules" $?
 exit $fail

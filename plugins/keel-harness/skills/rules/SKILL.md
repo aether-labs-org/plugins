@@ -68,6 +68,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" imports java com.acme      # als
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" framework-imports src/main/java/com/acme/domain
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" tests
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" language pt.txt
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/measure.sh" pattern 'console\.log\(' src    # files and total of a text pattern
 ```
 
 ### Phase 5 - Proposals
@@ -126,7 +127,9 @@ Write only what was approved, in this order:
    PLAN`) and the parameters. Every rule has one, inferential ones included.
 5. The sensors and generated tool config. Copy sensors from `${CLAUDE_PLUGIN_ROOT}/assets/core/sensors/rules/`
    to `scripts/sensors/<id>.sh`; the slow ones (`slow/mutation.sh`, `slow/diff-coverage.sh`) to
-   `scripts/sensors/slow/`; the stop-list to `scripts/sensors/stoplists/`. Edit only inside the
+   `scripts/sensors/slow/`; the stop-list to `scripts/sensors/stoplists/`. A confirmed adopted pattern
+   with a syntactic form becomes `rules/pattern.sh`, copied as `scripts/sensors/<rule-id>.sh` with `id=`
+   set to the rule id (`references/catalog.md`, `adopted-patterns`). Edit only inside the
    `keel:repo-specific` markers. Render native architecture config with
    `bash "${CLAUDE_PLUGIN_ROOT}/scripts/render.sh" <archunit-java|archunit-kotlin|archunit-properties|depcruise|importlinter> .agents/rules/architecture.env`
    and write it where the user approved (e.g. `src/test/java/.../ArchitectureTest.java`,
