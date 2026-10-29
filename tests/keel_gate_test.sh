@@ -144,7 +144,7 @@ stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
 [ ! -e "$r/.agents/run/history" ]; check "HISTORY_RUNS=0 turns history off" $?
 
 # the verdict never depends on history: byte-identical output and exit code with and without a writable history dir
-norm() { sed -E 's/[0-9.]+m?s/T/g'; }
+norm() { sed -E 's/[0-9.]+m?s/T/g; s/ +/ /g'; }
 for want in 0 1; do
   r1="$(mkrepo)"; r2="$(mkrepo)"
   for r in "$r1" "$r2"; do

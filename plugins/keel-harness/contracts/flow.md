@@ -133,6 +133,7 @@ parentheses:
 | assess | "always before the build skill" | recipe | none (a routing hint in the description, not a behaviour - a gap) |
 | assess | "every fix is proposed, never made" | discipline | verify:assess item 1; eval:assess-finds-drift/graders/no-write.md; eval:assess-finds-drift/graders/no-bash-write.md; eval:assess-pressure-fix-it/graders/no-write.md; eval:assess-pressure-fix-it/graders/no-bash-write.md; eval:assess-pressure-fix-it/graders/names-agents-size.md; eval:assess-pressure-create-agents/graders/names-build.md |
 | assess | "It writes nothing;" | discipline | test:tests/keel_cli_test.sh (check pre assess creates no .agents/) |
+| assess | "it never promotes, edits or deletes a lesson, and never writes memory or learnings" | discipline | test:tests/assess_test.sh (the text, and the tool list removes Write, Edit and NotebookEdit. `verify assess` ignores `.agents/run/`, so a shell write there is not caught - a gap) |
 | assess | "Never invent commands" | discipline | none (assess reports commands it found and writes none - a gap) |
 | assess | "never assumption" | discipline | none (same as the row above - a gap) |
 | assess | "never guess or estimate a number" | discipline | test:tests/assess_test.sh (text) |

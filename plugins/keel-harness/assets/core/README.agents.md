@@ -17,7 +17,7 @@ one `warn` line per broken condition, or `harness is clean`.
 | `.agents/baselines/archunit/`, `depcruise-known-violations.json` | Native architecture baselines (ArchUnit freeze store, dependency-cruiser known violations); import-linter's is `IGNORE_IMPORTS` in `architecture.env` | Only shrink |
 | `.agents/gate.env` | `CEILING_SECONDS`, `SLOW_CEILING_SECONDS`, `HISTORY_RUNS` (runs of history kept) and the `harness-check` thresholds | Yes |
 | `.agents/state.yml` | Metadata only (`schema_version`, `mode`, `harness_review_by`, `adr_dir`) | Rarely |
-| `.agents/run/` | Run state (logs, fingerprints, lock) and `tmp/`, the temp-dir fallback when `TMPDIR` is unusable; git-ignored | Never: delete it to reset |
+| `.agents/run/` | Run state (logs, fingerprints, lock), `history/` (the last `HISTORY_RUNS` gate runs per sensor), `learnings/` (the lessons inbox) and `tmp/`, the temp-dir fallback when `TMPDIR` is unusable; git-ignored | Add a lesson; otherwise never: delete it to reset |
 | `.agents/plans/` | Plans (`Status: active/done/abandoned`, a required `## Acceptance`), committed; when done or abandoned, log one line in `.agents/progress.md` (the `keel plan-close` command does it) and delete the file | Yes |
 | `.agents/progress.md` | What survives between sessions: one line per closed plan, plus notes for the next session. Committed; `harness-check` warns when it passes `PROGRESS_MAX_LINES` | Yes |
 | `scripts/gate.sh` | Runs `make gate-fast` / `make gate-slow` | No (managed) |
@@ -79,6 +79,15 @@ re-running `depcruise-baseline`; for import-linter, delete the fixed edge from `
 Copy an existing ADR in the ADR folder (`adr_dir`; MADR: context, decision drivers, considered options,
 outcome, consequences, evidence), number it `NNNN`, and link it from the rule's **Decision.** line
 and `DECISION=` key. To change a decision, write a new ADR that supersedes the old one.
+
+### Write a lesson down
+When a review comment or a failure that keeps coming back teaches something the harness should have
+told you, write `.agents/run/learnings/YYYY-MM-DD-<slug>.md` (git-ignored): first line `Source:` (the
+session, the review comment quoted, or the sensor), second `Seen:` (a count; raise it instead of
+writing a second file), third `Proposed:` (`rule`, `sensor`, `adr` or `discard`), then what would have
+prevented it. Do not turn it into a rule or sensor yourself: the Stop hook also writes one when a sensor
+fails in three sessions in a row, and a person promotes or discards each one (`/keel-harness:assess`
+lists them and proposes the route).
 
 ### Turn the Stop hook off
 Remove the `Stop` entry from `.claude/settings.json`. Copilot and Devin never had a hook; they follow

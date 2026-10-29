@@ -132,6 +132,12 @@ the file, and propose the fix through `/keel-harness:build` or `/keel-harness:ru
 says. **One broken condition produces exactly one warning.** Stay silent about checks that found
 nothing: a clean harness is a valid answer, and this skill never manufactures a warning.
 
+**2c. Lessons inbox.** When `.agents/run/learnings/` holds lessons, read `references/lessons.md`: list
+each one (file, `Source:`, `Seen:`, `Proposed:`) and propose its route for the user to approve:
+`/keel-harness:rules` for a rule or a sensor, an ADR, or discard.
+Assess lists and proposes; it never promotes, edits or deletes a lesson, and never writes memory or learnings.
+Say nothing when the inbox is empty.
+
 Two more things to do every time:
 
 - **Validator drift.** Compare the repository's copy with the plugin's:

@@ -111,4 +111,18 @@ for c in assess-finds-drift assess-validator-drift; do
 done
 ! grep -q 'doctor' "$root/plugins/keel-harness/evals/should-not-trigger/graders/skill-silent.md"; check "should-not-trigger no longer names doctor" $?
 ! grep -rq 'sensors:' "$root/plugins/keel-harness/evals/gate-catches-defect/fixtures/harness/.agents/state.yml"; check "eval fixture state has no sensors list" $?
+
+# --- F6: lessons inbox
+L="$sk/references/lessons.md"
+LC="$root/plugins/keel-harness/contracts/learnings.md"
+[ -f "$L" ] && [ -f "$LC" ]; check "lessons.md and contracts/learnings.md exist" $?
+has 'references/lessons.md' && has '.agents/run/learnings/'; check "assess SKILL.md reads the lessons inbox through references/lessons.md" $?
+has 'it never promotes, edits or deletes a lesson, and never writes memory or learnings'; check "assess SKILL.md: never promotes, edits or deletes a lesson, never writes memory or learnings" $?
+for s in '/keel-harness:rules' 'ADR' 'discard' 'malformed' 'Seen:' 'Proposed:' 'Source:'; do
+  grep -qF -- "$s" "$L"; check "lessons.md covers: $s" $?
+done
+for s in 'Source:' 'Seen:' 'Proposed:' '`rule`' '`sensor`' '`adr`' '`discard`' 'git-ignored' 'Stop hook' 'sessions in a row' 'YYYY-MM-DD-<slug>.md' 'Only the user'; do
+  grep -qF -- "$s" "$LC"; check "learnings.md states: $s" $?
+done
+grep -qF '.agents/run/learnings/YYYY-MM-DD-<slug>.md' "$root/plugins/keel-harness/assets/core/README.agents.md"; check "README.agents.md tells agents where to write a lesson" $?
 exit $fail
