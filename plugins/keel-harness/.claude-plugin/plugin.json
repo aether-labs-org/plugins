@@ -1,7 +1,7 @@
 {
   "name": "keel-harness",
   "description": "Assess, install and maintain an AI-agent harness and the project's own rules — architecture, testing strategy, conventions — in a repository.",
-  "version": "0.2.0",
+  "version": "0.3.0-rc.1",
   "author": { "name": "Aether Labs" },
   "license": "Apache-2.0",
   "repository": "https://github.com/aether-labs-org/plugins",
