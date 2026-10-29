@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: trigger-build-1
+description: A request phrased without naming the skill makes Claude load the build skill.
+tags: [trigger, readonly]
