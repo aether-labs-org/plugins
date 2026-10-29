@@ -4,6 +4,7 @@
 # nothing about everything else. The consequence map it reads is contracts/consequence.md.
 # shellcheck disable=SC2319  # "check ... $?" after a test is this suite's idiom (see keel_helpers.sh)
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 HOOK_SRC="$KEEL/assets/adapters/claude/claude-protect.sh"
 MAP_SRC="$KEEL/assets/core/consequence.yml"
@@ -13,7 +14,7 @@ W="$(mktemp -d)"; _keel_tmps="$_keel_tmps $W"
 [ -f "$MAP_SRC" ]; check "assets/core/consequence.yml (the default map) exists" $?
 [ -f "$HOOK_SRC" ] || { echo "  (claude-protect.sh is missing: the remaining assertions are skipped)"; finish; }
 [ "$(head -n 1 "$HOOK_SRC")" = '#!/usr/bin/env bash' ]; check "claude-protect.sh starts with the bash shebang" $?
-sed -n 2p "$HOOK_SRC" | grep -q '^# Managed by keel-harness'; check "claude-protect.sh carries the managed-by header" $?
+sed -n 2p "$HOOK_SRC" | qgrep '^# Managed by keel-harness'; check "claude-protect.sh carries the managed-by header" $?
 # shellcheck disable=SC1090
 . "$HOOK_SRC" 2>/dev/null
 
@@ -81,7 +82,7 @@ approve() {
 r="$(mkrepo)"
 hook "$r" "$(fx Edit file_path "$r/.agents/baselines/x.tsv" "$EDIT_X")"
 [ "$rc" -eq 0 ] && [ "$(decision)" = deny ]; check "Edit of .agents/baselines/x.tsv with no approval -> deny, exit 0" $?
-reason | grep -q '/keel-harness:build' && reason | grep -q '/keel-harness:rules' && reason | grep -q 'ADR' && reason | grep -q '\.agents/baselines/x\.tsv' && reason | grep -q 'harness'; check "the deny reason names the path, the category and the route (build, rules, ADR)" $?
+reason | qgrep '/keel-harness:build' && reason | qgrep '/keel-harness:rules' && reason | qgrep 'ADR' && reason | qgrep '\.agents/baselines/x\.tsv' && reason | qgrep 'harness'; check "the deny reason names the path, the category and the route (build, rules, ADR)" $?
 [ -z "$err" ]; check "a deny writes nothing to stderr" $?
 if command -v python3 >/dev/null 2>&1; then
   printf '%s' "$out" | python3 -I -c '
@@ -107,7 +108,7 @@ done
 mkdir -p "$r/.agents/rules"
 printf 'RULE_ID=file-size\nENFORCEMENT=sensor:file-size\nENFORCEMENT_LEVEL=mandatory\nLIMIT=300\nEXCEPTIONS='"'"'src/old.ts 2027-01-01'"'"'\n' > "$r/.agents/rules/file-size.env"
 hook "$r" "$(fx Edit file_path "$r/.agents/rules/file-size.env" "$EDIT_X")"; [ "$(decision)" = deny ]; check "a mandatory rule env file: Edit -> deny" $?
-reason | grep -q 'harness' && reason | grep -q '\.agents/rules/file-size\.env'; check "a mandatory rule env file: the reason names the file and the harness category" $?
+reason | qgrep 'harness' && reason | qgrep '\.agents/rules/file-size\.env'; check "a mandatory rule env file: the reason names the file and the harness category" $?
 hook "$r" "$(fx Write file_path "$r/.agents/rules/file-size.env" "$WRITE_X")"; [ "$(decision)" = deny ]; check "a mandatory rule env file: Write -> deny" $?
 approve "$r" rules
 hook "$r" "$(fx Edit file_path "$r/.agents/rules/file-size.env" "$EDIT_X")"; silent; check "a mandatory rule env file: a current rules approval lets the rules flow edit it (guard, not the hook, blocks loosening)" $?
@@ -123,11 +124,11 @@ hook "$r" "$(fx Edit file_path "$r/../other/.agents/x" "$EDIT_X")"; silent; chec
 
 # the other categories ask, and the reason names the category
 hook "$r" "$(fx Edit file_path "$r/src/auth/x.ts" "$EDIT_X")"
-[ "$rc" -eq 0 ] && [ "$(decision)" = ask ] && reason | grep -q 'auth'; check "src/auth/x.ts -> ask, the reason names auth" $?
-hook "$r" "$(fx Write file_path "$r/db/migrations/001.sql" "$WRITE_X")"; [ "$(decision)" = ask ] && reason | grep -q 'data'; check "db/migrations/001.sql -> ask (data)" $?
-hook "$r" "$(fx Write file_path "$r/terraform/main.tf" "$WRITE_X")"; [ "$(decision)" = ask ] && reason | grep -q 'infra'; check "terraform/main.tf -> ask (infra)" $?
-hook "$r" "$(fx Write file_path "$r/openapi.yaml" "$WRITE_X")"; [ "$(decision)" = ask ] && reason | grep -q 'public-contract'; check "openapi.yaml -> ask (public-contract)" $?
-hook "$r" "$(fx Write file_path "$r/.env" "$WRITE_X")"; [ "$(decision)" = ask ] && reason | grep -q 'secrets'; check ".env -> ask (secrets; permissions.deny is the hard block)" $?
+[ "$rc" -eq 0 ] && [ "$(decision)" = ask ] && reason | qgrep 'auth'; check "src/auth/x.ts -> ask, the reason names auth" $?
+hook "$r" "$(fx Write file_path "$r/db/migrations/001.sql" "$WRITE_X")"; [ "$(decision)" = ask ] && reason | qgrep 'data'; check "db/migrations/001.sql -> ask (data)" $?
+hook "$r" "$(fx Write file_path "$r/terraform/main.tf" "$WRITE_X")"; [ "$(decision)" = ask ] && reason | qgrep 'infra'; check "terraform/main.tf -> ask (infra)" $?
+hook "$r" "$(fx Write file_path "$r/openapi.yaml" "$WRITE_X")"; [ "$(decision)" = ask ] && reason | qgrep 'public-contract'; check "openapi.yaml -> ask (public-contract)" $?
+hook "$r" "$(fx Write file_path "$r/.env" "$WRITE_X")"; [ "$(decision)" = ask ] && reason | qgrep 'secrets'; check ".env -> ask (secrets; permissions.deny is the hard block)" $?
 hook "$r" "$(fx Write file_path "$r/apps/web/.env.local" "$WRITE_X")"; [ "$(decision)" = ask ]; check "a nested .env.local -> ask" $?
 hook "$r" "$(fx Write file_path "$r/.env.example" "$WRITE_X")"; silent; check ".env.example is carved out of secrets -> no output" $?
 hook "$r" "$(fx Write file_path "$r/certs/server.pem" "$WRITE_X")"; [ "$(decision)" = ask ]; check "**/*.pem -> ask" $?
@@ -138,7 +139,7 @@ h = json.load(sys.stdin)["hookSpecificOutput"]
 assert h["hookEventName"] == "PreToolUse" and h["permissionDecision"] == "ask" and h["permissionDecisionReason"]
 '; check "the ask output is the documented hookSpecificOutput JSON" $?
 fi
-hook "$r" "$(fx Write file_path "$r/src/auth/migrations/x.sql" "$WRITE_X")"; reason | grep -q 'auth' && reason | grep -q 'data'; check "a path in two categories names both" $?
+hook "$r" "$(fx Write file_path "$r/src/auth/migrations/x.sql" "$WRITE_X")"; reason | qgrep 'auth' && reason | qgrep 'data'; check "a path in two categories names both" $?
 hook "$r" "$(fx Write file_path "$r/.agents/auth/x" "$WRITE_X")"; [ "$(decision)" = deny ]; check "harness without approval wins over a consequential category (deny, not ask)" $?
 
 # a current approval lets harness edits through
@@ -186,7 +187,7 @@ hook "$r" '{"tool_name":"Bash","tool_input":{"command":"echo x > .agents/state.y
 hook "$r" '{"tool_name":"Read","tool_input":{"file_path":"'"$r"'/.agents/state.yml"}}'; silent; check "a Read of a harness file -> no output" $?
 hook "$r" '{"tool_input":{"file_path":"'"$r"'/.agents/state.yml"},"tool_name":"Edit"}'; [ "$(decision)" = deny ]; check "the key order does not matter" $?
 hook "$r" '{ "tool_name" : "Edit" , "tool_input" : { "file_path" : "'"$r"'/.agents/state.yml" } }'; [ "$(decision)" = deny ]; check "spacing around colons and braces does not matter" $?
-hook "$r" "$(fx Edit file_path "$r/.agents/we\\\"ird/x" "$EDIT_X")"; [ "$(decision)" = deny ] && printf '%s' "$out" | grep -q 'we\\"ird'; check "a path with an escaped quote is read and re-escaped in the reason" $?
+hook "$r" "$(fx Edit file_path "$r/.agents/we\\\"ird/x" "$EDIT_X")"; [ "$(decision)" = deny ] && printf '%s' "$out" | qgrep 'we\\"ird'; check "a path with an escaped quote is read and re-escaped in the reason" $?
 # a map with junk lines is read without an error; the valid lines still count
 r="$(mkrepo)"; printf 'this line has no colon\n:\n\n   \n# a comment\nharness:\nBAD CAT: x\nharness: scripts/extra.sh   # trailing comment\n' >> "$r/.agents/consequence.yml"
 hook "$r" "$(fx Edit file_path "$r/scripts/extra.sh" "$EDIT_X")"; [ "$(decision)" = deny ] && [ -z "$err" ]; check "junk lines, an empty glob and a trailing comment in the map do not break it" $?
@@ -200,11 +201,11 @@ hook "$r" "$(fx Edit file_path "$r/scripts/x/keep/a.sh" "$EDIT_X")"; silent; che
 # where the repository root comes from
 r="$(mkrepo)"; mkdir -p "$r/src/deep"
 out="$(cd "$r/src/deep" && printf '%s' "$(fx Edit file_path ".agents/state.yml" "$EDIT_X")" | env -u CLAUDE_PROJECT_DIR bash "$r/scripts/hooks/claude-protect.sh" 2>/dev/null)"; rc=$?
-[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '"permissionDecision":"deny"'; check "run from a subdirectory: a relative path is read against the root (git top level), not the directory" $?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | qgrep '"permissionDecision":"deny"'; check "run from a subdirectory: a relative path is read against the root (git top level), not the directory" $?
 out="$(cd "$r/src/deep" && printf '%s' "$(fx Edit file_path "$r/.agents/state.yml" "$EDIT_X")" | env -u CLAUDE_PROJECT_DIR bash "$r/scripts/hooks/claude-protect.sh" 2>/dev/null)"; rc=$?
-[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '"permissionDecision":"deny"'; check "run from a subdirectory: an absolute path is denied against the git top level" $?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | qgrep '"permissionDecision":"deny"'; check "run from a subdirectory: an absolute path is denied against the git top level" $?
 out="$(cd "$W" && printf '%s' "$(fx Edit file_path ".agents/state.yml" "$EDIT_X")" | CLAUDE_PROJECT_DIR="$r" bash "$r/scripts/hooks/claude-protect.sh" 2>/dev/null)"; rc=$?
-[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '"permissionDecision":"deny"'; check "CLAUDE_PROJECT_DIR is the root, whatever the current directory" $?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | qgrep '"permissionDecision":"deny"'; check "CLAUDE_PROJECT_DIR is the root, whatever the current directory" $?
 # a symlinked directory that leads into the harness
 r="$(mkrepo)"; ln -s ../.agents "$r/src/link"
 hook "$r" "$(fx Write file_path "$r/src/link/state.yml" "$WRITE_X")"; [ "$(decision)" = deny ]; check "a path through a symlinked directory into .agents/ -> deny" $?

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 M="$KEEL/scripts/measure.sh"
 [ -f "$M" ]; check "measure.sh exists" $?
@@ -17,17 +18,17 @@ for i in 1 2 3 4 5 6 7 8 9 10; do lines $((i*10)) "src/f$i.ts"; done
 lines 250 src/big.ts; lines 600 src/huge.ts
 printf '\0\1\2' > "$R/src/blob.bin"; commit
 out="$(m file-size 'src/f*.ts')"
-printf '%s\n' "$out" | grep -qx 'files 10' && printf '%s\n' "$out" | grep -qx 'p50 50' && printf '%s\n' "$out" | grep -qx 'p75 80' && printf '%s\n' "$out" | grep -qx 'p90 90'; check "file-size percentiles (nearest-rank)" $?
-printf '%s\n' "$out" | grep -qx 'max 100 src/f10.ts'; check "file-size max with path" $?
+printf '%s\n' "$out" | qgrep -x 'files 10' && printf '%s\n' "$out" | qgrep -x 'p50 50' && printf '%s\n' "$out" | qgrep -x 'p75 80' && printf '%s\n' "$out" | qgrep -x 'p90 90'; check "file-size percentiles (nearest-rank)" $?
+printf '%s\n' "$out" | qgrep -x 'max 100 src/f10.ts'; check "file-size max with path" $?
 out="$(m file-size)"
-printf '%s\n' "$out" | grep -qx 'files 13' && printf '%s\n' "$out" | grep -qx 'over:200 2' && printf '%s\n' "$out" | grep -qx 'over:500 1' && printf '%s\n' "$out" | grep -qx 'over:1000 0' && printf '%s\n' "$out" | grep -qx 'over:300 1'; check "file-size over:N buckets, binary skipped" $?
+printf '%s\n' "$out" | qgrep -x 'files 13' && printf '%s\n' "$out" | qgrep -x 'over:200 2' && printf '%s\n' "$out" | qgrep -x 'over:500 1' && printf '%s\n' "$out" | qgrep -x 'over:1000 0' && printf '%s\n' "$out" | qgrep -x 'over:300 1'; check "file-size over:N buckets, binary skipped" $?
 ro file-size file-size
 
 # --- tree
 R="$(new_repo)"; for f in src/a/x.ts src/a/y.ts src/b/z.ts README.md; do mkdir -p "$R/$(dirname "$f")"; echo 1 > "$R/$f"; done; commit
 out="$(m tree 2)"
-printf '%s\n' "$out" | grep -qx "$(printf '2\tsrc/a')" && printf '%s\n' "$out" | grep -qx "$(printf '1\tsrc/b')"; check "tree 2 counts per directory, largest first" $?
-out="$(m tree 1)"; printf '%s\n' "$out" | grep -q "$(printf '3\tsrc')"; check "tree 1 groups by first component" $?
+printf '%s\n' "$out" | qgrep -x "$(printf '2\tsrc/a')" && printf '%s\n' "$out" | qgrep -x "$(printf '1\tsrc/b')"; check "tree 2 counts per directory, largest first" $?
+out="$(m tree 1)"; printf '%s\n' "$out" | qgrep "$(printf '3\tsrc')"; check "tree 1 groups by first component" $?
 ro tree tree
 
 # --- imports java
@@ -45,14 +46,14 @@ R="$(new_repo)"; mkdir -p "$R/src/app" "$R/src/domain"
 printf "import { y } from '../domain/y';\nimport z from '@/z';\nimport r from 'react';\nconst q = require('./local');\n" > "$R/src/app/x.ts"
 printf 'export const y = 1;\n' > "$R/src/domain/y.ts"; commit
 out="$(m imports ts src)"
-printf '%s\n' "$out" | grep -qx "$(printf 'app\tdomain\t1')" && printf '%s\n' "$out" | tail -1 | grep -qx 'unresolved 2'; check "imports ts matrix + unresolved" $?
+printf '%s\n' "$out" | qgrep -x "$(printf 'app\tdomain\t1')" && printf '%s\n' "$out" | tail -1 | qgrep -x 'unresolved 2'; check "imports ts matrix + unresolved" $?
 ro imports-ts imports ts src
 
 # --- framework-imports
 R="$(new_repo)"; d="$R/src/main/java/com/acme/domain"; mkdir -p "$d"
 printf 'import org.springframework.stereotype.Service;\nimport java.util.List;\nimport jakarta.persistence.Entity;\n' > "$d/A.java"; commit
 out="$(m framework-imports src/main/java/com/acme/domain)"
-printf '%s\n' "$out" | grep -qx "$(printf 'org.springframework\t1')" && printf '%s\n' "$out" | grep -qx "$(printf 'jakarta.\t1')"; check "framework-imports" $?
+printf '%s\n' "$out" | qgrep -x "$(printf 'org.springframework\t1')" && printf '%s\n' "$out" | qgrep -x "$(printf 'jakarta.\t1')"; check "framework-imports" $?
 ro framework-imports framework-imports src
 
 # --- tests
@@ -62,9 +63,9 @@ echo c > "$R/src/test/java/a/FooTest.java"; echo c > "$R/src/test/java/a/BarIT.j
 printf 'plugins { id("info.solidsoft.pitest") version "1.15.0" }\njacoco {}\n' > "$R/build.gradle.kts"; commit
 out="$(m tests)"
 for l in 'main 2' 'test 3' 'unit 1' 'integration 1' 'e2e 1' 'untested_main 1' 'mutation_tool pitest' 'coverage_tool jacoco'; do
-  printf '%s\n' "$out" | grep -qx "$l"; check "tests: $l" $?
+  printf '%s\n' "$out" | qgrep -x "$l"; check "tests: $l" $?
 done
-R="$(new_repo)"; echo c > "$R/a.txt"; commit; out="$(m tests)"; printf '%s\n' "$out" | grep -qx 'mutation_tool none' && printf '%s\n' "$out" | grep -qx 'coverage_tool none'; check "tests: none tools" $?
+R="$(new_repo)"; echo c > "$R/a.txt"; commit; out="$(m tests)"; printf '%s\n' "$out" | qgrep -x 'mutation_tool none' && printf '%s\n' "$out" | qgrep -x 'coverage_tool none'; check "tests: none tools" $?
 ro tests tests
 
 # --- pattern
@@ -73,11 +74,11 @@ printf 'console.log(1);\nok();\nconsole.log(2);\nconsole.debug(3);\n' > "$R/src/
 printf 'console.log(5);\n' > "$R/lib/c.ts"; printf 'clean();\n' > "$R/src/clean.ts"; printf 'console.log\0\1\n' > "$R/src/blob.bin"
 printf 'console.log(7);\n' > "$R/src/my file: ação.ts"; commit
 out="$(m pattern 'console\.(log|debug)\(' src)"
-printf '%s\n' "$out" | grep -qx 'checked 5' && printf '%s\n' "$out" | grep -qx 'files 3' && printf '%s\n' "$out" | grep -qx 'total 5'; check "pattern: checked, files with a match and total matching lines (binary skipped)" $?
-printf '%s\n' "$out" | grep -qx "$(printf '3\tsrc/a.ts')" && printf '%s\n' "$out" | grep -qx "$(printf '1\tsrc/my file: ação.ts')"; check "pattern: the top files, with a space, a colon and non-ASCII in a path" $?
+printf '%s\n' "$out" | qgrep -x 'checked 5' && printf '%s\n' "$out" | qgrep -x 'files 3' && printf '%s\n' "$out" | qgrep -x 'total 5'; check "pattern: checked, files with a match and total matching lines (binary skipped)" $?
+printf '%s\n' "$out" | qgrep -x "$(printf '3\tsrc/a.ts')" && printf '%s\n' "$out" | qgrep -x "$(printf '1\tsrc/my file: ação.ts')"; check "pattern: the top files, with a space, a colon and non-ASCII in a path" $?
 [ "$(printf '%s\n' "$out" | sed -n '4p')" = "$(printf '3\tsrc/a.ts')" ]; check "pattern: the largest count comes first" $?
-out="$(m pattern 'console\.log')"; printf '%s\n' "$out" | grep -qx 'files 4' && printf '%s\n' "$out" | grep -qx 'total 5'; check "pattern: no pathspec measures every tracked file" $?
-out="$(m pattern 'nothing-like-this')"; printf '%s\n' "$out" | grep -qx 'files 0' && printf '%s\n' "$out" | grep -qx 'total 0'; check "pattern: no match gives zeros" $?
+out="$(m pattern 'console\.log')"; printf '%s\n' "$out" | qgrep -x 'files 4' && printf '%s\n' "$out" | qgrep -x 'total 5'; check "pattern: no pathspec measures every tracked file" $?
+out="$(m pattern 'nothing-like-this')"; printf '%s\n' "$out" | qgrep -x 'files 0' && printf '%s\n' "$out" | qgrep -x 'total 0'; check "pattern: no match gives zeros" $?
 ro pattern pattern 'console' src
 m pattern >/dev/null; [ $? -eq 64 ]; check "pattern: no ERE -> rc 64" $?
 m pattern 'foo(' >/dev/null; [ $? -eq 64 ]; check "pattern: an invalid ERE -> rc 64" $?
@@ -87,6 +88,6 @@ R="$(new_repo)"; m bogus >/dev/null; [ $? -eq 64 ]; check "unknown subcommand rc
 # --- language (runs the code-language sensor from the plugin, in a repository without scripts/lib/)
 R="$(new_repo)"; mkdir -p "$R/src"; printf 'const valorTotal = 1; // calcula o total\n' > "$R/src/a.ts"; commit
 out="$(m language pt.txt src)"
-printf '%s\n' "$out" | grep -qx 'files 1' && printf '%s\n' "$out" | grep -qx 'flagged 2'; check "language measures with the bundled stop-list and libraries" $?
+printf '%s\n' "$out" | qgrep -x 'files 1' && printf '%s\n' "$out" | qgrep -x 'flagged 2'; check "language measures with the bundled stop-list and libraries" $?
 ro language language pt.txt src
 finish

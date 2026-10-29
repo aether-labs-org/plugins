@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 fail=0
 check() { if [ "$2" -eq 0 ]; then echo "  ok   $1"; else echo "  FAIL $1"; fail=1; fi; }
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -43,12 +44,12 @@ for s in '<a id="' '**Rule.**' '**Why.**' '**✓ / ✗.**' '**When it fails.**' 
 for k in RULE_ID KIND ORIGIN APPROVED_AT ENFORCEMENT DOC DECISION PLAN; do has "$root/plugins/keel-harness/contracts/rule-env.md" "$k="; check "contracts/rule-env.md names $k" $?; done
 has "$R/topics/architecture.md" '## Code map' && has "$R/topics/architecture.md" 'Invariants'; check "topics/architecture.md has Code map and Invariants" $?
 T="$R/topics/architecture.md"
-awk '/^## Code map/{p=1;next} /^## /{p=0} p' "$T" | grep -q "Bird's-eye"; check "Code map template opens with a bird's-eye paragraph" $?
-awk '/^## Code map/{p=1;next} /^## /{p=0} p' "$T" | grep -qF -- '- `{{path/}}` — '; check "Code map template has one bullet per module: \`path/\` — what lives there" $?
-awk '/^## Code map/{p=1;next} /^## /{p=0} p' "$T" | grep -qi 'invariants'; check "Code map template ends with the invariants" $?
+awk '/^## Code map/{p=1;next} /^## /{p=0} p' "$T" | qgrep "Bird's-eye"; check "Code map template opens with a bird's-eye paragraph" $?
+awk '/^## Code map/{p=1;next} /^## /{p=0} p' "$T" | qgrep -F -- '- `{{path/}}` — '; check "Code map template has one bullet per module: \`path/\` — what lives there" $?
+awk '/^## Code map/{p=1;next} /^## /{p=0} p' "$T" | qgrep -i 'invariants'; check "Code map template ends with the invariants" $?
 has "$T" 'harness-check' && has "$T" 'codemap-stale'; check "architecture topic names the codemap-stale check" $?
 has "$S" '## Code map' && has "$S" 'measure.sh" tree 2' && has "$S" 'confirm or correct'; check "rules drafts the Code map from measure.sh tree 2 and has the user confirm it" $?
-awk '/^### Phase 5/{p=1} /^### Phase 6/{p=0} p' "$S" | grep -q 'Code map'; check "the Code map is proposed in the proposals phase (architecture topic)" $?
+awk '/^### Phase 5/{p=1} /^### Phase 6/{p=0} p' "$S" | qgrep 'Code map'; check "the Code map is proposed in the proposals phase (architecture topic)" $?
 for t in conventions testing; do [ -f "$R/topics/$t.md" ] && has "$R/topics/$t.md" '<a id="'; check "topics/$t.md with an example anchored section" $?; done
 has "$root/plugins/keel-harness/contracts/plan.md" 'Status:' && has "$root/plugins/keel-harness/contracts/plan.md" '## Acceptance' && has "$root/plugins/keel-harness/contracts/plan.md" 'make gate-fast'; check "contracts/plan.md" $?
 [ -f "$R/nested-agents-md-template.md" ] && has "$R/nested-agents-md-template.md" '## Rules' && has "$R/nested-agents-md-template.md" '100 lines'; check "nested-agents-md-template.md" $?
@@ -82,21 +83,21 @@ has "$R/nested-agents-md-template.md" 'Follow {{EXEMPLAR}}, not {{legacy path}}'
 has "$S" 'EXEMPLAR=' && has "$S" 'LEGACY=' && has "$S" 'only after the user confirms'; check "rules proposes an exemplar and writes it only after confirmation" $?
 has "$S" 'With no clear best file'; check "rules proposes no exemplar without a clear best file" $?
 [ "$(wc -l < "$S")" -le 250 ]; check "rules SKILL.md still at most 250 lines after F3d-1" $?
-awk '/^## adopted-patterns/{p=1;next} /^## /{p=0} p' "$C" | grep -qF 'pattern.sh'; check "catalog: adopted-patterns promotes a syntactic pattern to pattern.sh" $?
-awk '/^## adopted-patterns/{p=1;next} /^## /{p=0} p' "$C" | grep -qF 'measure.sh pattern' && awk '/^## adopted-patterns/{p=1;next} /^## /{p=0} p' "$C" | grep -qF 'RULE_FILE'; check "catalog: the promotion route measures first and names RULE_FILE for ast-grep and semgrep" $?
+awk '/^## adopted-patterns/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'pattern.sh'; check "catalog: adopted-patterns promotes a syntactic pattern to pattern.sh" $?
+awk '/^## adopted-patterns/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'measure.sh pattern' && awk '/^## adopted-patterns/{p=1;next} /^## /{p=0} p' "$C" | qgrep -F 'RULE_FILE'; check "catalog: the promotion route measures first and names RULE_FILE for ast-grep and semgrep" $?
 has "$S" 'rules/pattern.sh' && has "$S" 'measure.sh" pattern'; check "rules copies pattern.sh for a confirmed pattern and measures it first" $?
 [ -f "$root/plugins/keel-harness/assets/core/sensors/rules/pattern.sh" ]; check "pattern.sh ships under assets/core/sensors/rules" $?
 # --- F3c-2: mandatory rules (D43), Spec Kit constitution
 CT="$root/plugins/keel-harness/contracts/rule-env.md"
 P5="$(awk '/^### Phase 5/{p=1} /^### Phase 6/{p=0} p' "$S")"
-printf '%s\n' "$P5" | grep -qF 'Mandatory or ratchet?' && printf '%s\n' "$P5" | grep -qF 'ENFORCEMENT_LEVEL=mandatory' && printf '%s\n' "$P5" | grep -qF 'superseding ADR'; check "phase 5 asks mandatory or ratchet, with the trade-off" $?
-printf '%s\n' "$P5" | grep -qF 'inferential rule stays ratchet'; check "phase 5: an inferential rule stays ratchet" $?
-awk '/^### Phase 3/{p=1} /^### Phase 4/{p=0} p' "$S" | grep -qF '.specify/memory/constitution.md'; check "phase 3 reads a Spec Kit constitution" $?
-awk '/^### Phase 3/{p=1} /^### Phase 4/{p=0} p' "$S" | grep -qF '## Principles' && awk '/^### Phase 3/{p=1} /^### Phase 4/{p=0} p' "$S" | grep -qF '→ review:<owner>'; check "unsensorable principles go to ## Principles with → review:<owner>" $?
+printf '%s\n' "$P5" | qgrep -F 'Mandatory or ratchet?' && printf '%s\n' "$P5" | qgrep -F 'ENFORCEMENT_LEVEL=mandatory' && printf '%s\n' "$P5" | qgrep -F 'superseding ADR'; check "phase 5 asks mandatory or ratchet, with the trade-off" $?
+printf '%s\n' "$P5" | qgrep -F 'inferential rule stays ratchet'; check "phase 5: an inferential rule stays ratchet" $?
+awk '/^### Phase 3/{p=1} /^### Phase 4/{p=0} p' "$S" | qgrep -F '.specify/memory/constitution.md'; check "phase 3 reads a Spec Kit constitution" $?
+awk '/^### Phase 3/{p=1} /^### Phase 4/{p=0} p' "$S" | qgrep -F '## Principles' && awk '/^### Phase 3/{p=1} /^### Phase 4/{p=0} p' "$S" | qgrep -F '→ review:<owner>'; check "unsensorable principles go to ## Principles with → review:<owner>" $?
 has "$S" 'never writes a `constitution.md`'; check "rules never writes a constitution.md" $?
 [ -z "$(find "$root/plugins/keel-harness" -name 'constitution*' | head -1)" ]; check "the plugin ships no constitution file or template" $?
-awk '/^### Phase 7/{p=1} /^### Phase 8/{p=0} p' "$S" | grep -qF 'mandatory rules come first' && awk '/^### Phase 7/{p=1} /^### Phase 8/{p=0} p' "$S" | grep -qF '[mandatory]'; check "phase 7 puts mandatory rules first in AGENTS.md" $?
-awk '/^### Phase 7/{p=1} /^### Phase 8/{p=0} p' "$S" | grep -qF 'A mandatory rule has no baseline'; check "phase 7: a mandatory rule has EXCEPTIONS, not a baseline" $?
+awk '/^### Phase 7/{p=1} /^### Phase 8/{p=0} p' "$S" | qgrep -F 'mandatory rules come first' && awk '/^### Phase 7/{p=1} /^### Phase 8/{p=0} p' "$S" | qgrep -F '[mandatory]'; check "phase 7 puts mandatory rules first in AGENTS.md" $?
+awk '/^### Phase 7/{p=1} /^### Phase 8/{p=0} p' "$S" | qgrep -F 'A mandatory rule has no baseline'; check "phase 7: a mandatory rule has EXCEPTIONS, not a baseline" $?
 has "$R/nested-agents-md-template.md" '[mandatory]' && has "$R/nested-agents-md-template.md" 'mandatory rules first'; check "nested AGENTS.md template lists mandatory rules first" $?
 has "$root/plugins/keel-harness/skills/build/references/agents-md-template.md" '[mandatory]' && has "$root/plugins/keel-harness/skills/build/references/agents-md-template.md" 'mandatory rules first'; check "root AGENTS.md template lists mandatory rules first" $?
 has "$R/adr-template.md" 'Supersedes:' && has "$R/adr-template.md" 'CODEOWNERS'; check "adr-template.md documents the Supersedes: line and its CODEOWNERS approval" $?

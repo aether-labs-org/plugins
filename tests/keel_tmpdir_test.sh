@@ -4,6 +4,7 @@
 # directory under .agents/run/tmp/ that is removed afterwards; (2) no temp directory at all ->
 # the verdict the plan's table names; (3) structure: no "$tmp/..." can expand with an empty tmp.
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 RS=assets/core/sensors/rules
 SD=assets/core/sensors
@@ -42,25 +43,25 @@ scase() {
   local name="$1" r="$2" s="$3" want="$4" kind="$5"; shift 5
   local o0 rc0 o1 rc1 e1 o2 rc2 e2 st l0 l1
   o0="$(cd "$r" && env "$@" bash "$s" 2>/dev/null)"; rc0=$?
-  [ "$rc0" -eq "$want" ] && ! line1 "$o0" | grep -q "${TAB}skip${TAB}"; check "$name: normal TMPDIR reaches the verdict (rc $want)" $?
+  [ "$rc0" -eq "$want" ] && ! line1 "$o0" | qgrep "${TAB}skip${TAB}"; check "$name: normal TMPDIR reaches the verdict (rc $want)" $?
   rm -rf "$r/.agents/run/tmp"
   o1="$(cd "$r" && env TMPDIR="$NOTMP" "$@" bash "$s" 2>"$W/err1")"; rc1=$?; e1="$(cat "$W/err1")"
   l0="$(line1 "$o0")"; l1="$(line1 "$o1")"
   same "$rc1" "$l1" "$rc0" "$l0"; check "$name: unusable TMPDIR gives the same verdict" $?
   [ -z "$e1" ] || printf '%s\n' "$e1" | head -3 | sed 's/^/    stderr: /'
-  ! printf '%s\n' "$e1" | grep -q 'mktemp'; check "$name: unusable TMPDIR prints no mktemp error" $?
+  ! printf '%s\n' "$e1" | qgrep 'mktemp'; check "$name: unusable TMPDIR prints no mktemp error" $?
   cleanrun "$r"; check "$name: fallback used and nothing left in .agents/run/tmp" $?
   blockrun "$r"
   o2="$(cd "$r" && env TMPDIR="$NOTMP" "$@" bash "$s" 2>"$W/err2")"; rc2=$?; e2="$(cat "$W/err2")"
   st="$(line1 "$o0" | cut -f1,2)"
   if [ "$kind" = guard ]; then
     [ "$rc2" -eq 1 ] && [ "$(line1 "$o2")" = "$(printf '%s\tfail\t%s' "$st" "$NOMSG")" ] \
-      && printf '%s\n' "$o2" | grep -qF '  guidance: make TMPDIR writable or let the gate create .agents/run/tmp/; never delete this sensor'
+      && printf '%s\n' "$o2" | qgrep -F '  guidance: make TMPDIR writable or let the gate create .agents/run/tmp/; never delete this sensor'
   else
     [ "$rc2" -eq 2 ] && [ "$(line1 "$o2")" = "$(printf '%s\tskip\t%s' "$st" "$NOMSG")" ]
   fi
   check "$name: no temp directory at all -> $kind verdict" $?
-  ! printf '%s\n' "$e2" | grep -q 'mktemp'; check "$name: no temp directory prints no mktemp error" $?
+  ! printf '%s\n' "$e2" | qgrep 'mktemp'; check "$name: no temp directory prints no mktemp error" $?
 }
 
 # ---------------------------------------------------------------- rule sensors
@@ -68,8 +69,8 @@ r="$(mk)"; install_asset "$r" "$RS/file-size.sh" scripts/sensors/file-size.sh
 printf "LIMIT=5\nINCLUDE='src'\n" > "$r/.agents/rules/file-size.env"; nlines 7 > "$r/src/a.ts"; nlines 3 > "$r/src/s.ts"; commit "$r"
 scase file-size "$r" scripts/sensors/file-size.sh 1 sensor
 rm -rf "$r/.agents/run"; o="$(cd "$r" && TMPDIR="$NOTMP" bash scripts/sensors/file-size.sh 2>&1)"
-printf '%s\n' "$o" | head -1 | grep -q '^file-size	heuristic	fail	1 of 2 files over 5 lines'; check "file-size: an oversize file still fails under an unusable TMPDIR" $?
-printf '%s\n' "$o" | grep -qF '  src/a.ts: 7 lines (allowed 5)'; check "file-size: and names the file" $?
+printf '%s\n' "$o" | head -1 | qgrep '^file-size	heuristic	fail	1 of 2 files over 5 lines'; check "file-size: an oversize file still fails under an unusable TMPDIR" $?
+printf '%s\n' "$o" | qgrep -F '  src/a.ts: 7 lines (allowed 5)'; check "file-size: and names the file" $?
 
 r="$(mk)"; install_asset "$r" "$RS/folder-layout.sh" scripts/sensors/folder-layout.sh
 mkdir -p "$r/src/app" "$r/src/misc"; echo 1 > "$r/src/app/x.ts"; echo 1 > "$r/src/misc/y.ts"
@@ -162,13 +163,13 @@ r="$(mkg)"
 scase guard-clean "$r" scripts/sensors/guard.sh 0 guard KEEL_GUARD_BASE=HEAD
 rm -rf "$r/.agents/run"
 o="$(cd "$r" && TMPDIR="$NOTMP" KEEL_GUARD_BASE=HEAD bash scripts/sensors/guard.sh 2>&1)"
-printf '%s\n' "$o" | head -1 | grep -q '^guard	security	pass	No harness file loosened since '; check "guard: no change passes under an unusable TMPDIR" $?
+printf '%s\n' "$o" | head -1 | qgrep '^guard	security	pass	No harness file loosened since '; check "guard: no change passes under an unusable TMPDIR" $?
 r="$(mkg)"; printf 'src/big.txt\t20\n' >> "$r/.agents/baselines/file-size.tsv"
 scase guard-loosened "$r" scripts/sensors/guard.sh 1 guard KEEL_GUARD_BASE=HEAD
 rm -rf "$r/.agents/run"
 o="$(cd "$r" && TMPDIR="$NOTMP" KEEL_GUARD_BASE=HEAD bash scripts/sensors/guard.sh 2>&1)"
-printf '%s\n' "$o" | head -1 | grep -q '^guard	security	fail	1 loosening(s) of the harness since '; check "guard: a grown baseline fails with '1 loosening(s)' under an unusable TMPDIR" $?
-printf '%s\n' "$o" | grep -qF '.agents/baselines/file-size.tsv: src/big.txt 0 -> 20'; check "guard: and names the row" $?
+printf '%s\n' "$o" | head -1 | qgrep '^guard	security	fail	1 loosening(s) of the harness since '; check "guard: a grown baseline fails with '1 loosening(s)' under an unusable TMPDIR" $?
+printf '%s\n' "$o" | qgrep -F '.agents/baselines/file-size.tsv: src/big.txt 0 -> 20'; check "guard: and names the row" $?
 
 # ---------------------------------------------------------------- baseline_compare
 r="$(mk)"; printf 'a\t3\n' > "$W/counts"
@@ -186,24 +187,24 @@ mkdir -p "$r/.agents"; printf 'schema_version: 2\nlayers: { hook: not_installed 
 printf '.agents/run/\n' > "$r/.gitignore"; { echo '# AGENTS.md'; nlines 129; } > "$r/AGENTS.md"; commit "$r"
 hc() { (cd "$r" && env "$@" bash scripts/harness-check.sh 2>"$W/hcerr"); }
 o0="$(hc KEEL_TODAY=2026-10-29)"; rc0=$?
-printf '%s\n' "$o0" | grep -q "^warn${TAB}agents-size${TAB}AGENTS.md${TAB}130 lines"; check "harness-check: a 130-line AGENTS.md reports agents-size (normal TMPDIR)" $?
+printf '%s\n' "$o0" | qgrep "^warn${TAB}agents-size${TAB}AGENTS.md${TAB}130 lines"; check "harness-check: a 130-line AGENTS.md reports agents-size (normal TMPDIR)" $?
 o1="$(hc KEEL_TODAY=2026-10-29 TMPDIR="$NOTMP")"; rc1=$?
 same "$rc1" "$o1" "$rc0" "$o0"; check "harness-check: unusable TMPDIR gives the same report and exit code" $?
-printf '%s\n' "$o1" | grep -q "^warn${TAB}agents-size${TAB}AGENTS.md${TAB}130 lines"; check "harness-check: agents-size is still reported under an unusable TMPDIR" $?
+printf '%s\n' "$o1" | qgrep "^warn${TAB}agents-size${TAB}AGENTS.md${TAB}130 lines"; check "harness-check: agents-size is still reported under an unusable TMPDIR" $?
 ! grep -q mktemp "$W/hcerr"; check "harness-check: unusable TMPDIR prints no mktemp error" $?
 cleanrun "$r"; check "harness-check: fallback used and nothing left in .agents/run/tmp" $?
 blockrun "$r"
 o2="$(hc KEEL_TODAY=2026-10-29 TMPDIR="$NOTMP")"; rc2=$?
 hcmsg="$(cat "$W/hcerr")"
 same "$rc2" "$hcmsg" 3 "harness-check: $NOMSG" && [ -z "$o2" ]; check "harness-check: no temp directory -> exit 3 and a message on stderr" $?
-sed -n 1,12p "$KEEL/assets/core/harness-check.sh" | grep -q '^# Exit .*3 '; check "harness-check: header documents exit 3" $?
+sed -n 1,12p "$KEEL/assets/core/harness-check.sh" | qgrep '^# Exit .*3 '; check "harness-check: header documents exit 3" $?
 
 # ---------------------------------------------------------------- measure.sh (runs from the plugin)
 r="$(new_repo)"; nlines 7 > "$r/a.ts"; nlines 3 > "$r/b.ts"; commit "$r"
 ms() { (cd "$r" && env "$@" bash "$KEEL/scripts/measure.sh" file-size 2>"$W/mserr"); }
 o0="$(ms)"; rc0=$?
 o1="$(ms TMPDIR="$NOTMP")"; rc1=$?
-[ "$rc0" -eq 0 ] && [ "$rc1" -eq 0 ] && [ "$o1" = "$o0" ] && printf '%s\n' "$o1" | grep -qx 'files 3'; check "measure.sh: unusable TMPDIR gives the same measurements" $?
+[ "$rc0" -eq 0 ] && [ "$rc1" -eq 0 ] && [ "$o1" = "$o0" ] && printf '%s\n' "$o1" | qgrep -x 'files 3'; check "measure.sh: unusable TMPDIR gives the same measurements" $?
 ! grep -q mktemp "$W/mserr"; check "measure.sh: unusable TMPDIR prints no mktemp error" $?
 nolefts "$r"; check "measure.sh: nothing left in .agents/run/tmp" $?
 blockrun "$r"

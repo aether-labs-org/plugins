@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 fail=0
 check() { if [ "$2" -eq 0 ]; then echo "  ok   $1"; else echo "  FAIL $1"; fail=1; fi; }
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,7 +22,7 @@ grep -q "aggregate score" "$sk/SKILL.md" 2>/dev/null; check "SKILL.md forbids an
 
 R="$sk/references/rubric.md"
 for s in husky lefthook mutation; do grep -qi "$s" "$R"; check "rubric mentions $s" $?; done
-! grep "^| \*\*Context" "$R" | grep -q '\.mcp\.json'; check "Context row no longer requires .mcp.json" $?
+! grep "^| \*\*Context" "$R" | qgrep '\.mcp\.json'; check "Context row no longer requires .mcp.json" $?
 for s in 'estimated setup minutes' greenfield brownfield '.github/copilot-instructions.md' '.devin/rules' 'eleven-axis'; do
   grep -qF -- "$s" "$sk/SKILL.md"; check "SKILL.md contains: $s" $?
 done
@@ -35,18 +36,18 @@ ax="$(sed -n '/^| Axis/,/^$/p' "$R" | grep -E '^\| \*\*' | sed 's/^| \*\*\([^*]*
 [ "$ax" = "Bootstrap,Guides,Fast sensors,Slow sensors,Enforcement,Context,Rules,Reproducible build,Headless setup,Flaky tests,Observability," ]; check "rubric has the 11 axes in the fixed order ($ax)" $?
 grep -q 'Eleven axes' "$R"; check "rubric states eleven axes" $?
 for s in 'npm ci' 'pnpm install --frozen-lockfile' 'uv sync --frozen' 'poetry install --sync' 'Gradle or Maven wrapper'; do
-  grep '^| \*\*Reproducible build' "$R" | grep -qF -- "$s"; check "Reproducible build row names: $s" $?
+  grep '^| \*\*Reproducible build' "$R" | qgrep -F -- "$s"; check "Reproducible build row names: $s" $?
 done
-grep '^| \*\*Headless setup' "$R" | grep -q 'no `read`' && grep '^| \*\*Headless setup' "$R" | grep -q '.env.example'; check "Headless setup row: no read, .env.example" $?
-grep '^| \*\*Flaky tests' "$R" | grep -q '3 times' && grep '^| \*\*Flaky tests' "$R" | grep -q 'not measured'; check "Flaky tests row: measured 3 times, unmeasured is not measured" $?
-grep '^| \*\*Observability' "$R" | grep -q 'pino' && grep '^| \*\*Observability' "$R" | grep -q 'log-format line'; check "Observability row: logging library and a log-format line" $?
+grep '^| \*\*Headless setup' "$R" | qgrep 'no `read`' && grep '^| \*\*Headless setup' "$R" | qgrep '.env.example'; check "Headless setup row: no read, .env.example" $?
+grep '^| \*\*Flaky tests' "$R" | qgrep '3 times' && grep '^| \*\*Flaky tests' "$R" | qgrep 'not measured'; check "Flaky tests row: measured 3 times, unmeasured is not measured" $?
+grep '^| \*\*Observability' "$R" | qgrep 'pino' && grep '^| \*\*Observability' "$R" | qgrep 'log-format line'; check "Observability row: logging library and a log-format line" $?
 grep -qF '+N.Ns per run' "$R" && grep -qF '+N.Ns per run' "$sk/SKILL.md"; check "the per-run cost unit is in the rubric and the report contract" $?
-awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md" | grep -q 'three times'; check "phase 1 asks before running the tests three times" $?
+awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md" | qgrep 'three times'; check "phase 1 asks before running the tests three times" $?
 grep -q 'only after the user agrees' "$sk/SKILL.md" && grep -qi 'agreement' "$R"; check "the three runs need the user's agreement" $?
 for a in 'Reproducible build' 'Headless setup' 'Flaky tests' 'Observability'; do
-  awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md" | grep -qF -- "\`$a\`"; check "phase 1 scoring lists axis: $a" $?
+  awk '/^### Phase 1/{p=1} /^### Phase 2/{p=0} p' "$sk/SKILL.md" | qgrep -F -- "\`$a\`"; check "phase 1 scoring lists axis: $a" $?
 done
-! grep -qi 'aggregate score\|overall grade' "$R" || grep -q 'There is no aggregate score' "$R"; check "still no aggregate score" $?
+! grep -qi 'aggregate score\|overall grade' "$R" || qgrep 'There is no aggregate score' "$R"; check "still no aggregate score" $?
 
 # --- F2c-2: assess runs through scripts/keel
 for s in "scripts/keel check pre assess" "scripts/keel verify assess"; do
@@ -89,7 +90,7 @@ word="$(printf '%s\n' "$words" | cut -d' ' -f$((nrows + 1)))"
 grep -q "^# The $word checks$" "$chk"; check "checks.md title counts its $nrows rows ($word)" $?
 grep -qF "The $word checks, what each one means" "$f"; check "assess SKILL.md counts the checks: $word" $?
 grep -qF "$nrows checks), explains" "$root/plugins/keel-harness/README.md"; check "README counts the checks: $nrows" $?
-grep '^| `codemap-stale`' "$chk" | grep -q 'Code map'; check "codemap-stale row explains the Code map" $?
+grep '^| `codemap-stale`' "$chk" | qgrep 'Code map'; check "codemap-stale row explains the Code map" $?
 ! grep -qi "is not installed by keel\|not installed by keel" "$f"; check "assess no longer says keel does not install enforcement" $?
 ev="$root/plugins/keel-harness/evals/assess-validator-drift"
 for x in case.yaml prompt.md scaffold.sh; do [ -f "$ev/$x" ]; check "assess-validator-drift has $x" $?; done

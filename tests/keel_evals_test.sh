@@ -2,6 +2,7 @@
 # E2: every eval case belongs to one grant group, lists the tools it needs, and grades "writes
 # nothing" from tool calls, not from files (Claude Code's Bash tool creates .claude/.cc-writes/).
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 EV="$KEEL/evals"
 tags_of() { grep -h '^tags:' "$1/case.yaml" "$1/prompt.md" 2>/dev/null | head -1; }
@@ -11,12 +12,12 @@ tools_of() { grep -h '^allowed_tools:' "$1/prompt.md" | head -1; }
 for d in "$EV"/*/; do
   c="$(basename "$d")"; t="$(tags_of "$d")"; a="$(tools_of "$d")"
   n=0; g=""
-  for x in readonly bash tools effect; do printf '%s' "$t" | grep -qE "[[, ]$x[],]" && { n=$((n + 1)); g=$x; }; done
+  for x in readonly bash tools effect; do printf '%s' "$t" | qgrep -E "[[, ]$x[],]" && { n=$((n + 1)); g=$x; }; done
   [ "$n" = 1 ]; check "$c is in exactly one grant group (readonly | bash | tools | effect)" $?
   case "$g" in
-    readonly) ! printf '%s' "$a" | grep -qE '\b(Bash|Write|Edit)\b'; check "$c (readonly) lists no gated tool" $? ;;
-    bash) printf '%s' "$a" | grep -q '\bBash\b' && ! printf '%s' "$a" | grep -qE '\b(Write|Edit)\b'; check "$c (bash) lists Bash and no Write/Edit" $? ;;
-    tools | effect) printf '%s' "$a" | grep -q '\bBash\b' && printf '%s' "$a" | grep -q '\bWrite\b'; check "$c ($g) lists Bash and Write" $? ;;
+    readonly) ! printf '%s' "$a" | qgrep -E '\b(Bash|Write|Edit)\b'; check "$c (readonly) lists no gated tool" $? ;;
+    bash) printf '%s' "$a" | qgrep '\bBash\b' && ! printf '%s' "$a" | qgrep -E '\b(Write|Edit)\b'; check "$c (bash) lists Bash and no Write/Edit" $? ;;
+    tools | effect) printf '%s' "$a" | qgrep '\bBash\b' && printf '%s' "$a" | qgrep '\bWrite\b'; check "$c ($g) lists Bash and Write" $? ;;
   esac
   if { [ "$g" = readonly ] || [ "$g" = bash ]; } && [ "$c" != should-not-trigger ]; then
     for f in no-write no-edit no-notebook-edit no-bash-write; do
@@ -47,7 +48,7 @@ for c in assess-pressure-fix-it assess-pressure-create-agents assess-pressure-fo
   grep -q '^tags: \[assess, pressure, bash\]$' "$d/case.yaml" 2>/dev/null; check "$c is tagged [assess, pressure, bash]" $?
   grep -q '^allowed_tools: \[Read, Glob, Grep, Skill, Bash\]$' "$d/prompt.md" 2>/dev/null; check "$c allows Read, Glob, Grep, Skill and Bash only" $?
   grep -qF '"skill"\s*:\s*"(?:[\w-]+:)?assess"' "$d/graders/skill-fired.md" 2>/dev/null; check "$c has the skill-fired grader" $?
-  [ -x "$d/scaffold.sh" ] && head -1 "$d/scaffold.sh" | grep -q '^#!/usr/bin/env bash'; check "$c has an executable bash scaffold" $?
+  [ -x "$d/scaffold.sh" ] && head -1 "$d/scaffold.sh" | qgrep '^#!/usr/bin/env bash'; check "$c has an executable bash scaffold" $?
 done
 grep -qF 'agents-size|100 lines' "$EV/assess-pressure-fix-it/graders/names-agents-size.md" 2>/dev/null; check "assess-pressure-fix-it: the reply must name agents-size or 100 lines" $?
 grep -qF '/keel-harness:build' "$EV/assess-pressure-create-agents/graders/names-build.md" 2>/dev/null; check "assess-pressure-create-agents: the reply must name /keel-harness:build" $?

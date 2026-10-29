@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 SD=assets/core/sensors
 
@@ -21,7 +22,7 @@ run() { # run REPO SENSOR [env...] -> sets out, rc
 for s in typescript/typecheck typescript/lint typescript/tests common/secrets; do
   f="$KEEL/$SD/$s.sh"; b="$(basename "$s")"
   [ -f "$f" ]; check "$b exists" $?
-  sed -n 2p "$f" | grep -q '^# Managed by keel-harness. Edit only between the keel:repo-specific markers - see .agents/README.md.$'; check "$b managed header" $?
+  sed -n 2p "$f" | qgrep '^# Managed by keel-harness. Edit only between the keel:repo-specific markers - see .agents/README.md.$'; check "$b managed header" $?
   grep -q '^# --- keel:repo-specific begin ---$' "$f" && grep -q '^# --- keel:repo-specific end ---$' "$f"; check "$b markers" $?
   grep -q "^id=$b\$" "$f"; check "$b id equals file name" $?
 done
@@ -30,10 +31,10 @@ done
 # --- skip when tool missing
 r="$(mk)"
 for s in typecheck lint tests; do
-  run "$r" $s; [ $rc -eq 2 ] && printf '%s\n' "$out" | head -1 | grep -q "^$s	.*	skip	.*make bootstrap"; check "$s skips without tool" $?
+  run "$r" $s; [ $rc -eq 2 ] && printf '%s\n' "$out" | head -1 | qgrep "^$s	.*	skip	.*make bootstrap"; check "$s skips without tool" $?
 done
 sed -i 's/^GITLEAKS="gitleaks"/GITLEAKS="no-such-gitleaks-bin"/' "$r/scripts/sensors/secrets.sh"
-run "$r" secrets; [ $rc -eq 2 ] && printf '%s\n' "$out" | head -1 | grep -q 'skip	.*install gitleaks'; check "secrets skips without gitleaks" $?
+run "$r" secrets; [ $rc -eq 2 ] && printf '%s\n' "$out" | head -1 | qgrep 'skip	.*install gitleaks'; check "secrets skips without gitleaks" $?
 
 # --- typecheck
 r="$(mk)"; use_stub "$r" tsc node_modules/.bin/tsc
@@ -43,18 +44,18 @@ run "$r" typecheck STUB_OUT=""
 [ "$(printf '%s\n' "$out" | head -1)" = "$(printf 'typecheck\tcorrectness\tpass\tFound 0 errors in 1 files.')" ]; check "typecheck pass line 1" $?
 grep -q -- '--noEmit -p tsconfig.json' "$r/stub.log"; check "typecheck default args" $?
 run "$r" typecheck STUB_EXIT=1 STUB_OUT=$'src/a.ts(1,1): error TS2322: bad\nsrc/a.ts(2,1): error TS2304: worse'
-[ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^typecheck	correctness	fail	'; check "typecheck fail line 1" $?
-[ "$(printf '%s\n' "$out" | grep -c '^  src/a.ts')" -eq 2 ] && printf '%s\n' "$out" | grep -q '^  guidance: '; check "typecheck 2 details + guidance" $?
+[ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | qgrep '^typecheck	correctness	fail	'; check "typecheck fail line 1" $?
+[ "$(printf '%s\n' "$out" | grep -c '^  src/a.ts')" -eq 2 ] && printf '%s\n' "$out" | qgrep '^  guidance: '; check "typecheck 2 details + guidance" $?
 
 # --- lint
 r="$(mk)"; use_stub "$r" eslint node_modules/.bin/eslint
 echo 1 > "$r/src/a.ts"; (cd "$r" && git add -A && git commit -q -m a)
 JSON="[{\"filePath\":\"$r/src/a.ts\",\"messages\":[{\"ruleId\":\"no-console\"},{\"ruleId\":\"no-unused-vars\"}]}]"
 printf '# measured_at: 2026-10-20 review_by: 2027-04-20\nsrc/a.ts\t2\n' > "$r/.agents/baselines/lint.tsv"
-run "$r" lint STUB_OUT="$JSON"; [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | grep -q '^lint	heuristic	pass	'; check "lint passes against baseline 2" $?
+run "$r" lint STUB_OUT="$JSON"; [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | qgrep '^lint	heuristic	pass	'; check "lint passes against baseline 2" $?
 printf '# h\nsrc/a.ts\t1\n' > "$r/.agents/baselines/lint.tsv"
-run "$r" lint STUB_OUT="$JSON" STUB_EXIT=1; [ $rc -eq 1 ] && printf '%s\n' "$out" | grep -q 'src/a.ts: 2 problems (allowed 1)'; check "lint fails against baseline 1" $?
-printf '%s\n' "$out" | grep -q '^  guidance: '; check "lint fail has guidance" $?
+run "$r" lint STUB_OUT="$JSON" STUB_EXIT=1; [ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep 'src/a.ts: 2 problems (allowed 1)'; check "lint fails against baseline 1" $?
+printf '%s\n' "$out" | qgrep '^  guidance: '; check "lint fail has guidance" $?
 rm "$r/.agents/baselines/lint.tsv"
 run "$r" lint STUB_OUT="$JSON" STUB_EXIT=1; [ $rc -eq 1 ]; check "lint fails without baseline" $?
 : > "$r/stub.log"
@@ -76,10 +77,10 @@ r="$(mk)"; use_stub "$r" vitest node_modules/.bin/vitest
 echo 1 > "$r/src/a.ts"; (cd "$r" && git add -A && git commit -q -m a)
 run "$r" tests SCOPE=src/a.ts STUB_OUT="      Tests  3 passed (3)"
 [ $rc -eq 0 ] && grep -qx 'related --run src/a.ts' "$r/stub.log"; check "tests vitest related" $?
-printf '%s\n' "$out" | head -1 | grep -q '^tests	correctness	pass	Tests  3 passed (3)$'; check "tests pass line 1" $?
+printf '%s\n' "$out" | head -1 | qgrep '^tests	correctness	pass	Tests  3 passed (3)$'; check "tests pass line 1" $?
 : > "$r/stub.log"; run "$r" tests; grep -qx 'run' "$r/stub.log"; check "tests empty SCOPE -> run" $?
 run "$r" tests SCOPE=src/a.ts STUB_EXIT=1 STUB_OUT=$'      Tests  1 failed (1)\n FAIL  src/a.test.ts > x\nAssertionError: expected 1 to be 2'
-[ $rc -eq 1 ] && printf '%s\n' "$out" | grep -q '^  guidance: .*adr_dir'; check "tests fail + guidance cites adr_dir" $?
+[ $rc -eq 1 ] && printf '%s\n' "$out" | qgrep '^  guidance: .*adr_dir'; check "tests fail + guidance cites adr_dir" $?
 r2="$(mk)"; use_stub "$r2" jest node_modules/.bin/jest; echo 1 > "$r2/src/a.ts"
 sed -i 's/^RUNNER="vitest"/RUNNER="jest"/; s#node_modules/.bin/vitest#node_modules/.bin/jest#' "$r2/scripts/sensors/tests.sh"
 run "$r2" tests SCOPE=src/a.ts; grep -qx -- '--passWithNoTests --findRelatedTests src/a.ts' "$r2/stub.log"; check "tests jest findRelatedTests, passing when no test is related" $?
@@ -92,5 +93,5 @@ run "$r" secrets PATH="$r/bin:$PATH" SCOPE=$'src/a.ts\nsrc/b.ts'
 grep -qx 'dir src/a.ts --no-banner --exit-code 1' "$r/stub.log"; check "secrets args" $?
 : > "$r/stub.log"; run "$r" secrets PATH="$r/bin:$PATH"; grep -qx 'dir src --no-banner --exit-code 1' "$r/stub.log"; check "secrets empty SCOPE -> dir src" $?
 run "$r" secrets PATH="$r/bin:$PATH" SCOPE=src/a.ts STUB_EXIT=1
-[ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | grep -q '^secrets	security	fail	' && printf '%s\n' "$out" | grep -q '^  guidance: '; check "secrets fail" $?
+[ $rc -eq 1 ] && printf '%s\n' "$out" | head -1 | qgrep '^secrets	security	fail	' && printf '%s\n' "$out" | qgrep '^  guidance: '; check "secrets fail" $?
 finish

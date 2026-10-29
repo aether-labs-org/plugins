@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 LIB="$KEEL/assets/core/lib/envparse.sh"
 [ -f "$LIB" ]; check "envparse.sh exists" $?
@@ -44,7 +45,7 @@ for case in 'X=$(touch PWNED)|contains $( or a backtick' 'X=`id`|contains $( or 
             "X='a' junk|unexpected text after the closing quote"; do
   printf '%s\n' "${case%%|*}" > "$d/bad.env"
   out="$(cd "$d" && load "$d/bad.env" X)"; rc=$?
-  [ $rc -ne 0 ] && printf '%s' "$out" | grep -qF "${case#*|}" && printf '%s' "$out" | grep -qF 'bad.env:1:'
+  [ $rc -ne 0 ] && printf '%s' "$out" | qgrep -F "${case#*|}" && printf '%s' "$out" | qgrep -F 'bad.env:1:'
   check "rejects '${case%%|*}' with file:line and reason" $?
 done
 [ ! -e "$d/PWNED" ]; check "nothing in an env file is executed" $?
@@ -59,9 +60,9 @@ printf 'LIMIT=$(touch PWNED)\nINCLUDE=src\n' > "$r/.agents/rules/file-size.env"
 out="$(cd "$r" && bash scripts/sensors/file-size.sh)"; rc=$?
 [ $rc -eq 1 ] && [ "$(printf '%s\n' "$out" | head -1 | cut -f1,3)" = "file-size	fail" ] && [ ! -e "$r/PWNED" ]
 check "sensor: hostile env -> fail line 1, nothing executed" $?
-printf '%s\n' "$out" | grep -q '^  guidance: '; check "sensor: hostile env -> guidance" $?
+printf '%s\n' "$out" | qgrep '^  guidance: '; check "sensor: hostile env -> guidance" $?
 rm "$r/scripts/lib/envparse.sh"; printf 'LIMIT=10\nINCLUDE=src\n' > "$r/.agents/rules/file-size.env"
 out="$(cd "$r" && bash scripts/sensors/file-size.sh)"; rc=$?
-[ $rc -eq 2 ] && printf '%s' "$out" | head -1 | grep -q 'envparse.sh is missing'; check "sensor: missing lib -> skip naming it" $?
+[ $rc -eq 2 ] && printf '%s' "$out" | head -1 | qgrep 'envparse.sh is missing'; check "sensor: missing lib -> skip naming it" $?
 
 finish

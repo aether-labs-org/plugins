@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 HC="$KEEL/assets/core/harness-check.sh"
 [ -f "$HC" ]; check "harness-check.sh exists" $?
@@ -71,16 +72,16 @@ Y
 hc() { out="$(cd "$1" && env "${@:2}" bash scripts/harness-check.sh 2>&1)"; rc=$?; }
 warns() { printf '%s\n' "$out" | grep -c '^warn	'; }
 only() { # only <id> <file-substring>: exactly one warn, with that id and file
-  [ "$rc" -eq 1 ] && [ "$(warns)" = 1 ] && printf '%s\n' "$out" | grep -q "^warn	$1	[^	]*$2"
+  [ "$rc" -eq 1 ] && [ "$(warns)" = 1 ] && printf '%s\n' "$out" | qgrep "^warn	$1	[^	]*$2"
 }
 commit() { (cd "$1" && git add -A && git commit -q -m c); }
 
 r="$(mkclean)"
-hc "$r"; [ $rc -eq 0 ] && printf '%s\n' "$out" | tail -1 | grep -qx 'harness-check: harness is clean'; check "clean fixture: rc 0 and 'harness is clean'" $?
+hc "$r"; [ $rc -eq 0 ] && printf '%s\n' "$out" | tail -1 | qgrep -x 'harness-check: harness is clean'; check "clean fixture: rc 0 and 'harness is clean'" $?
 before="$(cd "$r" && git status --porcelain)"; hc "$r"; [ "$before" = "$(cd "$r" && git status --porcelain)" ]; check "read-only: git status unchanged" $?
 
 # no state
-r2="$(mkclean)"; rm "$r2/.agents/state.yml"; hc "$r2"; [ $rc -eq 2 ] && printf '%s\n' "$out" | grep -q 'harness-check: no harness installed - run /keel-harness:build'; check "no state -> rc 2" $?
+r2="$(mkclean)"; rm "$r2/.agents/state.yml"; hc "$r2"; [ $rc -eq 2 ] && printf '%s\n' "$out" | qgrep 'harness-check: no harness installed - run /keel-harness:build'; check "no state -> rc 2" $?
 
 # agents-size
 r="$(mkclean)"; for i in $(seq 1 100); do echo "- line $i" >> "$r/AGENTS.md"; done; hc "$r"; only agents-size AGENTS.md; check "agents-size" $?
@@ -88,9 +89,9 @@ r="$(mkclean)"; for i in $(seq 1 100); do echo "- line $i" >> "$r/AGENTS.md"; do
 r="$(mkclean)"; mkdir -p "$r/src/api"; for i in $(seq 1 101); do echo "- line $i"; done > "$r/src/api/AGENTS.md"; commit "$r"; hc "$r"; only agents-size src/api/AGENTS.md; check "agents-size on a nested AGENTS.md" $?
 
 # stale-command
-r="$(mkclean)"; printf '| Lint | `make lint-all` | exit 0 |\n' >> "$r/AGENTS.md"; hc "$r"; only stale-command AGENTS.md && printf '%s\n' "$out" | grep -q 'make lint-all'; check "stale-command: missing make target" $?
+r="$(mkclean)"; printf '| Lint | `make lint-all` | exit 0 |\n' >> "$r/AGENTS.md"; hc "$r"; only stale-command AGENTS.md && printf '%s\n' "$out" | qgrep 'make lint-all'; check "stale-command: missing make target" $?
 r="$(mkclean)"; printf '| Dev | `npm run dev` | up |\n' >> "$r/AGENTS.md"; hc "$r"; only stale-command AGENTS.md; check "stale-command: missing npm script" $?
-r="$(mkclean)"; printf '| Dev | `pnpm build` | ok |\n| Gradle | `./gradlew test` | ok |\n' >> "$r/AGENTS.md"; hc "$r"; [ "$(warns)" = 1 ] && printf '%s\n' "$out" | grep -q 'gradlew'; check "stale-command: pnpm script exists, ./gradlew missing" $?
+r="$(mkclean)"; printf '| Dev | `pnpm build` | ok |\n| Gradle | `./gradlew test` | ok |\n' >> "$r/AGENTS.md"; hc "$r"; [ "$(warns)" = 1 ] && printf '%s\n' "$out" | qgrep 'gradlew'; check "stale-command: pnpm script exists, ./gradlew missing" $?
 r="$(mkclean)"; printf '| Py | `.venv/bin/pytest` | ok |\n| uv | `uv run nonexistent-tool-xyz` | ok |\n' >> "$r/AGENTS.md"; hc "$r"; [ "$(warns)" = 2 ]; check "stale-command: .venv/bin and uv run" $?
 r="$(mkclean)"; printf '| Ok | `make bootstrap && make gate-fast` | ok |\n' >> "$r/AGENTS.md"; hc "$r"; [ $rc -eq 0 ]; check "stale-command: chained existing commands are fine" $?
 
@@ -134,18 +135,18 @@ mkauth() { # mkauth -> a clean harness with the authority layer installed
   printf '%s\n' "$r"
 }
 r="$(mkauth)"; hc "$r"; [ $rc -eq 0 ]; check "protect-missing: a complete authority layer is clean" $?
-r="$(mkauth)"; rm "$r/.agents/consequence.yml"; commit "$r"; hc "$r"; only protect-missing claude-protect.sh && printf '%s\n' "$out" | grep -q 'consequence.yml'; check "protect-missing: no consequence map" $?
+r="$(mkauth)"; rm "$r/.agents/consequence.yml"; commit "$r"; hc "$r"; only protect-missing claude-protect.sh && printf '%s\n' "$out" | qgrep 'consequence.yml'; check "protect-missing: no consequence map" $?
 r="$(mkauth)"; rm "$r/scripts/hooks/claude-protect.sh"; commit "$r"; hc "$r"; only protect-missing claude-protect.sh; check "protect-missing: no hook script" $?
 r="$(mkauth)"; chmod -x "$r/scripts/hooks/claude-protect.sh"; hc "$r"; only protect-missing claude-protect.sh; check "protect-missing: hook script not executable" $?
 r="$(mkauth)"; cp "$KEEL/assets/adapters/claude/settings-stop.json" "$r/.claude/settings.json"; commit "$r"; hc "$r"; only protect-missing claude-protect.sh; check "protect-missing: settings.json has no PreToolUse entry for it" $?
-r="$(mkauth)"; rm "$r/.claude/settings.json"; hc "$r"; printf '%s\n' "$out" | grep -c '^warn	protect-missing	' | grep -qx 1; check "protect-missing: no settings.json -> exactly one protect-missing warning" $?
+r="$(mkauth)"; rm "$r/.claude/settings.json"; hc "$r"; printf '%s\n' "$out" | grep -c '^warn	protect-missing	' | qgrep -x 1; check "protect-missing: no settings.json -> exactly one protect-missing warning" $?
 r="$(mkauth)"; rm "$r/.agents/consequence.yml" "$r/scripts/hooks/claude-protect.sh"; commit "$r"; hc "$r"; [ "$(printf '%s\n' "$out" | grep -c '^warn	protect-missing	')" = 1 ]; check "protect-missing: several things gone is still one warning" $?
 r="$(mkclean)"; hc "$r"; [ $rc -eq 0 ]; check "protect-missing: a harness without the authority key is not checked" $?
 r="$(mkclean)"; sed -i 's/rules: not_installed }/rules: not_installed, authority: not_installed }/' "$r/.agents/state.yml"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "protect-missing: authority: not_installed is not checked" $?
 
 # guard-missing
 r="$(mkclean)"; rm "$r/scripts/sensors/guard.sh"; commit "$r"; hc "$r"; only guard-missing scripts/sensors/guard.sh; check "guard-missing: no guard sensor" $?
-r="$(mkclean)"; rm "$r/scripts/lib/envparse.sh"; commit "$r"; hc "$r"; printf '%s\n' "$out" | grep -q '^warn	guard-missing	'; check "guard-missing: no envparse lib" $?
+r="$(mkclean)"; rm "$r/scripts/lib/envparse.sh"; commit "$r"; hc "$r"; printf '%s\n' "$out" | qgrep '^warn	guard-missing	'; check "guard-missing: no envparse lib" $?
 
 # sensor-malformed
 r="$(mkclean)"; sed -i 's/^id=lint/id=other/' "$r/scripts/sensors/lint.sh"; hc "$r"; only sensor-malformed scripts/sensors/lint.sh; check "sensor-malformed: id differs from file name" $?
@@ -154,7 +155,7 @@ r="$(mkclean)"; chmod -x "$r/scripts/sensors/lint.sh"; hc "$r"; only sensor-malf
 r="$(mkclean)"; cp "$r/scripts/sensors/lint.sh" "$r/scripts/sensors/_helper.sh"; chmod -x "$r/scripts/sensors/_helper.sh"; echo x > "$r/scripts/sensors/README.md"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "sensor-malformed: _helper.sh and README.md are ignored" $?
 
 # two broken conditions -> two lines
-r="$(mkclean)"; printf '| X | `make nope` | x |\n' >> "$r/AGENTS.md"; printf 'nothing\n' > "$r/CLAUDE.md"; hc "$r"; [ $rc -eq 1 ] && [ "$(warns)" = 2 ] && printf '%s\n' "$out" | tail -1 | grep -qx 'harness-check: 2 warning(s)'; check "two broken conditions -> two warn lines and a count" $?
+r="$(mkclean)"; printf '| X | `make nope` | x |\n' >> "$r/AGENTS.md"; printf 'nothing\n' > "$r/CLAUDE.md"; hc "$r"; [ $rc -eq 1 ] && [ "$(warns)" = 2 ] && printf '%s\n' "$out" | tail -1 | qgrep -x 'harness-check: 2 warning(s)'; check "two broken conditions -> two warn lines and a count" $?
 printf '%s\n' "$out" | grep '^warn' | head -1 | awk -F'\t' 'NF == 5 { ok = 1 } END { exit !ok }'; check "warn line has 5 tab-separated fields" $?
 # ================= Task 22: rule and baseline checks
 addrule() { # addrule REPO -> a consistent rule, sensor, doc and baseline (committed)
@@ -199,9 +200,9 @@ r="$(mkclean)"; addrule "$r"; hc "$r"; [ $rc -eq 0 ]; check "consistent rule (mi
 r="$(mkclean)"; addrule "$r"; sed -i '/^KIND=/d' "$r/.agents/rules/file-size.env"; hc "$r"; only rule-inconsistent file-size.env; check "rule-inconsistent: missing KIND" $?
 r="$(mkclean)"; addrule "$r"; rm "$r/docs/conventions.md"; hc "$r"; only rule-inconsistent file-size.env; check "rule-inconsistent: DOC file missing" $?
 r="$(mkclean)"; addrule "$r"; sed -i 's/<a id="file-size"><\/a>//' "$r/docs/conventions.md"; hc "$r"; only rule-inconsistent file-size.env; check "rule-inconsistent: anchor missing" $?
-r="$(mkclean)"; addrule "$r"; rm "$r/scripts/sensors/file-size.sh"; hc "$r"; [ "$(warns)" -ge 1 ] && printf '%s\n' "$out" | grep -q '^warn	rule-inconsistent'; check "rule-inconsistent: sensor file missing" $?
+r="$(mkclean)"; addrule "$r"; rm "$r/scripts/sensors/file-size.sh"; hc "$r"; [ "$(warns)" -ge 1 ] && printf '%s\n' "$out" | qgrep '^warn	rule-inconsistent'; check "rule-inconsistent: sensor file missing" $?
 r="$(mkclean)"; addrule "$r"; rm "$r/docs/decisions/0003-file-size-limit.md"; hc "$r"; only rule-inconsistent file-size.env; check "rule-inconsistent: DECISION file missing" $?
-r="$(mkclean)"; addrule "$r"; sed -i 's/300 lines/200 lines/' "$r/docs/conventions.md"; hc "$r"; only rule-inconsistent file-size.env && printf '%s\n' "$out" | grep -q 'LIMIT=300'; check "rule-inconsistent: numeric parameter absent from the section" $?
+r="$(mkclean)"; addrule "$r"; sed -i 's/300 lines/200 lines/' "$r/docs/conventions.md"; hc "$r"; only rule-inconsistent file-size.env && printf '%s\n' "$out" | qgrep 'LIMIT=300'; check "rule-inconsistent: numeric parameter absent from the section" $?
 r="$(mkclean)"; addrule "$r"; mkdir -p "$r/scripts/sensors/slow"; mv "$r/scripts/sensors/file-size.sh" "$r/scripts/sensors/slow/file-size.sh"; hc "$r"; [ $rc -eq 0 ]; check "rule-inconsistent: a slow sensor satisfies sensor:<id>" $?
 r="$(mkclean)"; addrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=inferential/' "$r/.agents/rules/file-size.env"; rm "$r/scripts/sensors/file-size.sh" "$r/.agents/baselines/file-size.tsv"; hc "$r"; [ $rc -eq 0 ]; check "rule-inconsistent: inferential rules need no sensor" $?
 
@@ -224,8 +225,8 @@ How the code is shaped.
 
 ## Invariants
 - `src/never-existed/` is only cited outside the Code map'
-hc "$r"; only codemap-stale docs/architecture.md && printf '%s\n' "$out" | grep -q 'src/gone/' && printf '%s\n' "$out" | grep -q 'update the Code map in docs/architecture.md (rules)'; check "codemap-stale: a missing path warns, with the fix" $?
-printf '%s\n' "$out" | grep -q 'never-existed'; [ $? -ne 0 ]; check "codemap-stale: only the Code map section is read" $?
+hc "$r"; only codemap-stale docs/architecture.md && printf '%s\n' "$out" | qgrep 'src/gone/' && printf '%s\n' "$out" | qgrep 'update the Code map in docs/architecture.md (rules)'; check "codemap-stale: a missing path warns, with the fix" $?
+printf '%s\n' "$out" | qgrep 'never-existed'; [ $? -ne 0 ]; check "codemap-stale: only the Code map section is read" $?
 r="$(mkclean)"; cm "$r" '# Architecture
 
 ## Code map
@@ -261,10 +262,10 @@ r="$(mkclean)"; addrule "$r"; printf 'src/a.ts\t3\n' > "$r/.agents/baselines/fil
 r="$(mkclean)"; addrule "$r"; printf '# measured_at: 2026-10-20 review_by: 2027-04-20\nsrc/a.ts\tmany\n' > "$r/.agents/baselines/file-size.tsv"; hc "$r"; only baseline-malformed file-size.tsv; check "baseline-malformed: non-integer count" $?
 
 r="$(mkclean)"; addrule "$r"; hc "$r" KEEL_TODAY=2027-05-01
-[ $rc -eq 1 ] && [ "$(warns)" = 2 ] && printf '%s\n' "$out" | grep -q '^warn	baseline-stale	' && printf '%s\n' "$out" | grep -q '^warn	review-due	.agents/state.yml'; check "KEEL_TODAY=2027-05-01 -> baseline-stale and review-due" $?
-hc "$r" KEEL_TODAY=2027-05-01 MEASURED=2; [ "$(warns)" = 1 ] && printf '%s\n' "$out" | grep -q '^warn	review-due'; check "baseline past review_by but shrunk -> only review-due" $?
+[ $rc -eq 1 ] && [ "$(warns)" = 2 ] && printf '%s\n' "$out" | qgrep '^warn	baseline-stale	' && printf '%s\n' "$out" | qgrep '^warn	review-due	.agents/state.yml'; check "KEEL_TODAY=2027-05-01 -> baseline-stale and review-due" $?
+hc "$r" KEEL_TODAY=2027-05-01 MEASURED=2; [ "$(warns)" = 1 ] && printf '%s\n' "$out" | qgrep '^warn	review-due'; check "baseline past review_by but shrunk -> only review-due" $?
 r="$(mkclean)"; addrule "$r"; printf '# measured_at: 2026-10-20 review_by: 2027-04-20\n' > "$r/.agents/baselines/file-size.tsv"; hc "$r" KEEL_TODAY=2027-05-01
-[ "$(warns)" = 1 ] && printf '%s\n' "$out" | grep -q '^warn	review-due'; check "an empty baseline past review_by is not stale" $?
+[ "$(warns)" = 1 ] && printf '%s\n' "$out" | qgrep '^warn	review-due'; check "an empty baseline past review_by is not stale" $?
 hc "$r" KEEL_TODAY=2027-01-01; [ $rc -eq 0 ]; check "before review dates -> clean" $?
 
 # ================= F3b: plan-stale, progress-size, acceptance-untested
@@ -278,7 +279,7 @@ mkplan() {
 T=KEEL_TODAY=2026-10-29
 
 # plan-stale
-r="$(mkclean)"; mkplan "$r" p active 2026-09-01; hc "$r" $T; only plan-stale .agents/plans/p.md && printf '%s\n' "$out" | grep -q 'keel plan-close'; check "plan-stale: an active plan untouched for 58 days warns, fix names keel plan-close" $?
+r="$(mkclean)"; mkplan "$r" p active 2026-09-01; hc "$r" $T; only plan-stale .agents/plans/p.md && printf '%s\n' "$out" | qgrep 'keel plan-close'; check "plan-stale: an active plan untouched for 58 days warns, fix names keel plan-close" $?
 r="$(mkclean)"; mkplan "$r" p active 2026-10-10; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: an active plan touched 19 days ago is clean" $?
 r="$(mkclean)"; mkplan "$r" p active 2026-09-29; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: exactly 30 days is not older than the limit" $?
 r="$(mkclean)"; mkplan "$r" p active 2026-09-28; hc "$r" $T; only plan-stale p.md; check "plan-stale: 31 days warns" $?
@@ -296,7 +297,7 @@ grep -q '^PROGRESS_MAX_LINES=200' "$KEEL/assets/core/gate.env"; check "gate.env 
 r="$(mkclean)"; hc "$r" $T; [ $rc -eq 0 ]; check "plan-stale: silent without a plans directory" $?
 
 # progress-size
-r="$(mkclean)"; seq 1 201 | sed 's/.*/2026-10-01 done p.md abc/' > "$r/.agents/progress.md"; hc "$r"; only progress-size .agents/progress.md && printf '%s\n' "$out" | grep -q 'summarise older entries into an ADR'; check "progress-size: 201 lines warns, fix says summarise into an ADR" $?
+r="$(mkclean)"; seq 1 201 | sed 's/.*/2026-10-01 done p.md abc/' > "$r/.agents/progress.md"; hc "$r"; only progress-size .agents/progress.md && printf '%s\n' "$out" | qgrep 'summarise older entries into an ADR'; check "progress-size: 201 lines warns, fix says summarise into an ADR" $?
 r="$(mkclean)"; seq 1 200 | sed 's/.*/2026-10-01 done p.md abc/' > "$r/.agents/progress.md"; hc "$r"; [ $rc -eq 0 ]; check "progress-size: 200 lines is clean" $?
 r="$(mkclean)"; seq 1 60 | sed 's/.*/x/' > "$r/.agents/progress.md"; printf 'PROGRESS_MAX_LINES=50\n' > "$r/.agents/gate.env"; commit "$r"; hc "$r"; only progress-size progress.md; check "progress-size: PROGRESS_MAX_LINES=50 in gate.env lowers the limit" $?
 r="$(mkclean)"; seq 1 300 | sed 's/.*/x/' > "$r/.agents/progress.md"; printf 'PROGRESS_MAX_LINES=400\n' > "$r/.agents/gate.env"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "progress-size: PROGRESS_MAX_LINES=400 raises the limit" $?
@@ -312,7 +313,7 @@ r="$(mkclean)"; mkspec "$r/docs/specs/login.md" <<'S'
 - A user can log in
 - A user can log out
 S
-commit "$r"; hc "$r"; only acceptance-untested docs/specs/login.md && printf '%s\n' "$out" | grep -q '2 acceptance' && printf '%s\n' "$out" | grep -q 'name the test that proves each criterion'; check "acceptance-untested: two untested bullets -> one warning with the count, bullets under Goals not counted" $?
+commit "$r"; hc "$r"; only acceptance-untested docs/specs/login.md && printf '%s\n' "$out" | qgrep '2 acceptance' && printf '%s\n' "$out" | qgrep 'name the test that proves each criterion'; check "acceptance-untested: two untested bullets -> one warning with the count, bullets under Goals not counted" $?
 mkdir -p "$r/tests"; echo t > "$r/tests/login.test.ts"
 mkspec "$r/docs/specs/login.md" <<'S'
 # Login
@@ -320,7 +321,7 @@ mkspec "$r/docs/specs/login.md" <<'S'
 - A user can log in (`tests/login.test.ts`)
 - A user can log out
 S
-commit "$r"; hc "$r"; only acceptance-untested login.md && printf '%s\n' "$out" | grep -q '1 acceptance'; check "acceptance-untested: a backticked existing test path passes the bullet" $?
+commit "$r"; hc "$r"; only acceptance-untested login.md && printf '%s\n' "$out" | qgrep '1 acceptance'; check "acceptance-untested: a backticked existing test path passes the bullet" $?
 mkspec "$r/docs/specs/login.md" <<'S'
 # Login
 ## Acceptance criteria
@@ -335,7 +336,7 @@ mkspec "$r/docs/specs/login.md" <<'S'
 - A user can log out (`src/login.ts`)
 - A user can reset (`make test`)
 S
-echo x > "$r/src/login.ts"; commit "$r"; hc "$r"; only acceptance-untested login.md && printf '%s\n' "$out" | grep -q '3 acceptance'; check "acceptance-untested: a missing path, a path without test or spec in its name and a command do not pass" $?
+echo x > "$r/src/login.ts"; commit "$r"; hc "$r"; only acceptance-untested login.md && printf '%s\n' "$out" | qgrep '3 acceptance'; check "acceptance-untested: a missing path, a path without test or spec in its name and a command do not pass" $?
 mkspec "$r/docs/specs/login.md" <<'S'
 # Login
 ## Acceptance criteria
@@ -344,7 +345,7 @@ mkspec "$r/docs/specs/login.md" <<'S'
 - A user can log out
   - nested detail without a test
 S
-commit "$r"; hc "$r"; only acceptance-untested login.md && printf '%s\n' "$out" | grep -q '1 acceptance'; check "acceptance-untested: continuation lines belong to their bullet; nested bullets are not extra criteria" $?
+commit "$r"; hc "$r"; only acceptance-untested login.md && printf '%s\n' "$out" | qgrep '1 acceptance'; check "acceptance-untested: continuation lines belong to their bullet; nested bullets are not extra criteria" $?
 mkdir -p "$r/spec"; echo s > "$r/spec/login_spec.rb"
 mkspec "$r/docs/specs/login.md" <<'S'
 # Login
@@ -388,14 +389,14 @@ r="$(mkclean)"; addrule "$r"; mkdir -p "$r/src/good"; echo 1 > "$r/src/good/Best
 printf "EXEMPLAR=src/good/Best.ts\nLEGACY='src/old/\nsrc/legacy-*.ts'\n" >> "$r/.agents/rules/file-size.env"; commit "$r"
 hc "$r"; [ $rc -eq 0 ]; check "exemplar-missing: an existing EXEMPLAR (and a LEGACY list) is clean" $?
 r="$(mkclean)"; addrule "$r"; printf 'EXEMPLAR=src/good/Gone.ts\n' >> "$r/.agents/rules/file-size.env"; commit "$r"
-hc "$r"; only exemplar-missing file-size.env && printf '%s\n' "$out" | grep -qF 'src/good/Gone.ts'; check "exemplar-missing: an EXEMPLAR path that does not exist warns, naming it" $?
+hc "$r"; only exemplar-missing file-size.env && printf '%s\n' "$out" | qgrep -F 'src/good/Gone.ts'; check "exemplar-missing: an EXEMPLAR path that does not exist warns, naming it" $?
 r="$(mkclean)"; addrule "$r"; printf "EXEMPLAR='src/good/Gone.ts'  # the canonical one\n" >> "$r/.agents/rules/file-size.env"; commit "$r"
 hc "$r"; only exemplar-missing file-size.env; check "exemplar-missing: a quoted EXEMPLAR with a trailing comment is read" $?
 r="$(mkclean)"; addrule "$r"; hc "$r"; [ $rc -eq 0 ]; check "exemplar-missing: a rule with no EXEMPLAR is silent" $?
 r="$(mkclean)"; addrule "$r"; printf 'EXEMPLAR=\n' >> "$r/.agents/rules/file-size.env"; commit "$r"; hc "$r"; [ $rc -eq 0 ]; check "exemplar-missing: an empty EXEMPLAR is silent" $?
 r="$(mkclean)"; addrule "$r"; printf 'EXEMPLAR=src/a.ts\n' >> "$r/.agents/rules/file-size.env"; commit "$r"
 cp "$r/.agents/rules/file-size.env" "$r/.agents/rules/second.env"; sed -i 's/RULE_ID=file-size/RULE_ID=second/; s/^EXEMPLAR=.*/EXEMPLAR=nope.ts/' "$r/.agents/rules/second.env"; commit "$r"
-hc "$r"; printf '%s\n' "$out" | grep '^warn	exemplar-missing	' | grep -q 'second.env' && [ "$(printf '%s\n' "$out" | grep -c '^warn	exemplar-missing	')" = 1 ]; check "exemplar-missing: one warning per env file with a missing exemplar" $?
+hc "$r"; printf '%s\n' "$out" | grep '^warn	exemplar-missing	' | qgrep 'second.env' && [ "$(printf '%s\n' "$out" | grep -c '^warn	exemplar-missing	')" = 1 ]; check "exemplar-missing: one warning per env file with a missing exemplar" $?
 
 # mandatory-unsensored and exception-expired (D43)
 # mandrule REPO [EXTRA_LINES] -> the consistent file-size rule made mandatory, its baseline removed
@@ -404,10 +405,10 @@ mandrule() {
   printf 'ENFORCEMENT_LEVEL=mandatory\n%s\n' "${2:-}" >> "$1/.agents/rules/file-size.env"
   (cd "$1" && git add -A && git commit -q -m mandatory)
 }
-has() { printf '%s\n' "$out" | grep -q "^warn	$1	"; } # has <check-id>
+has() { printf '%s\n' "$out" | qgrep "^warn	$1	"; } # has <check-id>
 r="$(mkclean)"; mandrule "$r"; hc "$r"; [ $rc -eq 0 ]; check "mandatory-unsensored: a mandatory rule with its sensor -> clean" $?
 r="$(mkclean)"; mandrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=inferential/' "$r/.agents/rules/file-size.env"; hc "$r"
-[ $rc -eq 1 ] && has mandatory-unsensored && printf '%s\n' "$out" | grep -q '^warn	mandatory-unsensored	[^	]*file-size.env'; check "mandatory-unsensored: ENFORCEMENT=inferential" $?
+[ $rc -eq 1 ] && has mandatory-unsensored && printf '%s\n' "$out" | qgrep '^warn	mandatory-unsensored	[^	]*file-size.env'; check "mandatory-unsensored: ENFORCEMENT=inferential" $?
 r="$(mkclean)"; mandrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=sensor:nope/' "$r/.agents/rules/file-size.env"; hc "$r"
 has mandatory-unsensored; check "mandatory-unsensored: names a sensor that has no file" $?
 r="$(mkclean)"; mandrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=sensor:file-size,sensor:nope/' "$r/.agents/rules/file-size.env"; hc "$r"
@@ -418,16 +419,16 @@ r="$(mkclean)"; mandrule "$r"; mkdir -p "$r/scripts/sensors/slow"; mv "$r/script
 r="$(mkclean)"; addrule "$r"; sed -i 's/^ENFORCEMENT=.*/ENFORCEMENT=inferential/' "$r/.agents/rules/file-size.env"; hc "$r"
 ! has mandatory-unsensored; check "mandatory-unsensored: a ratchet rule may be inferential" $?
 r="$(mkclean)"; mandrule "$r"; sed -i 's/^ENFORCEMENT_LEVEL=.*/ENFORCEMENT_LEVEL=Mandatory/' "$r/.agents/rules/file-size.env"; hc "$r"
-has mandatory-unsensored && printf '%s\n' "$out" | grep -q "ENFORCEMENT_LEVEL is 'Mandatory'"; check "mandatory-unsensored: a misspelt ENFORCEMENT_LEVEL would silently be ratchet -> warn" $?
+has mandatory-unsensored && printf '%s\n' "$out" | qgrep "ENFORCEMENT_LEVEL is 'Mandatory'"; check "mandatory-unsensored: a misspelt ENFORCEMENT_LEVEL would silently be ratchet -> warn" $?
 
 r="$(mkclean)"; mandrule "$r" "EXCEPTIONS='src/a.ts 2026-12-31'"; hc "$r" KEEL_TODAY=2026-10-29; [ $rc -eq 0 ]; check "exception-expired: a future deadline -> clean" $?
 hc "$r" KEEL_TODAY=2026-12-31; [ $rc -eq 0 ]; check "exception-expired: the deadline day itself -> clean" $?
 hc "$r" KEEL_TODAY=2027-01-01
-[ $rc -eq 1 ] && [ "$(warns)" = 1 ] && printf '%s\n' "$out" | grep -q '^warn	exception-expired	[^	]*file-size.env	.*src/a.ts.*2026-12-31'; check "exception-expired: past its date -> one warning naming path and date" $?
+[ $rc -eq 1 ] && [ "$(warns)" = 1 ] && printf '%s\n' "$out" | qgrep '^warn	exception-expired	[^	]*file-size.env	.*src/a.ts.*2026-12-31'; check "exception-expired: past its date -> one warning naming path and date" $?
 r="$(mkclean)"; mandrule "$r" "EXCEPTIONS='src/a.ts 2026-10-01
 src/with space.ts 2026-09-01
 src/later.ts 2027-06-01'"; hc "$r" KEEL_TODAY=2026-10-29
-[ "$(printf '%s\n' "$out" | grep -c '^warn	exception-expired	')" = 2 ] && printf '%s\n' "$out" | grep -q 'src/with space.ts'; check "exception-expired: one warning per expired line, a path may contain spaces" $?
+[ "$(printf '%s\n' "$out" | grep -c '^warn	exception-expired	')" = 2 ] && printf '%s\n' "$out" | qgrep 'src/with space.ts'; check "exception-expired: one warning per expired line, a path may contain spaces" $?
 r="$(mkclean)"; mandrule "$r" "EXCEPTIONS='src/a.ts soon'"; hc "$r" KEEL_TODAY=2026-10-29; has exception-expired; check "exception-expired: a line without a valid date -> warn" $?
 r="$(mkclean)"; mandrule "$r"; hc "$r"; ! has exception-expired; check "exception-expired: no EXCEPTIONS -> silent" $?
 before="$(cd "$r" && git status --porcelain)"; hc "$r" KEEL_TODAY=2027-01-01; [ "$before" = "$(cd "$r" && git status --porcelain)" ]; check "mandatory checks are read-only" $?

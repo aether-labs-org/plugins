@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 fail=0
 check() { if [ "$2" -eq 0 ]; then echo "  ok   $1"; else echo "  FAIL $1"; fail=1; fi; }
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -137,7 +138,7 @@ for n in $(grep -rhoE '[a-z][a-z-]*-lsp' "$S" "$CE" | sort -u); do
 done
 [ -z "$bad" ]; check "no invented LSP plugin name in build ($bad)" $?
 grep -qE '^Propose the stack.s official LSP plugin' "$S" && has "$S" 'own accept-or-decline item' && has "$S" '`lsp` under `not_installed`'; check "guides phase proposes the LSP plugin as a separate item and records a decline under not_installed" $?
-awk '/^### Phase 2 - guides/{p=1} /^### Phase 3/{p=0} p' "$S" | grep -q 'official LSP plugin'; check "the LSP line is in the guides phase" $?
+awk '/^### Phase 2 - guides/{p=1} /^### Phase 3/{p=0} p' "$S" | qgrep 'official LSP plugin'; check "the LSP line is in the guides phase" $?
 has "$root/plugins/keel-harness/contracts/state.md" '`lsp`'; check "contracts/state.md documents the lsp not_installed key" $?
 # --- F3c-1: the authority layer (consequence map, protect hook, CODEOWNERS)
 AU="$sk/references/authority.md"
@@ -158,6 +159,6 @@ for t in 'Long autonomous sessions (profile L)' 'keel installs nothing for this'
   grep -qF -- "$t" "$AU"; check "authority.md sandbox section: $t" $?
 done
 ! grep -q 'PostToolUse' "$sk/references/authority.md"; check "authority.md installs no PostToolUse hook" $?
-! grep -qE '@[A-Za-z][A-Za-z0-9_-]+' "$AU" || ! grep -E '@[A-Za-z][A-Za-z0-9_-]+' "$AU" | grep -vE '@(user|org/team)|@\{\{' | grep -q .; check "authority.md names no real owner (only @user, @org/team placeholders)" $?
+! grep -qE '@[A-Za-z][A-Za-z0-9_-]+' "$AU" || ! grep -E '@[A-Za-z][A-Za-z0-9_-]+' "$AU" | grep -vE '@(user|org/team)|@\{\{' | qgrep .; check "authority.md names no real owner (only @user, @org/team placeholders)" $?
 grep -q 'authority' "$root/plugins/keel-harness/skills/assess/references/checks.md" && grep -q 'protect-missing' "$root/plugins/keel-harness/skills/assess/references/checks.md"; check "checks.md lists protect-missing" $?
 exit $fail

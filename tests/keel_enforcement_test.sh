@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # F3a: the CI workflow and pre-commit assets run the same fast gate an agent runs locally.
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 CI="$KEEL/assets/core/ci/keel.yml"
 PC="$KEEL/assets/core/precommit"
 
 # --- the assets
 [ -f "$CI" ]; check "ci/keel.yml exists" $?
-head -1 "$CI" | grep -q '^# Managed by keel-harness'; check "ci/keel.yml carries the managed-by header" $?
+head -1 "$CI" | qgrep '^# Managed by keel-harness'; check "ci/keel.yml carries the managed-by header" $?
 grep -q 'keel:repo-specific begin' "$CI" && grep -q 'keel:repo-specific end' "$CI"; check "ci/keel.yml has the repo-specific markers" $?
 ! grep -E 'uses: ' "$CI" | grep -vqE 'uses: [^@]+@[0-9a-f]{40} '; check "every action is pinned to a full commit SHA" $?
 grep -q 'fetch-depth: 0' "$CI"; check "checkout fetches history (guard needs the base)" $?
@@ -52,7 +53,7 @@ r="$(mkharness)"
 { printf '#!/usr/bin/env bash\n'; grep -v '^#' "$PC/husky-pre-commit"; } > "$r/.git/hooks/pre-commit"; chmod +x "$r/.git/hooks/pre-commit"
 (cd "$r" && printf 'x\n' > src/b.ts && git add src/b.ts && git commit -q -m clean) >/dev/null 2>&1; check "pre-commit: a clean change commits" $?
 defect "$r"; (cd "$r" && git add src/a.ts && git commit -q -m defect) >/dev/null 2>&1; [ $? -ne 0 ]; check "pre-commit: a planted defect blocks the commit" $?
-(cd "$r" && git log -1 --format=%s) | grep -qx clean; check "pre-commit: the defect was not committed" $?
+(cd "$r" && git log -1 --format=%s) | qgrep -x clean; check "pre-commit: the defect was not committed" $?
 
 # CI: the workflow's gate step in a clone of a pull request branch, guard based on origin/main
 ci_gate() { # ci_gate ORIGIN BRANCH -> rc of the workflow's gate step

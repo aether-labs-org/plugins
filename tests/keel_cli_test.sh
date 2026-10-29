@@ -3,6 +3,7 @@
 # (spec section 5.1). Every row of the CLI table and every `verify` item, pass and fail.
 # shellcheck disable=SC2319  # "check ... $?" after a test is this suite's idiom (see keel_helpers.sh)
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 K="$KEEL/scripts/keel"
 W="$(mktemp -d)"; _keel_tmps="$_keel_tmps $W"
@@ -111,31 +112,31 @@ r="$(new_repo)"
 kr "$r" check pre build; [ "$rc" -eq 0 ]; check "check pre build: 0 inside a git work tree" $?
 nogit="$(mktemp -d)"; _keel_tmps="$_keel_tmps $nogit"
 for s in build assess rules; do
-  kr "$nogit" check pre $s; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^missing: '; check "check pre $s: 1 with a 'missing:' line outside a git work tree" $?
+  kr "$nogit" check pre $s; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep '^missing: '; check "check pre $s: 1 with a 'missing:' line outside a git work tree" $?
 done
 kr "$r" check pre rules
 [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | grep -c '^missing: ')" -eq 7 ]; check "check pre rules: one missing line per item in an empty repo (7)" $?
 for item in scripts/gate.sh scripts/lib/baseline.sh scripts/lib/envparse.sh scripts/sensors/guard.sh .agents/state.yml gate-fast gate-slow; do
-  printf '%s\n' "$out" | grep -qF "missing: $item"; check "check pre rules names: $item" $?
+  printf '%s\n' "$out" | qgrep -F "missing: $item"; check "check pre rules names: $item" $?
 done
 b="$(mkbuild)"
 kr "$b" check pre rules; [ "$rc" -eq 0 ] && [ -z "$out" ]; check "check pre rules: 0 on an installed repository" $?
 for item in scripts/gate.sh scripts/lib/baseline.sh scripts/lib/envparse.sh scripts/sensors/guard.sh .agents/state.yml; do
   c="$W/pre$((++nc))"; cp -a "$b" "$c"; rm "$c/$item"
-  kr "$c" check pre rules; [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | grep -c '^missing: ')" -eq 1 ] && printf '%s\n' "$out" | grep -qF "missing: $item"
+  kr "$c" check pre rules; [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | grep -c '^missing: ')" -eq 1 ] && printf '%s\n' "$out" | qgrep -F "missing: $item"
   check "check pre rules: without $item exactly that line" $?
 done
 for t in gate-fast gate-slow; do
   c="$W/pre$((++nc))"; cp -a "$b" "$c"; sed "/^$t:/,/^\$/d" "$b/Makefile" > "$c/Makefile"
-  kr "$c" check pre rules; [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | grep -c '^missing: ')" -eq 1 ] && printf '%s\n' "$out" | grep -qF "missing: $t"
+  kr "$c" check pre rules; [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | grep -c '^missing: ')" -eq 1 ] && printf '%s\n' "$out" | qgrep -F "missing: $t"
   check "check pre rules: Makefile without $t exactly that line" $?
 done
 c="$W/pre$((++nc))"; cp -a "$b" "$c"; rm "$c/Makefile"
-kr "$c" check pre rules; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -qF 'missing: gate-fast' && printf '%s\n' "$out" | grep -qF 'missing: gate-slow'; check "check pre rules: no Makefile names both targets" $?
+kr "$c" check pre rules; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep -F 'missing: gate-fast' && printf '%s\n' "$out" | qgrep -F 'missing: gate-slow'; check "check pre rules: no Makefile names both targets" $?
 
 # assess snapshot
 a="$(new_repo)"; echo dirty > "$a/untracked.txt"
-kr "$a" check pre assess; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qE '^snapshot [0-9a-f]{40}$'; check "check pre assess: 0 and prints snapshot <token>" $?
+kr "$a" check pre assess; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | qgrep -E '^snapshot [0-9a-f]{40}$'; check "check pre assess: 0 and prints snapshot <token>" $?
 [ ! -e "$a/.agents" ]; check "check pre assess writes nothing (no .agents/ appears)" $?
 t1="$(printf '%s\n' "$out" | sed -n 's/^snapshot //p')"; echo more > "$a/untracked.txt"; kr "$a" check pre assess
 [ "$(printf '%s\n' "$out" | sed -n 's/^snapshot //p')" != "$t1" ]; check "the token changes with the status of the repository" $?
@@ -148,12 +149,12 @@ ko "$r" plan build "$W/p1.md"
 [ "$rc" -eq 0 ] && [ "$out" = "proposal build $H1" ]; check "plan: prints 'proposal build <git hash-object>'" $?
 cmp -s "$W/p1.md" "$r/.agents/run/flow/build.proposal"; check "plan: copies the file to .agents/run/flow/build.proposal" $?
 ko "$r" plan build "$W/missing.md"; [ "$rc" -eq 1 ] && [ -n "$err" ]; check "plan: 1 when the file is missing" $?
-ko "$r" apply build; [ "$rc" -eq 1 ] && printf '%s\n' "$err$out" | grep -qF 'no approval for the current proposal - show it to the user, then run keel approve'; check "apply after plan, before approve: 1 with the approval message" $?
+ko "$r" apply build; [ "$rc" -eq 1 ] && printf '%s\n' "$err$out" | qgrep -F 'no approval for the current proposal - show it to the user, then run keel approve'; check "apply after plan, before approve: 1 with the approval message" $?
 [ ! -e "$r/.agents/run/flow/build.applied" ]; check "apply refused: no .applied marker" $?
 ko "$r" approve build "deadbeef"; [ "$rc" -eq 1 ] && [ ! -e "$r/.agents/run/flow/build.approved" ]; check "approve: 1 for a hash that is not the current proposal's" $?
 ko "$r" approve rules "$H1"; [ "$rc" -eq 1 ]; check "approve: 1 with no proposal for that skill" $?
 ko "$r" approve build "$H1"; [ "$rc" -eq 0 ]; check "approve: 0 for the current proposal's hash" $?
-[ "$(cut -f1 "$r/.agents/run/flow/build.approved")" = "$H1" ] && cut -f2 "$r/.agents/run/flow/build.approved" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'; check "approve: build.approved is <hash><TAB><UTC ISO time>" $?
+[ "$(cut -f1 "$r/.agents/run/flow/build.approved")" = "$H1" ] && cut -f2 "$r/.agents/run/flow/build.approved" | qgrep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'; check "approve: build.approved is <hash><TAB><UTC ISO time>" $?
 ko "$r" apply build; [ "$rc" -eq 0 ] && [ -s "$r/.agents/run/flow/build.applied" ]; check "apply after approve: 0 and writes build.applied" $?
 printf 'proposal two\n' > "$W/p2.md"
 H2="$(git hash-object "$W/p2.md")"
@@ -198,10 +199,10 @@ ko "$c" check; [ "$rc" -eq 1 ]; check "check (no skill): passes the validator's 
 # ------------------------------------------------------------------ verify build
 vb() { kr "$1" verify build; }
 vb "$b"
-[ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | grep -c '^ok ')" -eq "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" ] && ! printf '%s\n' "$out" | grep -q '^fail '
+[ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | grep -c '^ok ')" -eq "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" ] && ! printf '%s\n' "$out" | qgrep '^fail '
 check "verify build: clean fixture exits 0, every line 'ok <item>'" $?
 for it in agents-md state-schema run-ignored gate-ran harness-check baselines portable-scripts guard-installed hook-settings hook-executable hook-json applied; do
-  printf '%s\n' "$out" | grep -q "^ok $it"; check "verify build reports item: $it" $?
+  printf '%s\n' "$out" | qgrep "^ok $it"; check "verify build reports item: $it" $?
 done
 
 # bcase LABEL ITEM BREAK-CMD (run inside a copy of the clean fixture): exit 1 and a 'fail ITEM:' line
@@ -209,7 +210,7 @@ bcase() {
   local c="$W/b$((++nc))"; cp -a "$b" "$c"
   (cd "$c" && eval "$3") >/dev/null 2>&1
   vb "$c"
-  [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q "^fail $2: ."
+  [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep "^fail $2: ."
   check "verify build: $1 -> fail $2" $?
 }
 bcase "AGENTS.md missing" agents-md 'rm AGENTS.md'
@@ -241,11 +242,11 @@ bcase "install did not go through keel apply" applied 'rm .agents/run/flow/build
 # hook not installed: the hook items do not apply
 c="$W/b$((++nc))"; cp -a "$b" "$c"
 (cd "$c" && sed -i.bak 's/hook: installed/hook: not_installed/' .agents/state.yml && rm -f .agents/state.yml.bak .claude/settings.json scripts/hooks/claude-stop.sh)
-vb "$c"; [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q '^fail '; check "verify build: hook not_installed -> no hook item can fail" $?
+vb "$c"; [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | qgrep '^fail '; check "verify build: hook not_installed -> no hook item can fail" $?
 
 # F3c-1: the authority layer (consequence map, protect hook, its settings entry)
 for it in authority-map authority-settings authority-executable; do
-  printf '%s\n' "$out" | grep -q "^ok $it skip (authority is not installed)"; check "verify build: authority not installed -> $it is a skip" $?
+  printf '%s\n' "$out" | qgrep "^ok $it skip (authority is not installed)"; check "verify build: authority not installed -> $it is a skip" $?
 done
 a="$W/authority"; cp -a "$b" "$a"
 (cd "$a" && sed -i.bak 's/rules: not_installed }/rules: not_installed, authority: installed }/' .agents/state.yml && rm -f .agents/state.yml.bak
@@ -262,15 +263,15 @@ a="$W/authority"; cp -a "$b" "$a"
 JSON
 )
 vb "$a"
-[ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q '^fail ' && ! printf '%s\n' "$out" | grep -q 'skip (authority'; check "verify build: a clean authority layer exits 0 and no authority item is skipped" $?
+[ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | qgrep '^fail ' && ! printf '%s\n' "$out" | qgrep 'skip (authority'; check "verify build: a clean authority layer exits 0 and no authority item is skipped" $?
 for it in authority-map authority-settings authority-executable; do
-  printf '%s\n' "$out" | grep -qx "ok $it"; check "verify build reports item: $it" $?
+  printf '%s\n' "$out" | qgrep -x "ok $it"; check "verify build reports item: $it" $?
 done
 acase() { # acase LABEL ITEM BREAK-CMD (run inside a copy of the clean authority fixture)
   local c="$W/a$((++nc))"; cp -a "$a" "$c"
   (cd "$c" && eval "$3") >/dev/null 2>&1
   vb "$c"
-  [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q "^fail $2: ."
+  [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep "^fail $2: ."
   check "verify build (authority): $1 -> fail $2" $?
 }
 acase "the consequence map is missing" authority-map 'rm .agents/consequence.yml'
@@ -292,7 +293,7 @@ for t in bash git grep sed awk head tail wc cat date mkdir cp rm mktemp tr cut s
   p="$(command -v "$t" 2>/dev/null)" && [ -x "$p" ] && ln -sf "$p" "$nopy/$t"
 done
 out="$(cd "$b" && PATH="$nopy" "$nopy/bash" "$K" verify build 2>&1)"; rc=$?
-[ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^ok hook-json.*skip (no python3)'; check "verify build: no python3 -> hook-json says 'skip (no python3)' and counts as ok" $?
+[ "$rc" -eq 0 ] && printf '%s\n' "$out" | qgrep '^ok hook-json.*skip (no python3)'; check "verify build: no python3 -> hook-json says 'skip (no python3)' and counts as ok" $?
 
 # ------------------------------------------------------------------ verify rules
 mkrules() {
@@ -319,15 +320,15 @@ E
 }
 rb="$(mkrules)"
 kr "$rb" verify rules
-[ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q '^fail ' && [ "$(printf '%s\n' "$out" | grep -c '^ok ')" -ge 5 ]; check "verify rules: clean fixture exits 0, only 'ok' lines" $?
+[ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | qgrep '^fail ' && [ "$(printf '%s\n' "$out" | grep -c '^ok ')" -ge 5 ]; check "verify rules: clean fixture exits 0, only 'ok' lines" $?
 for it in harness-check gate-passed rule-env rule-doc applied; do
-  printf '%s\n' "$out" | grep -q "^ok $it"; check "verify rules reports item: $it" $?
+  printf '%s\n' "$out" | qgrep "^ok $it"; check "verify rules reports item: $it" $?
 done
 rcase() {
   local c="$W/r$((++nc))"; cp -a "$rb" "$c"
   (cd "$c" && eval "$3") >/dev/null 2>&1
   kr "$c" verify rules
-  [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q "^fail $2: ."
+  [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep "^fail $2: ."
   check "verify rules: $1 -> fail $2" $?
 }
 rcase "validator reports a warning" harness-check 'echo "| X | \`make nosuchtarget\` | exit 0 |" >> AGENTS.md'
@@ -348,14 +349,14 @@ kr "$c" verify rules; [ "$rc" -eq 0 ]; check "verify rules: no env files at all 
 
 # ------------------------------------------------------------------ verify assess
 a="$(new_repo)"; echo base > "$a/tracked.txt"; commit "$a"
-kr "$a" verify assess; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -qF 'pass the token'; check "verify assess: without a token fails and asks for it" $?
+kr "$a" verify assess; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep -F 'pass the token'; check "verify assess: without a token fails and asks for it" $?
 kr "$a" check pre assess; tok="$(printf '%s\n' "$out" | sed -n 's/^snapshot //p')"
-kr "$a" verify assess "$tok"; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^ok '; check "verify assess: untouched repository exits 0" $?
+kr "$a" verify assess "$tok"; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | qgrep '^ok '; check "verify assess: untouched repository exits 0" $?
 [ ! -e "$a/.agents" ]; check "check pre and verify assess wrote nothing" $?
 mkdir -p "$a/.agents/run"; echo noise > "$a/.agents/run/noise.log"
 kr "$a" verify assess "$tok"; [ "$rc" -eq 0 ]; check "verify assess: changes under .agents/run/ are ignored" $?
 echo "changed" >> "$a/tracked.txt"
-kr "$a" verify assess "$tok"; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail '; check "verify assess: a modified tracked file fails" $?
+kr "$a" verify assess "$tok"; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep '^fail '; check "verify assess: a modified tracked file fails" $?
 git -C "$a" checkout -q -- tracked.txt
 echo new > "$a/new.txt"
 kr "$a" verify assess "$tok"; [ "$rc" -eq 1 ]; check "verify assess: a new untracked file fails" $?
@@ -390,20 +391,20 @@ mkplan() {
 }
 r="$(new_repo)"
 mkplan "$r/.agents/plans/ok.md" "Status: active"
-kr "$r" verify plan .agents/plans/ok.md; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^ok status' && printf '%s\n' "$out" | grep -q '^ok acceptance'; check "verify plan: a plan with Status and Acceptance passes" $?
+kr "$r" verify plan .agents/plans/ok.md; [ "$rc" -eq 0 ] && printf '%s\n' "$out" | qgrep '^ok status' && printf '%s\n' "$out" | qgrep '^ok acceptance'; check "verify plan: a plan with Status and Acceptance passes" $?
 for st in "done" abandoned; do
   mkplan "$r/.agents/plans/$st.md" "Status: $st"; kr "$r" verify plan ".agents/plans/$st.md"; [ "$rc" -eq 0 ]; check "verify plan: Status: $st is valid" $?
 done
 mkplan "$r/.agents/plans/nostatus.md" ""
-kr "$r" verify plan .agents/plans/nostatus.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail status:'; check "verify plan: no Status line fails, naming status" $?
+kr "$r" verify plan .agents/plans/nostatus.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep '^fail status:'; check "verify plan: no Status line fails, naming status" $?
 mkplan "$r/.agents/plans/badstatus.md" "Status: wip"
-kr "$r" verify plan .agents/plans/badstatus.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail status:'; check "verify plan: an invalid Status value fails" $?
+kr "$r" verify plan .agents/plans/badstatus.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep '^fail status:'; check "verify plan: an invalid Status value fails" $?
 printf '# Plan\nStatus: active\n\n## Steps\n1. x\n' > "$r/.agents/plans/noacc.md"
-kr "$r" verify plan .agents/plans/noacc.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail acceptance:'; check "verify plan: no Acceptance section fails, naming acceptance" $?
+kr "$r" verify plan .agents/plans/noacc.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep '^fail acceptance:'; check "verify plan: no Acceptance section fails, naming acceptance" $?
 printf '# Plan\nStatus: active\n\n## Acceptance\nSomething prose, no bullet.\n\n## Steps\n- a step bullet\n' > "$r/.agents/plans/nobullet.md"
-kr "$r" verify plan .agents/plans/nobullet.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail acceptance:'; check "verify plan: an Acceptance without a bullet fails (a bullet under Steps does not count)" $?
+kr "$r" verify plan .agents/plans/nobullet.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep '^fail acceptance:'; check "verify plan: an Acceptance without a bullet fails (a bullet under Steps does not count)" $?
 printf '# Plan\n\n## Steps\n1. x\n' > "$r/.agents/plans/neither.md"
-kr "$r" verify plan .agents/plans/neither.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^fail status:' && printf '%s\n' "$out" | grep -q '^fail acceptance:'; check "verify plan: both missing -> both named" $?
+kr "$r" verify plan .agents/plans/neither.md; [ "$rc" -eq 1 ] && printf '%s\n' "$out" | qgrep '^fail status:' && printf '%s\n' "$out" | qgrep '^fail acceptance:'; check "verify plan: both missing -> both named" $?
 kr "$r" verify plan .agents/plans/nosuch.md; [ "$rc" -eq 1 ]; check "verify plan: a missing file exits 1" $?
 ko "$r" verify plan; [ "$rc" -eq 64 ] && [ -n "$err" ]; check "verify plan without a file exits 64" $?
 ko "$r" verify plan a b; [ "$rc" -eq 64 ]; check "verify plan with two files exits 64" $?
@@ -418,7 +419,7 @@ ref="$(cd "$r" && git rev-parse HEAD)"
 pc "$r" .agents/plans/2026-10-01-file-size.md "done" "$ref"
 [ "$rc" -eq 0 ] && [ ! -e "$r/.agents/plans/2026-10-01-file-size.md" ]; check "plan-close done: exit 0 and the tracked plan is removed" $?
 [ "$(tail -n 1 "$r/.agents/progress.md" 2>/dev/null)" = "2026-10-29 done 2026-10-01-file-size.md $ref" ]; check "plan-close done: progress.md ends with 'date done basename ref' (created if absent)" $?
-(cd "$r" && git status --porcelain -- .agents/plans | grep -q '^D'); check "plan-close removes a tracked plan with git rm" $?
+(cd "$r" && git status --porcelain -- .agents/plans | qgrep '^D'); check "plan-close removes a tracked plan with git rm" $?
 mkplan "$r/.agents/plans/b.md" "Status: active"
 pc "$r" .agents/plans/b.md abandoned HEAD
 [ "$rc" -eq 0 ] && [ ! -e "$r/.agents/plans/b.md" ] && [ "$(tail -n 1 "$r/.agents/progress.md")" = "2026-10-29 abandoned b.md HEAD" ] && [ "$(grep -c . "$r/.agents/progress.md")" -ge 3 ]; check "plan-close abandoned: an untracked plan is removed and the line is appended, not overwritten" $?
@@ -439,7 +440,7 @@ mkplan "$r/.agents/plans/e.md" "Status: active"
 pc "$r" .agents/plans/e.md "done" docs/adr/../../.seed; [ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/e.md" ]; check "plan-close: a path that climbs out of adr_dir is refused" $?
 printf '# Plan\nStatus: active\n' > "$r/.agents/plans/bad.md"; before="$(cat "$r/.agents/progress.md")"
 pc "$r" .agents/plans/bad.md "done" HEAD
-[ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/bad.md" ] && [ "$before" = "$(cat "$r/.agents/progress.md")" ] && printf '%s\n' "$out" | grep -qi 'acceptance'; check "plan-close: a plan that fails verify plan exits 1 and is kept" $?
+[ "$rc" -eq 1 ] && [ -e "$r/.agents/plans/bad.md" ] && [ "$before" = "$(cat "$r/.agents/progress.md")" ] && printf '%s\n' "$out" | qgrep -i 'acceptance'; check "plan-close: a plan that fails verify plan exits 1 and is kept" $?
 pc "$r" .agents/plans/nosuch.md "done" HEAD; [ "$rc" -eq 1 ]; check "plan-close: a missing plan exits 1" $?
 mkplan "$r/.agents/plans/f.md" "Status: active"
 pc "$r" .agents/plans/f.md finished HEAD; [ "$rc" -eq 64 ] && [ -e "$r/.agents/plans/f.md" ]; check "plan-close: a status other than done|abandoned exits 64" $?

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 HOOK_SRC="$KEEL/assets/adapters/claude/claude-stop.sh"
 [ -f "$HOOK_SRC" ]; check "claude-stop.sh exists" $?
@@ -91,7 +92,7 @@ assert "additionalContext" in d["hookSpecificOutput"]
 echo d >> "$r/t.txt"; hook "$r" '{}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
 sed 's/2\.1s/7.7s/g' "$FAILOUT" > "$W/fail3.txt"; echo e >> "$r/t.txt"
 hook "$r" '{"stop_hook_active":true}' STUB_RC=1 STUB_OUT_FILE="$W/fail3.txt"
-printf '%s' "$out" | grep -q '"systemMessage"'; check "loop guard ignores timing differences" $?
+printf '%s' "$out" | qgrep '"systemMessage"'; check "loop guard ignores timing differences" $?
 
 # --- gate crash
 r="$(mkrepo)"; echo a > "$r/t.txt"
@@ -122,11 +123,11 @@ hook "$r" '{}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
 fa="$(cd "$r" && tree_fingerprint)"; echo b >> "$r/t.txt"; (cd "$r" && git commit -q -am b); fb="$(cd "$r" && tree_fingerprint)"
 [ "$fa" != "$fb" ]; check "fingerprint changes after a commit (clean tree, new HEAD)" $?
 hook "$r" '{}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
-[ "$(ran)" = 1 ] && printf '%s' "$out" | grep -q '"additionalContext"'; check "edit committed during the turn: gate runs and reports" $?
+[ "$(ran)" = 1 ] && printf '%s' "$out" | qgrep '"additionalContext"'; check "edit committed during the turn: gate runs and reports" $?
 hook "$r" '{}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
 [ -z "$out" ] && [ "$(ran)" = 1 ]; check "unchanged since a failing check: silent, gate not re-run" $?
 hook "$r" '{"stop_hook_active":true}' STUB_RC=1 STUB_OUT_FILE="$FAILOUT"
-[ "$(ran)" = 1 ] && printf '%s' "$out" | grep -q '"systemMessage":"keel gate is still failing'; check "unchanged with stop_hook_active: loop guard, gate not re-run" $?
+[ "$(ran)" = 1 ] && printf '%s' "$out" | qgrep '"systemMessage":"keel gate is still failing'; check "unchanged with stop_hook_active: loop guard, gate not re-run" $?
 
 # --- outside git (RF5)
 d="$(mktemp -d)"; _keel_tmps="$_keel_tmps $d"; mkdir -p "$d/scripts/hooks"; cp "$HOOK_SRC" "$d/scripts/hooks/"; rm -f "$W/ran"

@@ -3,6 +3,7 @@
 # Traceability table of contracts/flow.md, and every target that row names exists. The number of
 # rows with no check (`none`) is reported, not failed: they are the gaps the owner reads.
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 FLOW="$KEEL/contracts/flow.md"
 PAT='never|Never|always|Always|\*\*Write nothing|writes nothing|must'
@@ -43,7 +44,7 @@ done
 # --- no stale row: each quote matches a trigger line of its own skill
 while IFS="$TAB" read -r rs rq _; do
   [ -n "$rs" ] || continue
-  grep -E "$PAT" "$KEEL/skills/$rs/SKILL.md" 2>/dev/null | grep -qF -- "$rq"; check "$rs: row quote still matches a line: $rq" $?
+  grep -E "$PAT" "$KEEL/skills/$rs/SKILL.md" 2>/dev/null | qgrep -F -- "$rq"; check "$rs: row quote still matches a line: $rq" $?
 done <<EOL
 $rows
 EOL
@@ -61,7 +62,7 @@ while IFS="$TAB" read -r rs rq form checked; do
     bare="$(printf '%s' "$t" | sed 's/ (.*$//')"
     case "$bare" in
       none)
-        printf '%s' "$t" | grep -qE '^none \(.+\)$'; check "$rs: none carries a written reason: $rq" $?
+        printf '%s' "$t" | qgrep -E '^none \(.+\)$'; check "$rs: none carries a written reason: $rq" $?
         none=$((none + 1)) ;;
       test:*) [ -f "$KEEL/../../${bare#test:}" ]; check "$rs: test exists: ${bare#test:}" $? ;;
       eval:*) [ -f "$KEEL/evals/${bare#eval:}" ]; check "$rs: eval grader exists: ${bare#eval:}" $? ;;
