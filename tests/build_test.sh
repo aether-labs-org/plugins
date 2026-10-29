@@ -46,9 +46,16 @@ grep -q "gate-fast" "$S"; check "SKILL.md writes the gate-fast target" $?
 
 # --- Task 6: Stop hook and v0.1 upgrade
 for s in 'settings-stop.json' '"timeout": 120' 'claude-stop.sh' 'replaces the v0.1 PostToolUse entry' \
-         '.agents/.gate-lock/' '.agents/plans/' '${CLAUDE_PROJECT_DIR}'; do
+         '.agents/plans/' '${CLAUDE_PROJECT_DIR}'; do
   has "$S" "$s"; check "SKILL.md contains: $s" $?
 done
+# F2c-3: the v0.2/v0.1 upgrade round moved out of SKILL.md into references/upgrade.md
+U="$sk/references/upgrade.md"
+has "$U" '.agents/.gate-lock/'; check "upgrade.md contains: .agents/.gate-lock/" $?
+has "$S" 'references/upgrade.md'; check "SKILL.md points at references/upgrade.md" $?
+# F2c-3: the discovery commands moved out of SKILL.md into references/discovery.md
+D="$sk/references/discovery.md"
+has "$S" 'references/discovery.md' && has "$D" 'ls mvnw gradlew' && has "$D" 'grep -E "^[a-zA-Z_-]+:" Makefile'; check "discovery commands live in references/discovery.md, which SKILL.md names" $?
 ! grep -q '"PostToolUse"' "$S"; check "SKILL.md has no JSON block keyed PostToolUse" $?
 [ -f "$root/plugins/keel-harness/evals/build-typescript/graders/stop-hook.md" ]; check "stop-hook grader exists" $?
 
@@ -67,9 +74,10 @@ g="$root/plugins/keel-harness/evals/build-typescript/graders"
 ! grep -q "PreToolUse" "$S"; check "SKILL.md installs no blocking hook" $?
 
 # --- Task 22: validator and guide are installed
-for s in 'scripts/harness-check.sh' '.agents/README.md' 'make harness-check' 'harness-check: ; @bash scripts/harness-check.sh'; do
+for s in 'scripts/harness-check.sh' '.agents/README.md' 'harness-check: ; @bash scripts/harness-check.sh'; do
   has "$S" "$s"; check "SKILL.md contains: $s" $?
 done
+has "$U" 'make harness-check'; check "upgrade.md contains: make harness-check (F2c-3: the upgrade round moved there)" $?
 [ "$(wc -l < "$S")" -le 250 ]; check "SKILL.md still at most 250 lines" $?
 
 # --- F2c-2: the order is enforced by scripts/keel; the prose checklist of section 10 is gone

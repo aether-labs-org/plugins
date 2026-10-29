@@ -35,25 +35,17 @@ The order of this skill is enforced by `${CLAUDE_PLUGIN_ROOT}/scripts/keel` (`${
 Start with `${CLAUDE_PLUGIN_ROOT}/scripts/keel check pre build` from the repository root. When it exits
 non-zero, show its `missing:` lines and stop.
 
-## 1. Read the picture
+## Phases
+
+### Read the picture
 
 If `assess` already ran in this session, reuse its report table (axis states, evidence, costs). If
-not, do the same read-only discovery before proposing anything:
-
-```bash
-cat package.json 2>/dev/null | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('scripts',{}))" 2>/dev/null
-grep -E "^[a-zA-Z_-]+:" Makefile 2>/dev/null | head -30
-ls mvnw gradlew pnpm-lock.yaml yarn.lock package-lock.json uv.lock poetry.lock 2>/dev/null
-find docs/ -maxdepth 2 -name "*.md" 2>/dev/null | sort; ls src/ lib/ app/ packages/ services/ 2>/dev/null
-ls .eslintrc* eslint.config* tsconfig.json ruff.toml mypy.ini .pre-commit-config.yaml .github/workflows/ 2>/dev/null
-ls AGENTS.md CLAUDE.md .claude/CLAUDE.md .agents/state.yml 2>/dev/null
-```
-
+not, run the read-only discovery commands in `references/discovery.md` before proposing anything.
 **Never invent a command.** Every command in the proposal, in `AGENTS.md` or in a sensor must be one
-you found in discovery. If `.agents/state.yml` exists, read it first: a layer marked `installed` is
-not re-proposed; one marked `not_installed` may be retried if new evidence appeared.
+you found in discovery. If `.agents/state.yml` exists, read it first: a layer marked `installed` is not
+re-proposed; one marked `not_installed` may be retried if new evidence appeared.
 
-## 2. Ask in rounds
+### Ask in rounds
 
 Use `AskUserQuestion` when it is available, with at most 4 questions per round, the recommended
 option first, and each option stating its trade-off. When it is not available (non-interactive
@@ -66,7 +58,7 @@ one round per group, and apply the three-confidence rule to each layer:
 - **None**: nothing can be inferred. Say so, give your recommendation with its reason, and ask.
   Never install a layer on a guess; record what was declined under `not_installed`.
 
-## 3. Phase 1 - bootstrap
+### Phase 1 - bootstrap
 
 The entry point is always **`make bootstrap`**: wrap the discovered install and build commands,
 never cite a script bare. If there is no `Makefile`, propose one with just that target; if there is
@@ -75,7 +67,7 @@ a tab and `npm install`).
 
 If the stack has no build step, the target only installs; say so rather than inventing a build line.
 
-## 4. Phase 2 - guides
+### Phase 2 - guides
 
 Fill `references/agents-md-template.md` with real, confirmed values only. Any topic that needs more
 than one sentence becomes a `→ docs/X.md` pointer. Omit sections with nothing found. Read
@@ -87,7 +79,7 @@ from `/keel-harness:rules`, which this skill offers at the end.
 neither exists, create `CLAUDE.md` containing exactly `@AGENTS.md`. When one exists without that
 line, propose inserting `@AGENTS.md` as its first line, as its own question.
 
-## 5. Phase 3 - the gates
+### Phase 3 - the gates
 
 Read `references/sensors-by-language.md` and `${CLAUDE_PLUGIN_ROOT}/contracts/sensor.md` first. Propose only
 the sensors whose tool the repository has; a missing tool is either left out or installed as an
@@ -127,10 +119,8 @@ KEEL_MEASURE=1 bash scripts/sensors/lint.sh > .agents/baselines/lint.tsv
 ```make
 gate-fast:
 	@bash scripts/gate.sh fast
-
 gate-slow:
 	@bash scripts/gate.sh slow
-
 harness-check: ; @bash scripts/harness-check.sh
 ```
 
@@ -141,13 +131,7 @@ Also install the portable validator and the hand-editing guide:
 Everything installed is plain `bash` that must run with this plugin absent: no `${CLAUDE_*}`
 variable, no path into the plugin, no `claude` call, no network. Run `make gate-fast` and read it.
 
-## 6. The output contract
-
-Every sensor emits the seven fields of `${CLAUDE_PLUGIN_ROOT}/contracts/sensor.md` section 1; the copied assets
-already do. In the repo-specific block keep `guidance` on `fail` only, in this repository's terms and
-naming the wrong fix ("never edit the test to match"), and the detail cap.
-
-## 7. The Stop hook
+### Phase 4 - the Stop hook
 
 Claude only sees a gate failure when a hook hands it back. `PostToolUse` sends exit-0 stdout to the debug log and, on exit 2, only stderr, where `make` puts no report. So the gate is wired to Claude Code's **`Stop`** hook, which gives the fast gate's guidance
 back before Claude finishes. It blocks no action: the adapter always exits 0 and the conversation
@@ -169,22 +153,21 @@ Add `.agents/run/` (all run state: logs, fingerprints, lock) and `.agents/plans/
 fresh installs and upgrades alike. Propose ignoring the tools' caches too when they are not (`.mypy_cache/`,
 `.pytest_cache/`, `.ruff_cache/`, `.gradle/`, `build/`, `coverage/`): untracked, they enter `SCOPE`.
 
-## 7b. Upgrading an earlier install
+### Phase 5 - enforcement (ci, precommit)
 
-A `schema_version: 2` state (v0.2) gets one round, each item accept-or-drop: delete `.agents/last-*` and
-`.agents/.gate-lock/`, replace their seven `.gitignore` lines with `.agents/run/`, install `scripts/lib/envparse.sh`,
-`scripts/sensors/guard.sh` and current copies of every asset (outside the repo-specific markers), set
-`schema_version: 3`; then `make harness-check` reports no `run-state` or `guard-missing`. A state without
-`schema_version`, or a `PostToolUse` entry running `make gate-fast` (v0.1), gets that round plus:
+The Stop hook reaches only Claude Code. CI and pre-commit run the same `make gate-fast` for every
+author, and each is its own layer (`ci`, `precommit` in `.agents/state.yml`), accepted or declined on
+its own. Read `references/enforcement.md` before proposing: it has the CI workflow
+(`${CLAUDE_PLUGIN_ROOT}/assets/core/ci/keel.yml`, only its repo-specific block is edited) and the
+pre-commit merge for the hook manager the repository already uses.
 
-1. The Stop hook of section 7 replaces the v0.1 PostToolUse entry (remove that entry, keep other keys).
-2. The sensor list in the old state is dropped: each entry already has its file; the gate
-   discovers files now.
-3. A v0.1 `snapshot` entry becomes a TSV baseline, re-measured with `KEEL_MEASURE=1`, never copied, and named in one upgrade ADR so `guard` accepts it.
-4. The v0.1 model-baseline key is replaced by `harness_review_by` (today + 6 months); state becomes section 9.
-5. The `.gitignore` entries of section 7 are added.
+### Upgrading an earlier install
 
-## 8. Propose, then write
+A `schema_version: 2` state (v0.2), a state without `schema_version`, or a `PostToolUse` entry running
+`make gate-fast` (v0.1) gets one upgrade round, each item accept-or-drop. The items (including the
+Stop hook that replaces the v0.1 PostToolUse entry) are in `references/upgrade.md`.
+
+### Propose, then write
 
 After the rounds, write one structured proposal covering every file to be created or changed, to a
 temporary file (`mktemp`; under `.agents/run/tmp/` when that fails), and record it with `${CLAUDE_PLUGIN_ROOT}/scripts/keel plan build <file>`, which prints
@@ -201,8 +184,7 @@ HOOK       scripts/hooks/claude-stop.sh + a Stop entry in .claude/settings.json 
 ENFORCE    ci: .github/workflows/keel.yml; precommit: {{lefthook | pre-commit | husky | none}} (references/enforcement.md)
 ```
 
-**Write nothing before the user accepts.** This rule has no exception. Once they accept, run
-`${CLAUDE_PLUGIN_ROOT}/scripts/keel approve build <hash>` with the hash `plan` printed; if they amend
+Once they accept, run `${CLAUDE_PLUGIN_ROOT}/scripts/keel approve build <hash>` with the hash `plan` printed; if they amend
 the proposal, run `keel plan build <file>` again (the old approval no longer counts). The user's own
 request can grant that acceptance up front ("do not pause for confirmation") for every high- or
 low-confidence layer: present the proposal, run `plan` and `approve` in the same reply, and say in
@@ -210,10 +192,16 @@ that reply that the acceptance came from the request. A `none`-confidence layer 
 regardless. Then run `${CLAUDE_PLUGIN_ROOT}/scripts/keel apply build` **before the first write** and
 stop if it exits non-zero. In short: before writing anything, wait for the answer.
 
-## 9. Write `.agents/state.yml`
+## Output contract
 
-State is **metadata only**; it does not configure the gate (budgets are in `.agents/gate.env`,
-sensors are the files in `scripts/sensors/`).
+**The sensor output.** Every sensor emits the seven fields of `${CLAUDE_PLUGIN_ROOT}/contracts/sensor.md` section 1; the copied assets
+already do. In the repo-specific block keep `guidance` on `fail` only, in this repository's terms and
+naming the wrong fix ("never edit the test to match"), and the detail cap.
+
+**The proposal block** is the one shown in "Propose, then write", one line per layer, with the real values filled in.
+
+**`.agents/state.yml`** is **metadata only**; it does not configure the gate (budgets are in
+`.agents/gate.env`, sensors are the files in `scripts/sensors/`). Write it after `keel apply`:
 
 ```yaml
 schema_version: 3
@@ -225,9 +213,24 @@ not_installed:                    # layer or sensor -> the reason, in keel's wor
   slow_gate: "no mutation or coverage tool configured"
 ```
 
-Each key's type, writer and reader are in `${CLAUDE_PLUGIN_ROOT}/contracts/state.md`. Use the real reason for each `not_installed` entry; never a generic one. Ignore the generated files (section 7); `.agents/state.yml`, `.agents/gate.env` and `.agents/baselines/` are committed.
+Each key's type, writer and reader are in `${CLAUDE_PLUGIN_ROOT}/contracts/state.md`. Use the real reason for each `not_installed` entry, not a generic one. Ignore the generated files (hook phase); `.agents/state.yml`, `.agents/gate.env` and `.agents/baselines/` are committed.
 
-## 10. Verify
+## Discipline
+
+**Write nothing before the user accepts and `keel apply` exits 0.** This rule has no exception.
+`${CLAUDE_PLUGIN_ROOT}/scripts/keel` enforces the order (`plan`, `approve`, `apply`) in code.
+
+| The excuse | Why it is wrong |
+| --- | --- |
+| "They obviously want AGENTS.md, I'll write it while we talk" | `keel apply build` has not run, so no write is allowed. Show the proposal first. |
+| "The proposal changed only a little, the old approval still covers it" | An amended proposal needs `keel plan build` again; the old approval no longer counts. |
+| "I can approve it myself to save a round" | Run `keel approve build` only after the user accepted that proposal, or after the request itself accepted it up front (say so in the reply). |
+| "The test command is probably `npm test`" | Never invent a command: every command must be one found in discovery. |
+| "Nothing can be inferred, but this layer is standard" | Never install a layer on a guess: a `none`-confidence layer stays uninstalled, under `not_installed` with a real reason. |
+| "Regenerating `gate.sh` from the description is quicker" | Never regenerate a script from prose. Copy the tested asset and edit only the `keel:repo-specific` block. |
+| "I'll put this repository's absolute path in the hook command" | `${CLAUDE_PROJECT_DIR}` is copied literally, escaped quotes included; Claude Code sets it when it runs the hook. |
+
+## Done when
 
 Run `make gate-fast` and read it, then `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify build`. Fix every `fail` line and run it again until it
 exits 0; only then report the layer installed. The items are in `${CLAUDE_PLUGIN_ROOT}/contracts/flow.md`.

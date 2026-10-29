@@ -20,7 +20,7 @@ not_installed:                    # layer or sensor -> the reason, in keel's wor
 
 | Key | Type | Written by | Read by |
 | --- | --- | --- | --- |
-| `schema_version` | integer, `3` | `build` (section 9; the v0.2 upgrade round in section 7b sets it from `2`) | `build` (decides whether the upgrade round applies) |
+| `schema_version` | integer, `3` | `build` (output contract; the v0.2 upgrade round in `references/upgrade.md` sets it from `2`) | `build` (decides whether the upgrade round applies) |
 | `installed_at` | ISO date | `build` | people; `build` on re-runs |
 | `harness_review_by` | ISO date, `installed_at` plus six months | `build` (a re-read moves it six months on) | `harness-check` (`review-due` once the date has passed; `KEEL_TODAY` overrides today in tests) |
 | `mode` | `greenfield` or `brownfield` | `build`; `rules` records its own confirmation (section 2) | `rules` (greenfield skips reverse engineering); `assess` reports it as an inference |
@@ -42,7 +42,7 @@ proposed; an absent key never raises a warning.
 | `guides` | `AGENTS.md`, the `CLAUDE.md` import, `.agents/README.md` | `build` phase 2 | people |
 | `fast_gate` | `scripts/gate.sh`, the stack sensors, `make gate-fast` | `build` phase 3 | people |
 | `slow_gate` | `make gate-slow` and the slow sensors | `build` phase 3 | people |
-| `hook` | the Stop hook (`scripts/hooks/claude-stop.sh` and its `.claude/settings.json` entry) | `build` section 7 | `harness-check` (`hook-missing` is skipped when `hook: not_installed`) |
+| `hook` | the Stop hook (`scripts/hooks/claude-stop.sh` and its `.claude/settings.json` entry) | `build` phase 4 (the Stop hook) | `harness-check` (`hook-missing` is skipped when `hook: not_installed`) |
 | `ci` | optional (since F3a): `.github/workflows/keel.yml` runs `make gate-fast` | `build` (`references/enforcement.md`) | `harness-check` (`enforcement-drift` when `ci: installed` and no workflow runs `make gate-fast`) |
 | `precommit` | optional (since F3a): a pre-commit hook runs `make gate-fast` | `build` (`references/enforcement.md`) | `harness-check` (`enforcement-drift` when `precommit: installed` and no hook runs it) |
 | `rules` | the repository's own rules (`.agents/rules/*.env`, topic files, rule sensors) | `build` writes `not_installed`; no skill flips it to `installed` yet | people |
@@ -56,4 +56,4 @@ text in the file, so keep `layers` on one line in flow style, as above.
 - `.agents/state.yml`, `.agents/gate.env` and `.agents/baselines/` are committed; `.agents/run/` and
   `.agents/plans/` are git-ignored.
 - A state without `schema_version`, or with `schema_version: 2`, is an earlier install: `build`
-  section 7b upgrades it.
+  upgrades it (`skills/build/references/upgrade.md`).

@@ -4,7 +4,7 @@
 set -uo pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 
-SKILLS="assess"
+SKILLS="assess build"
 for s in $SKILLS; do
   f="$KEEL/skills/$s/SKILL.md"
   got="$(grep -E '^## ' "$f" | grep -E '^## (0\. Precondition|Phases|Output contract|Discipline|Done when)$' | tr '\n' '|')"
