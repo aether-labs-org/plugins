@@ -1,0 +1,13 @@
+diff --git a/src/app.ts b/src/app.ts
+index 8221221..1bb12fb 100644
+--- a/src/app.ts
++++ b/src/app.ts
+@@ -3,3 +3,8 @@ import { log } from "./log";
+ export function total(items: number[]): number {
+   return items.reduce((a, b) => a + b, 0);
+ }
++
++export function average(items: number[]): number {
++  log.info("average", { count: items.length });
++  return items.length === 0 ? 0 : total(items) / items.length;
++}

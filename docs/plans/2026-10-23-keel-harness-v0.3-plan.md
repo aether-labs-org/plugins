@@ -35,7 +35,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | F3c Authority | ✅ done 2026-10-29 (F3c-1 and F3c-2) | `2026-10-29-…-f3c1/f3c2-plan.md` | F3c-1 on `feat/keel-harness-v0.3-f3c1`: `b7efeef`, `9c496a0`, `a6df5f9`; 1985 `ok` (1759 before, 226 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; no eval run. F3c-2 on `feat/keel-harness-v0.3-f3c2`: `4b792a0`, `666068b`; 2368 `ok` (2244 before, 124 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; no eval run; the CODEOWNERS approval of a superseding ADR cannot be checked locally | — |
 | F3d Exemplars + catalog | ✅ done 2026-10-29 (F3d-1 and F3d-2); entries unproven until with/without runs (owner) | `2026-10-29-…-f3d1/f3d2-plan.md` | F3d-1 on `feat/keel-harness-v0.3-f3d1`: exemplars and `exemplar-missing` (check 21), `pattern.sh` (grep tested fully; ast-grep and semgrep skip when absent, parsing tested with stubs, never run against the real tools), `measure.sh pattern`, `guard` on `PATTERN`/`RULE_FILE`; no eval run. F3d-2 on `feat/keel-harness-v0.3-f3d2`: `62bacf4`, `e6f2ee1`, `43243ec`; 2634 `ok` (2449 before, 185 new), 0 FAIL, `validate --strict` and `shellcheck -S warning` clean; 15 catalog entries, all marked unproven; presets for `comments`, `suppressions`, `error-handling`, `logging`; `dependencies.sh`; `guard` type-strictness; `measure.sh deps`; no `function-size` subcommand; no eval run | owner: with/without runs |
 | F4 Codex | backlog (D5) | — | — | — |
-| F5 Profile L | ☐ wave G | `2026-10-29-…-f5-plan.md` | — | after F3 and F6; ships only with Δ > 0 per component, else v0.4 (D52) |
+| F5 Profile L | ◐ built 2026-10-29; ships per D52 after the owner's measurement | `2026-10-29-…-f5-plan.md` | `9850a21`, `47ca32f`, `74e510e`, `f46bac1` on `feat/keel-harness-v0.3-f5`; 2790 `ok` (2576 before), 0 FAIL, `validate --strict` passes, shellcheck clean; `reviewer.sh` and `journey.sh` tested with stubs and, for `journey`, on Playwright 1.48.2's real line-reporter output (no Chromium: the download is blocked here); the 3 eval cases (`reviewer-catches-violation-with/-without`, `journey-catches-regression`) not run | R: owner's paid measurement (Δ > 0 per component, else v0.4 and profile L partial, D52) |
 | F6 Feedback → infrastructure | ✅ done 2026-10-29 | `2026-10-29-…-f6-plan.md` | `c3914bf`, `5ec63ea`, `63ef483`, `72a0c9f`, `f58251b`, `c90345e` on `feat/keel-harness-v0.3-f6`; 2371 `ok` (2244 before), 0 FAIL, `validate --strict` passes, shellcheck clean; the 4 history checks bring harness-check to 24 | F5 |
 | R Release v0.3.0 | ☐ wave H | `2026-10-29-…-r-plan.md` | — | last |
 | CLI (`feat/keel-cli`) | ❄ frozen, outside v0.3 | `docs/keel-cli-plan` branch | 7 commits on an old base, not reviewed | revisit after R, or when a D48 trigger occurs |
@@ -294,12 +294,15 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f3a-plan.md`.
 
 ## F5 — Profile L
 
-- [ ] C3: an optional reviewer sensor that calls a different model, with a token budget and a
-  calibration fixture; never in the fast gate.
-- [ ] C8: a journey sensor (Playwright) for web stacks, plus structured-log guidance.
-- [ ] C10: documentation only. The D47 recipe goes in `.agents/README.md` and the plugin README.
+- [x] C3: an optional reviewer sensor that calls a different model, with a token budget and a
+  calibration fixture; never in the fast gate. Built (`slow/reviewer.sh`, experimental).
+- [x] C8: a journey sensor (Playwright) for web stacks, plus structured-log guidance. Built
+  (`slow/journey.sh`, experimental).
+- [x] C10: documentation only. The D47 recipe goes in `.agents/README.md` and the plugin README.
 - [ ] Each component has tests and a with/without measurement with Δ > 0. Without one, it moves to
-  v0.4, and the release marks profile L as partial (D52).
+  v0.4, and the release marks profile L as partial (D52). Tests: done. Measurement: the owner's paid
+  step (`reviewer-catches-violation-with/-without` with `--ablation none`, `journey-catches-regression`),
+  not run; phase R decides what ships.
 
 ## F6 — Feedback into infrastructure
 

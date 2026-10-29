@@ -59,6 +59,12 @@ run "$r"; [ $rc -eq 0 ]; check "lowering LIMIT passes" $?
 r="$(mk)"; printf 'MUTATION_MIN_SCORE=60\n' >> "$r/.agents/rules/file-size.env"; (cd "$r" && git add -A && git commit -q -m m)
 sed -i.bak 's/MUTATION_MIN_SCORE=60/MUTATION_MIN_SCORE=40/' "$r/.agents/rules/file-size.env"; rm -f "$r/.agents/rules/file-size.env.bak"
 run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'MUTATION_MIN_SCORE lowered from 60 to 40'; check "lowering a *MIN* key fails" $?
+# MAX_DIFF_LINES (reviewer, F5): the reviewer skips diffs above it, so raising it reviews more and lowering it is the loosening
+r="$(mk)"; printf 'MAX_DIFF_LINES=800\n' >> "$r/.agents/rules/file-size.env"; (cd "$r" && git add -A && git commit -q -m m)
+sed -i.bak 's/MAX_DIFF_LINES=800/MAX_DIFF_LINES=2000/' "$r/.agents/rules/file-size.env"; rm -f "$r/.agents/rules/file-size.env.bak"
+run "$r"; [ $rc -eq 0 ]; check "raising MAX_DIFF_LINES (the reviewer covers more) passes" $?
+sed -i.bak 's/MAX_DIFF_LINES=2000/MAX_DIFF_LINES=100/' "$r/.agents/rules/file-size.env"; rm -f "$r/.agents/rules/file-size.env.bak"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'MAX_DIFF_LINES lowered from 800 to 100'; check "lowering MAX_DIFF_LINES (the reviewer skips more) fails" $?
 r="$(mk)"; printf "EXCLUDE='src/gen/'\n" >> "$r/.agents/rules/file-size.env"
 run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | qgrep -F 'EXCLUDE widened'; check "widening EXCLUDE fails" $?
 r="$(mk)"; sed -i.bak 's/ENFORCEMENT=sensor:file-size/ENFORCEMENT=inferential/' "$r/.agents/rules/file-size.env"; rm -f "$r/.agents/rules/file-size.env.bak"

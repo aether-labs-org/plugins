@@ -87,4 +87,50 @@ for s in assess build rules; do
   [ ! -e "$EV/trigger-$s-not/graders/skill-fired.md" ]; check "trigger-$s-not has no skill-fired grader" $?
 done
 grep -q 'regex' "$EV/trigger-rules-not/prompt.md"; check "trigger-rules-not is the regex near miss" $?
+
+# F5 (D52): profile-L cases, files only; the owner runs them. The reviewer pair is an effect pair like
+# rules-effect-with/-without (the group checks above already require Bash and Write); the journey case is a tool case.
+for a in with without; do
+  c="reviewer-catches-violation-$a"; d="$EV/$c"
+  [ -f "$d/case.yaml" ] && [ -f "$d/prompt.md" ] && [ -x "$d/scaffold.sh" ]; check "$c has case.yaml, prompt.md and an executable scaffold.sh" $?
+  grep -q "^name: $c\$" "$d/case.yaml" 2>/dev/null; check "$c carries its name" $?
+  grep -q '^tags: \[profile-l, effect\]$' "$d/case.yaml" 2>/dev/null; check "$c is tagged [profile-l, effect]" $?
+  grep -q 'ablation none' "$d/case.yaml" 2>/dev/null; check "$c says to run with --ablation none and compare by hand" $?
+  grep -q 'D52' "$d/case.yaml" 2>/dev/null; check "$c is marked experimental (D52)" $?
+done
+diff -r "$EV/reviewer-catches-violation-with/graders" "$EV/reviewer-catches-violation-without/graders" >/dev/null; check "reviewer-catches-violation: both arms are graded by the same graders" $?
+diff "$EV/reviewer-catches-violation-with/prompt.md" "$EV/reviewer-catches-violation-without/prompt.md" >/dev/null; check "reviewer-catches-violation: both arms get the same prompt" $?
+grep -q 'make gate-slow' "$EV/reviewer-catches-violation-with/prompt.md"; check "reviewer-catches-violation: the prompt runs make gate-slow" $?
+grep -q 'reviewer' "$EV/reviewer-catches-violation-with/scaffold.sh" && ! grep -qi 'reviewer' "$EV/reviewer-catches-violation-without/scaffold.sh"; check "reviewer-catches-violation: only the -with arm installs the reviewer sensor" $?
+grep -q 'KEEL_EVAL_REVIEWER_CMD' "$EV/reviewer-catches-violation-with/scaffold.sh" && grep -q '<a model other than the one that codes>' "$EV/reviewer-catches-violation-with/scaffold.sh"; check "reviewer-catches-violation-with: the command is the host's, with a placeholder instead of a model name" $?
+grep -q 'reviewer' "$EV/reviewer-catches-violation-with/graders/reviewer-fails.md" && grep -q 'type: regex' "$EV/reviewer-catches-violation-with/graders/reviewer-fails.md"; check "reviewer-catches-violation: a grader reads the reviewer's line in the gate output" $?
+grep -q 'type: tool_used' "$EV/reviewer-catches-violation-with/graders/ran-gate-slow.md"; check "reviewer-catches-violation: a grader checks that make gate-slow ran" $?
+d="$EV/journey-catches-regression"
+[ -f "$d/case.yaml" ] && [ -f "$d/prompt.md" ] && [ -x "$d/scaffold.sh" ]; check "journey-catches-regression has case.yaml, prompt.md and an executable scaffold.sh" $?
+grep -q '^name: journey-catches-regression$' "$d/case.yaml" && grep -q '^tags: \[profile-l, tools\]$' "$d/case.yaml"; check "journey-catches-regression is named and tagged [profile-l, tools]" $?
+grep -q 'make gate-slow' "$d/prompt.md"; check "journey-catches-regression: the prompt runs make gate-slow" $?
+for g in journey-fails names-the-journey gives-the-trace ran-gate-slow; do
+  [ -f "$d/graders/$g.md" ]; check "journey-catches-regression has the $g grader" $?
+done
+grep -q '@playwright/test' "$d/scaffold.sh" && grep -q 'count += 2' "$d/scaffold.sh"; check "journey-catches-regression: Playwright fixture with a planted regression" $?
+grep -q 'reviewer-catches-violation-with. / .-without. (F5' "$KEEL/README.md" && grep -q 'journey-catches-regression. (F5' "$KEEL/README.md" && grep -q 'KEEL_EVAL_REVIEWER_CMD' "$KEEL/README.md"; check "README lists the host prerequisites of the F5 cases, and that the reviewer arm is a billed model call" $?
+! grep -rniE '\b(opus|sonnet|haiku)\b|claude-[0-9]' "$EV/reviewer-catches-violation-with" "$EV/reviewer-catches-violation-without" "$EV/journey-catches-regression" >/dev/null; check "no model name in the F5 eval cases" $?
+
+# The scaffolds really build what they describe: run them with the stub as the reviewer (no network, no model).
+# The journey scaffold needs npm and the network, so it is not run here.
+if command -v git >/dev/null 2>&1; then
+  for a in with without; do
+    w="$(mktemp -d)"; _keel_tmps="$_keel_tmps $w"
+    (cd "$w" && KEEL_EVAL_REVIEWER_CMD="$FIXTURES/reviewer/stub-reviewer.sh" bash "$EV/reviewer-catches-violation-$a/scaffold.sh" >/dev/null 2>&1); rc=$?
+    [ "$rc" -eq 0 ] && [ -f "$w/src/app.ts" ]; check "reviewer-catches-violation-$a: scaffold.sh builds the repository" $?
+    (cd "$w" && git diff --name-only | qgrep -x 'src/app.ts'); check "reviewer-catches-violation-$a: the violation is the one uncommitted change" $?
+    gout="$(cd "$w" && bash scripts/gate.sh slow 2>&1)"; grc=$?
+    if [ "$a" = with ]; then
+      [ "$grc" -ne 0 ] && printf '%s\n' "$gout" | qgrep -E 'reviewer +\[heuristic +\] +[0-9]+ rule violation'; check "reviewer-catches-violation-with: the slow gate fails on the planted violation (stub reviewer)" $?
+      printf '%s\n' "$gout" | qgrep -E 'reviewer.*rule violation' && printf '%s\n' "$gout" | qgrep 'no-console'; check "reviewer-catches-violation-with: the output matches the graders' patterns" $?
+    else
+      [ "$grc" -eq 0 ] && printf '%s\n' "$gout" | qgrep 'gate: slow - PASSED' && ! printf '%s\n' "$gout" | qgrep 'reviewer'; check "reviewer-catches-violation-without: the slow gate passes and says nothing about the violation" $?
+    fi
+  done
+fi
 finish

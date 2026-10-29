@@ -23,7 +23,7 @@ one `warn` line per broken condition, or `harness is clean`.
 | `scripts/gate.sh` | Runs `make gate-fast` / `make gate-slow` | No (managed) |
 | `scripts/lib/` | Helpers sourced by sensors (`baseline.sh`, `junit.sh`) | No (managed) |
 | `scripts/sensors/*.sh` | Fast sensors, one per file | Yes |
-| `scripts/sensors/slow/*.sh` | Slow sensors (mutation, diff coverage) | Yes |
+| `scripts/sensors/slow/*.sh` | Slow sensors (mutation, diff coverage; optional `reviewer` and `journey`) | Yes |
 | `scripts/sensors/disabled/` | Sensors switched off | Yes |
 | `scripts/sensors/stoplists/` | Word lists for the code-language sensor | Yes |
 | `scripts/hooks/claude-stop.sh` | Hands gate failures back to Claude Code | No (managed) |
@@ -51,6 +51,27 @@ Drop an executable file in `scripts/sensors/` (fast) or `scripts/sensors/slow/` 
 - print at most 5 detail lines indented by two spaces, and a `guidance: ` block only on failure;
 - read `SCOPE` (changed files, newline separated; empty means the whole repository).
 Files starting with `_` and subdirectories are never run by the gate.
+
+### Add the reviewer sensor (optional, experimental)
+A model checks the diff since the base against `AGENTS.md` and the docs sections it cites, in the slow gate only. It is
+**a model call on every `make gate-slow`, billed to you, and the diff is sent to the command you name**.
+`/keel-harness:build` installs `scripts/sensors/slow/reviewer.sh` on request; then:
+1. Write `.agents/rules/reviewer.env`: the rule keys (`RULE_ID=reviewer`, `KIND`, `ORIGIN`, `APPROVED_AT`,
+   `ENFORCEMENT=sensor:reviewer`, `DOC=docs/conventions.md#reviewer`), `REVIEWER_CMD=` (reads the prompt on stdin and
+   prints the verdict; split on spaces, no shell: `claude -p --model <a model other than the one that codes>`),
+   `MAX_DIFF_LINES=800` and `TIMEOUT_SECONDS=120`.
+2. Add the anchored `reviewer` section to `docs/conventions.md` and state the 800 in it (`make harness-check` warns otherwise).
+3. Run `make gate-slow`. The answer is `PASS` or `FAIL: <reason>` lines; anything else is a skip, never a pass. A `fail` can be
+   wrong: fix the code or say why in the pull request. Never edit the rules or `reviewer.env` to make it pass.
+
+### Add the journey sensor (optional, experimental, web stacks)
+Runs your Playwright journeys in the slow gate and, on a failure, names the journey and its trace. `/keel-harness:build`
+installs `scripts/sensors/slow/journey.sh` on request; it skips until Playwright is installed.
+1. Write `.agents/rules/journey.env`: the rule keys (`RULE_ID=journey`, `ENFORCEMENT=sensor:journey`,
+   `DOC=docs/testing.md#journey`, and `KIND`, `ORIGIN`, `APPROVED_AT`), `JOURNEY_DIR=e2e` and, if Playwright's output moved,
+   `JOURNEY_RESULTS`; add the anchored `journey` section to `docs/testing.md`.
+2. Run `make gate-slow`. Open the trace it prints (`npx playwright show-trace <trace>`) and fix the behaviour; never edit the
+   journey or loosen its assertions to make it pass.
 
 ### Disable a sensor
 Move it to `scripts/sensors/disabled/`. The gate runs only top-level `*.sh` files. Move it back to
@@ -113,8 +134,21 @@ merge-base with `origin/HEAD`, else `HEAD`). To loosen a baseline, a limit, a li
 sensor deliberately, add an ADR in the same change that names each file by path and says why; then
 `make gate-fast` passes. Without it, undo the loosening and fix the code.
 
+## Autonomous runs
+
+For an agent that works for hours or over several sessions. **keel orchestrates nothing** (D47): it supplies the rails below and a
+runner you already have walks them: superpowers' `executing-plans` or `subagent-driven-development`, the Agent SDK, or a `claude -p` loop.
+1. **Plan.** One planner pass writes `.agents/plans/<plan>.md`: `Status: active`, an `## Acceptance` in the sensors' numbers or a
+   named test, small steps with a "done when" each.
+2. **Main loop.** One loop owns the plan and every edit; stateless subagents do the read-heavy work (search, read, summarise).
+3. **Gate after each step.** `make gate-fast`; the next step starts only when it passes (the Stop hook does this in Claude Code).
+4. **Review at the end.** `make gate-slow`, with the optional reviewer sensor (experimental, a model call) or an evaluator subagent
+   that has not seen the coding and checks the Acceptance against the diff.
+5. **Across sessions.** Close the plan with the `keel plan-close` command, which logs one line in `.agents/progress.md`;
+   a new session reads that file and the open plans first.
+
 ## Commands
 
 - `make gate-fast`: the fast sensors. Read line 1 of each, fix every `fail` top to bottom.
-- `make gate-slow`: mutation testing and diff coverage. Run it before opening a pull request.
+- `make gate-slow`: mutation testing and diff coverage (and the optional `reviewer` and `journey`). Run it before opening a pull request.
 - `make harness-check`: validates this harness.

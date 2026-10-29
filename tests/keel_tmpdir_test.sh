@@ -133,6 +133,12 @@ sed -i.bak 's|^CMD=.*|CMD=(true)|' "$r/scripts/sensors/slow/diff-coverage.sh"; r
 sed -i.bak '4s/.*/l4 changed/' "$r/src/a.ts"; rm -f "$r/src/a.ts.bak"
 scase diff-coverage "$r" scripts/sensors/slow/diff-coverage.sh 1 sensor SCOPE=src/a.ts
 
+# F5: the opt-in reviewer (slow gate) makes a temp directory too; its stub stands for REVIEWER_CMD
+r="$(mk)"; mkdir -p "$r/scripts/sensors/slow"; install_asset "$r" assets/core/sensors/slow/reviewer.sh scripts/sensors/slow/reviewer.sh
+cp -r "$FIXTURES/reviewer/base/." "$r/"; printf 'REVIEWER_CMD=%s\n' "$FIXTURES/reviewer/stub-reviewer.sh" > "$r/.agents/rules/reviewer.env"
+commit "$r"; (cd "$r" && git apply "$FIXTURES/reviewer/violates.patch")
+scase reviewer "$r" scripts/sensors/slow/reviewer.sh 1 sensor
+
 # ---------------------------------------------------------------- stack sensors
 r="$(mk)"; install_asset "$r" "$SD/jvm/lint.sh" scripts/sensors/lint.sh
 mkdir -p "$r/bin" "$r/src/main/kotlin/a"; use_stub "$r" ktlint bin/ktlint; echo c > "$r/src/main/kotlin/a/A.kt"; commit "$r"
@@ -225,7 +231,7 @@ assets/core/sensors/rules/architecture-grep.sh assets/core/sensors/rules/code-la
 assets/core/sensors/rules/file-size.sh assets/core/sensors/rules/folder-layout.sh
 assets/core/sensors/rules/test-presence.sh assets/core/sensors/rules/slow/diff-coverage.sh
 assets/core/sensors/rules/slow/mutation.sh scripts/measure.sh assets/core/sensors/rules/pattern.sh
-assets/core/sensors/rules/dependencies.sh"
+assets/core/sensors/rules/dependencies.sh assets/core/sensors/slow/reviewer.sh"
 nfiles=0
 for f in $FILES; do
   nfiles=$((nfiles + 1))
@@ -240,6 +246,6 @@ for f in $FILES; do
   # and a temp assignment exists at all (the file really uses the pattern)
   grep -qE '(tmp|since|empty)="\$\(keel_tmp(dir|file)\)"' "$KEEL/$f"; check "$f: uses keel_tmpdir/keel_tmpfile" $?
 done
-[ "$nfiles" -eq 18 ]; check "structure covers every call site ($nfiles files)" $?
+[ "$nfiles" -eq 19 ]; check "structure covers every call site ($nfiles files)" $?
 ! grep -rn mktemp "$KEEL/assets" "$KEEL/scripts" | grep -vE ':[[:space:]]*keel_tmp(dir|file)\(\)'; check "grep mktemp over assets/ and scripts/ lists only the new pattern" $?
 finish

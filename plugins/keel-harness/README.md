@@ -73,6 +73,52 @@ any unmet item; `assess` uses it to prove it wrote nothing. `keel verify plan <f
 applied, not that a human said yes; the other layers are the guard sensor, the PreToolUse protect hook
 (`claude-protect.sh`, which does not see Bash writes) and the process evals.
 
+## Profile L (experimental)
+
+Profile L is an agent that works for hours, over several sessions, and owns the whole job (spec 2.1). v0.3
+builds its three components so they can be measured, and **marks them experimental and unproven (D52)**: each
+ships only if a with/without measurement shows a gain (Δ > 0); phase R decides what ships, and the release marks
+profile L as partial for any component without that evidence. The measurement is the owner's paid step; the
+cases exist and have not run.
+
+| Component | What it is | Where | Eval cases (not run) |
+| --- | --- | --- | --- |
+| C3 reviewer | An opt-in slow sensor: a model reads the diff against `AGENTS.md` and the sections it cites and answers `PASS` or `FAIL: <reason>` | `assets/core/sensors/slow/reviewer.sh`, `contracts/profile-l.md` | `reviewer-catches-violation-with` / `-without` (`--tag effect`, compare by hand) |
+| C8 journey | An opt-in slow sensor for web stacks: runs the Playwright journeys, names the failing one and its trace; plus structured-log guidance | `assets/core/sensors/slow/journey.sh`, `skills/build/references/context-engineering.md` | `journey-catches-regression` (`--tag tools`) |
+| C10 orchestration | A recipe, no code (D47) | next section | none |
+
+The reviewer is the one installed script that calls a model, and only through `REVIEWER_CMD`, the command the user
+writes in `.agents/rules/reviewer.env` (for example `claude -p --model <a model other than the one that codes>`).
+Every `make gate-slow` with it installed is one model call billed to the user, and
+**the diff and the rules leave the machine** for that command; the slow gate's verdict line says
+`model cost: reviewer sensor ran ...` instead of `US$0.00`. It skips without the command, skips above `MAX_DIFF_LINES` (800) or `TIMEOUT_SECONDS` (120), and a reply
+that is not `PASS` or `FAIL:` is a skip, never a pass. The tests use a stub command only.
+
+## Autonomous runs (profile L)
+
+keel orchestrates nothing (D47). It supplies the rails (the gate, `guard`, a plan's Acceptance, protection, the
+evaluator sensors) and documents this recipe; a runner you already have does the walking:
+superpowers' `executing-plans` or `subagent-driven-development`, the Agent SDK, or a `claude -p` loop in a script.
+
+1. **One planner pass** writes `.agents/plans/<plan>.md` (`Status: active`, a required `## Acceptance` in the
+   sensors' numbers or a named test, small steps with a "done when" each); `keel verify plan <file>` rejects a plan
+   without an Acceptance. Plans stay files (no issue-tracker backend).
+2. **One main loop** owns the state: the plan, the repository and every edit. It hands read-heavy work (search,
+   read, summarise, test triage) to stateless subagents, each starting from a clean context and returning a short
+   answer, so the main context stays small.
+3. **The gate after each step**: `make gate-fast`, and the next step starts only when it passes. In Claude Code
+   the Stop hook hands a failure back with its guidance; in a script, the loop reads line 1 of each sensor.
+4. **A reviewer at the end**: `make gate-slow`, with the reviewer sensor or an evaluator subagent. `REVIEWER_CMD`
+   runs the first; the second is a subagent of your runner. Either is told to be sceptical, has not seen the coding,
+   and checks the plan's Acceptance against the diff. For a web app the journey sensor runs the user flows. All of
+   them are experimental (D52).
+5. **`.agents/progress.md` across sessions**: closing the plan (`keel plan-close`) logs one line there; a new
+   session starts by reading that file and the open plans. A session that ends early leaves a note for the next.
+
+Why this shape: verification between steps is what makes long chains work (ten steps at 90 % each succeed 35 % of
+the time without it, spec section 9), and a main loop with stateless subagents keeps one writer. keel installs
+none of it: `gate.sh`, `guard` and the plan files work the same with a person at the keyboard.
+
 ## Target agents
 
 | Agent | What it gets |
@@ -132,6 +178,8 @@ Code's Bash tool creates. Host prerequisites per case:
 | `build-java`, `rules-architecture-java` | JDK 17+, network (Gradle wrapper) |
 | `rules-greenfield` | none beyond the tool allow-list |
 | `assess-finds-drift`, `assess-validator-drift` | node/npm, network, `gitleaks`; `--allow-tools Bash` (`assess` runs the validator) |
+| `reviewer-catches-violation-with` / `-without` (F5, experimental) | the `-with` arm makes a real model call through `claude -p` (billed; set `KEEL_EVAL_REVIEWER_CMD` to `claude -p --model <a model other than the one that codes>`) and needs network and auth inside the sandbox, which is unproven; `--allow-tools Write Edit Bash`, `--ablation none`, compare the two scores by hand |
+| `journey-catches-regression` (F5, experimental) | node/npm, network, Chromium (`npx playwright install chromium`, run by the scaffold); `--allow-tools Bash Write` |
 
 v0.2 numbers, **partial baseline**: 5 of the 15 cases measured (the read-only ones). `rules-effect-with`
 and `rules-effect-without` are meant to run with `--ablation none` and be compared by hand, since that

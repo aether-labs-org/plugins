@@ -95,6 +95,8 @@ while IFS= read -r f; do
     o="$(env_get "$tmp/old.env" "$k")"; n="$(env_get "$f" "$k")"
     [ "$o" = "$n" ] && continue
     case "$k" in
+      # the reviewer skips diffs above MAX_DIFF_LINES: raising it reviews more, lowering it is the loosening
+      MAX_DIFF_LINES) isnum "$o" && isnum "$n" && [ "$n" -lt "$o" ] && loose "$f" "$k lowered from $o to $n" ;;
       *MIN*) isnum "$o" && isnum "$n" && [ "$n" -lt "$o" ] && loose "$f" "$k lowered from $o to $n" ;;
       *LIMIT* | *MAX*) isnum "$o" && isnum "$n" && [ "$n" -gt "$o" ] && loose "$f" "$k raised from $o to $n" ;;
       ALLOWED | EXCLUDE | IGNORE_IMPORTS) [ "$(lines "$n")" -gt "$(lines "$o")" ] && loose "$f" "$k widened" ;;
