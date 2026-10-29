@@ -8,7 +8,7 @@ only judgment.
 
 ## Skills
 
-### `/keel-harness:assess`
+### `/keel-harness:assess` (readiness and health check)
 
 Answers two questions, read-only (`disallowed-tools: Write Edit NotebookEdit`):
 
@@ -44,12 +44,51 @@ what the user approved and never migrates production code.
   ADRs in the repository's ADR folder (`docs/adr/` by default); `.agents/rules/<id>.env`; rule sensors, baselines and generated tool config
   (ArchUnit test, `.dependency-cruiser.cjs`, `.importlinter`); plans in `.agents/plans/`
 
-### Breaking change in v0.3
+## What's new in 0.3 (release candidate)
 
-`/keel-harness:doctor` is removed (D51). Its job moved into `/keel-harness:assess`: with a harness installed,
-`assess` runs the same validator and explains each warning. The checks and their tests are unchanged. The
-eval cases `doctor-finds-drift` and `doctor-validator-drift` are now `assess-finds-drift` and
-`assess-validator-drift`; the rows below that predate F2c keep the numbers they were measured with.
+This is a release candidate: built and tested, but not yet measured with evals. 0.3.0 follows E3 and E4.
+
+- **CI and pre-commit layers:** a CI workflow runs the fast gate on pull requests (not yet run on GitHub), and pre-commit snippets for lefthook, pre-commit and husky.
+- **`guard`:** rejects a loosened baseline or configuration unless an ADR names the file.
+- **`scripts/keel` flow:** `plan`, `approve`, `apply`, `verify`, `measure` and `check` enforce the order of each skill's phases.
+- **Consequence map and protect hook:** harness paths are classified by consequence, and `claude-protect.sh` denies edits to them outside an approved flow.
+- **Mandatory rules:** a rule with `ENFORCEMENT_LEVEL=mandatory` cannot be loosened, and its sensors are a required CI check.
+- **Versioned plans and progress:** a plan needs an Acceptance section; `.agents/progress.md` logs each closed plan.
+- **Exemplars and catalog entries:** "follow X, not Y" exemplars, a generic pattern sensor and 21 catalog entries, none with a with/without run yet.
+- **Feedback:** gate history in `.agents/run/history/`, a lessons inbox, and `assess` checks for sensors that are always green or always red.
+- **Temp-dir hardening:** every script falls back to `.agents/run/tmp/` when `TMPDIR` is unusable, and fails with a clear message if that fails too.
+
+## Breaking changes
+
+- **`/keel-harness:doctor` is now `/keel-harness:assess` (D51).** With a harness installed, `assess` runs the same validator and explains each warning. The checks and their tests are unchanged. The eval cases `doctor-finds-drift` and `doctor-validator-drift` are now `assess-finds-drift` and `assess-validator-drift`; the rows below that predate F2c keep the numbers they were measured with.
+- **Run state moved to `.agents/run/`** (F2b). A v0.2 install is upgraded in place by `/keel-harness:build`, under confirmation.
+- **`.agents/plans/` is committed** (F3b). It is no longer git-ignored.
+
+## Proven and unproven
+
+Every number is copied from the eval sections of this README (the E2 Δ values also match the master plan's status table); none is estimated. Δ is WITH minus W-OUT. A row marked "measured before F2c" was measured on an earlier version of its skill, so the skill has changed since that commit. `unproven` means no with/without run exists yet.
+
+| Component | Eval case | WITH | W-OUT | Δ | Measured at (commit, date, phase) | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| `assess`, mature repository | `assess-mature-repo` | 1.00 | 0.33 | +0.67 | `bb5c87d`, 2026-10-29, E2 (F1 at `cf495ff`, 2026-10-28: same numbers) | measured before F2c |
+| `assess`, CLAUDE.md | `assess-claude-md` | 1.00 | 0.60 | +0.40 | `bb5c87d`, 2026-10-29, E2 (F1 at `cf495ff`: same numbers) | measured before F2c |
+| `assess`, AGENTS.md drift (folded `doctor`) | `assess-finds-drift`, as `doctor-finds-drift` in E2 | 0.72 | 0.56 | +0.17 | `bb5c87d`, 2026-10-29, E2 | measured before F2c |
+| `assess`, validator drift (folded `doctor`) | `assess-validator-drift`, as `doctor-validator-drift` in E2 | 0.97 | 0.68 | +0.28 | `bb5c87d`, 2026-10-29, E2 | measured before F2c |
+| Control: all skills stay silent on an unrelated question | `should-not-trigger` | 1.00 | 1.00 | 0.00 | `bb5c87d`, 2026-10-29, E2 | measured; the correct result for a control |
+| `build` | `build-typescript`, `build-python`, `build-java`, `build-react` | — | — | — | — | unproven (not run; E3 on the owner's machine) |
+| `rules` | `rules-brownfield`, `rules-greenfield`, `rules-architecture-java` | — | — | — | — | unproven (not run; E3) |
+| `rules`, effect pair | `rules-effect-with` / `-without` (`--ablation none`, compared by hand) | — | — | — | — | unproven (not run; E3) |
+| Gate catches a planted defect | `gate-catches-defect` | — | — | — | — | unproven (E3 not run) |
+| `assess`, pressure cases (F2c-3) | `assess-pressure-fix-it`, `assess-pressure-create-agents`, `assess-pressure-format` | — | — | — | — | unproven (written, not run) |
+| Triggering, `assess`, `build`, `rules` (F2d) | `trigger-{assess,build,rules}-{1,2,not}`, 9 cases | — | — | — | — | unproven (written, not run) |
+| Rules catalog (`skills/rules/references/catalog.md`) | 21 entries: 6 from v0.2, 15 added by D44 | — | — | — | — | unproven: no with/without run (the D44 entries say so in the file) |
+| Reviewer sensor, C3 (`slow/reviewer.sh`) | `reviewer-catches-violation-with` / `-without` | — | — | — | — | experimental — unproven (D52) |
+| Journey sensor, C8 (`slow/journey.sh`) | `journey-catches-regression` | — | — | — | — | experimental — unproven (D52) |
+| Other v0.3 mechanisms: `guard`, `scripts/keel`, consequence map and protect hook, CI and pre-commit, versioned plans, mandatory rules, feedback, temp-dir hardening | none | — | — | — | — | unproven (bash tests only) |
+| Autonomous-run recipe, C10 | none | — | — | — | — | documentation only (D47) |
+
+- **E1 numbers for the drift cases are superseded.** `c8b71ca` measured them with the `writes-nothing` grader, which failed on Claude Code's own `.claude/.cc-writes/` directory; E2 replaced that grader. F1's `assess-finds-drift` run had no Bash, so it is not comparable either.
+- **The v0.1 `build` and `gate-catches-defect` numbers** in the historical section measured an earlier skill version, so they are not listed here as evidence for v0.3.
 
 ## The v0.2 rule
 
