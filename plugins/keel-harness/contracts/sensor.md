@@ -97,6 +97,10 @@ Rules that follow from it:
 - **A missing tool is a `skip`**, with what is missing and how to get it (usually `make bootstrap`).
 - **`guidance:` appears only on `fail`** and never paraphrases the error: the error says *what*
   broke; guidance says what is done about it here, and which plausible fix is the wrong one.
+- **A temporary file or directory comes from `TMPDIR`, else from a fresh directory under
+  `.agents/run/tmp/`** (git-ignored, removed on exit), **else the sensor skips** with the summary
+  `no writable temp directory (TMPDIR or .agents/run/tmp/)` (`guard` fails instead). Never write
+  `"$tmp/..."` with an empty `tmp`: it lands at the filesystem root.
 - **A sensor never `cd`s.** `gate.sh` runs every sensor from the repository root.
 - **Never `set -e` past the tool call**: translate a non-zero tool exit, do not die of it.
 - **No network, no model call, no plugin paths** (section 5).

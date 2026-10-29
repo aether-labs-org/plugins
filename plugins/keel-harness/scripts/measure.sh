@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # measure.sh - read-only as-is measurements for the keel `rules` skill.
 # Run from the repository root: bash measure.sh <subcommand> [args]. It never writes inside the
-# repository (temporary files live outside it). Unknown subcommand -> exit 64.
+# repository (temporary files live in TMPDIR; only when that is unusable, in .agents/run/tmp/, and
+# are removed on exit; with neither: message on stderr, exit 1). Unknown subcommand -> exit 64.
 #   file-size [pathspec...]            files, p50/p75/p90, max, over:N buckets
 #   tree [depth=2]                     count<TAB>dir (directories of <depth> path components)
 #   imports <java|kotlin|python> <prefix>   from<TAB>to<TAB>count between packages under <prefix>
@@ -12,7 +13,13 @@
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-tmp="$(mktemp -d)"
+# A temp dir: TMPDIR, else .agents/run/tmp/ of the repository measured, else none.
+keel_tmpdir() { mktemp -d 2>/dev/null || { mkdir -p .agents/run/tmp 2>/dev/null && mktemp -d .agents/run/tmp/XXXXXX 2>/dev/null; }; }
+tmp="$(keel_tmpdir)" || tmp=""
+if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+  echo "measure: no writable temp directory (TMPDIR or .agents/run/tmp/)" >&2
+  exit 1
+fi
 trap 'rm -rf "$tmp"' EXIT
 
 cmd_file_size() {

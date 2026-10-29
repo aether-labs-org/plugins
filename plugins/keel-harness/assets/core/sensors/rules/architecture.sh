@@ -60,7 +60,14 @@ done
 # The ArchUnit engine runs through a quiet build: its violation text is in the JUnit reports.
 # shellcheck disable=SC1091
 [ "$ENGINE" = archunit ] && [ -f scripts/lib/junit.sh ] && . scripts/lib/junit.sh
-since="$(mktemp)"; trap 'rm -f "$since"' EXIT
+# A temp file: TMPDIR, else .agents/run/tmp/ (git-ignored), else none.
+keel_tmpfile() { mktemp 2>/dev/null || { mkdir -p .agents/run/tmp 2>/dev/null && mktemp .agents/run/tmp/XXXXXX 2>/dev/null; }; }
+since="$(keel_tmpfile)" || since=""
+if [ -z "$since" ] || [ ! -f "$since" ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no writable temp directory (TMPDIR or .agents/run/tmp/)"
+  exit 2
+fi
+trap 'rm -f "$since"' EXIT
 out="$("${run[@]}" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ]; then
   printf '%s\t%s\t%s\t%s\n' "$id" "$class" pass "No new architecture violations ($ENGINE)."

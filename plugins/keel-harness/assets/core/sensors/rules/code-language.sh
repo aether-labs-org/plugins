@@ -39,7 +39,13 @@ if [ ! -f "$STOPLIST" ]; then
 fi
 
 baseline=".agents/baselines/$id.tsv"
-tmp="$(mktemp -d)"
+# A temp dir: TMPDIR, else .agents/run/tmp/ (git-ignored), else none.
+keel_tmpdir() { mktemp -d 2>/dev/null || { mkdir -p .agents/run/tmp 2>/dev/null && mktemp -d .agents/run/tmp/XXXXXX 2>/dev/null; }; }
+tmp="$(keel_tmpdir)" || tmp=""
+if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no writable temp directory (TMPDIR or .agents/run/tmp/)"
+  exit 2
+fi
 trap 'rm -rf "$tmp"' EXIT
 
 specs=()
@@ -113,7 +119,12 @@ if [ "${KEEL_MEASURE:-}" = 1 ]; then
 fi
 
 over=$(wc -l < "$tmp/counts" | tr -d ' ')
-if viol="$(baseline_compare "$baseline" "$tmp/counts")"; then
+viol="$(baseline_compare "$baseline" "$tmp/counts")"; brc=$?
+if [ "$brc" -eq 2 ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no writable temp directory (TMPDIR or .agents/run/tmp/)"
+  exit 2
+fi
+if [ "$brc" -eq 0 ]; then
   printf '%s\t%s\t%s\t%s\n' "$id" "$class" pass "$checked files checked, no new non-English words ($over files baselined)."
   exit 0
 fi

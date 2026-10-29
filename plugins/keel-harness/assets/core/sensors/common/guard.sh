@@ -43,7 +43,14 @@ fi
 adr_dir="$(sed -n 's/^adr_dir:[[:space:]]*\([^#[:space:]]*\).*/\1/p' .agents/state.yml 2>/dev/null | head -1)"
 [ -n "$adr_dir" ] && ADR_DIRS="$adr_dir"
 
-tmp="$(mktemp -d)"
+# A temp dir: TMPDIR, else .agents/run/tmp/ (git-ignored), else none.
+keel_tmpdir() { mktemp -d 2>/dev/null || { mkdir -p .agents/run/tmp 2>/dev/null && mktemp -d .agents/run/tmp/XXXXXX 2>/dev/null; }; }
+tmp="$(keel_tmpdir)" || tmp=""
+if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" fail "no writable temp directory (TMPDIR or .agents/run/tmp/)"
+  printf '  guidance: %s\n' "make TMPDIR writable or let the gate create .agents/run/tmp/; never delete this sensor"
+  exit 1
+fi
 trap 'rm -rf "$tmp"' EXIT
 : > "$tmp/loose"
 loose() { printf '%s\t%s\n' "$1" "$2" >> "$tmp/loose"; } # loose FILE WHAT
