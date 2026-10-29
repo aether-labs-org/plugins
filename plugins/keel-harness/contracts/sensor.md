@@ -84,7 +84,7 @@ Every sensor file written into a user repository:
 Rules that follow from it:
 
 - **Line 1 is `printf '%s\t%s\t%s\t%s\n' "$id" "$class" "$status" "$summary"`** - `id`, `class`,
-  `status`, `summary`, in that order. `gate.sh`, the graders and `doctor` `cut -f1..4` in that order.
+  `status`, `summary`, in that order. `gate.sh`, the graders and `assess` `cut -f1..4` in that order.
   The sensor does not print its own elapsed time.
 - **`id=` equals the file name without `.sh`.** The gate takes the id from the file name.
 - **Discovery.** `gate.sh fast` runs the top-level `scripts/sensors/*.sh`; `gate.sh slow` runs

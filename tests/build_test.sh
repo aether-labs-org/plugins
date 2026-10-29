@@ -5,7 +5,7 @@ check() { if [ "$2" -eq 0 ]; then echo "  ok   $1"; else echo "  FAIL $1"; fail=
 root="$(cd "$(dirname "$0")/.." && pwd)"
 sk="$root/plugins/keel-harness/skills/build"
 S="$sk/SKILL.md"
-C="$sk/references/sensor-contract.md"
+C="$root/plugins/keel-harness/contracts/sensor.md"
 has() { grep -qF -- "$2" "$1" 2>/dev/null; }
 
 [ -f "$sk/references/agents-md-template.md" ]; check "agents-md-template.md exists" $?
@@ -26,7 +26,7 @@ done
 [ "$(wc -l < "$S")" -le 250 ]; check "SKILL.md is at most 250 lines" $?
 ! grep -qE "instalado_em|camadas|nao_instaladas|classe:|revisar_em" "$S"; check "state keys are English" $?
 
-[ -f "$C" ]; check "sensor-contract.md exists" $?
+[ -f "$C" ]; check "contracts/sensor.md exists" $?
 ! grep -qE '^#!/usr/bin/env bash' "$C"; check "contract embeds no script" $?
 for s in 'scripts/sensors/slow/' '.agents/baselines/' 'KEEL_MEASURE' 'FreezingArchRule'; do
   has "$C" "$s"; check "contract contains: $s" $?

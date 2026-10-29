@@ -81,7 +81,7 @@ generate a small block
 run the slow gates (full suite + architecture-fitness) before declaring "done"
 ```
 
-**Per-step vs end-of-run** (the fast and slow gates; the budget rule is in `build/references/sensor-contract.md` §1, field 7):
+**Per-step vs end-of-run** (the fast and slow gates; the budget rule is in `${CLAUDE_PLUGIN_ROOT}/contracts/sensor.md` §1, field 7):
 
 | Run at every step (fast, localized) | Run at the end (slow, global)         |
 | ----------------------------------- | ------------------------------------- |
