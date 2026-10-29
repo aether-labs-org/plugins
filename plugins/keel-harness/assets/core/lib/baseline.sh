@@ -60,3 +60,38 @@ baseline_review_by() {
   [ -f "$1" ] || return 0
   sed -n '1s/\r$//;1s/.*review_by: *\([0-9-]*\).*/\1/p' "$1"
 }
+
+# --- mandatory rules (D43) ---------------------------------------------------------------------
+# A rule with ENFORCEMENT_LEVEL=mandatory has no TSV baseline. Its legacy violations are listed in
+# EXCEPTIONS, one `<path> <YYYY-MM-DD>` per line (the path may contain spaces; the date is the last word).
+# A listed path is skipped until its date and fails afterwards. Anything else on a line is no exception.
+
+# mandatory_exceptions EXCEPTIONS COUNTS_FILE
+# Rewrites COUNTS_FILE (path<TAB>count) with the count of every excepted path whose date has not passed set
+# to 0, and writes COUNTS_FILE.excepted (paths skipped) and COUNTS_FILE.expired (path<TAB>date, still
+# counted). Today is KEEL_TODAY, else the date; the deadline day itself is still skipped.
+mandatory_exceptions() {
+  local today
+  today="${KEEL_TODAY:-$(date +%Y-%m-%d)}"
+  : > "$2.excepted"; : > "$2.expired"
+  EXC="$1" awk -F"\t" -v today="$today" -v exfile="$2.excepted" -v expfile="$2.expired" '
+    BEGIN {
+      n = split(ENVIRON["EXC"], L, "\n")
+      for (i = 1; i <= n; i++) {
+        line = L[i]; sub(/\r$/, "", line); sub(/^[ \t]+/, "", line); sub(/[ \t]+$/, "", line)
+        if (line == "" || line ~ /^#/) continue
+        if (!match(line, /[ \t]+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/)) continue
+        d = substr(line, RSTART); sub(/^[ \t]+/, "", d)
+        p = substr(line, 1, RSTART - 1)
+        if (p == "") continue
+        if (!(p in due) || d < due[p]) due[p] = d
+      }
+    }
+    { sub(/\r$/, "") }
+    NF >= 2 && $2 + 0 > 0 && ($1 in due) {
+      if (today <= due[$1]) { print $1 "\t0"; print $1 > exfile; next }
+      print $1 "\t" due[$1] > expfile
+    }
+    { print }
+  ' "$2" > "$2.new" && mv "$2.new" "$2"
+}

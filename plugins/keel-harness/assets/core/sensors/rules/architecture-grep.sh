@@ -17,7 +17,7 @@ if [ ! -f "$RULE_ENV" ]; then
   printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no .agents/rules/architecture.env - run the rules skill"
   exit 2
 fi
-LAYERS=""; FORBIDDEN=""
+LAYERS=""; FORBIDDEN=""; ENFORCEMENT_LEVEL=""; EXCEPTIONS=""
 orig_lang="${LANG-}"
 # shellcheck disable=SC1090,SC1091
 . "${KEEL_ENVPARSE_LIB:-scripts/lib/envparse.sh}" 2>/dev/null || {
@@ -115,19 +115,29 @@ if [ "${KEEL_MEASURE:-}" = 1 ]; then
   exit 0
 fi
 
+# --- mandatory rules (D43): no baseline; EXCEPTIONS are skipped until their deadline, then fail ---
+excepted=0
+if [ "${ENFORCEMENT_LEVEL:-ratchet}" = mandatory ]; then
+  baseline=/dev/null
+  mandatory_exceptions "$EXCEPTIONS" "$tmp/counts"
+  excepted=$(wc -l < "$tmp/counts.excepted" | tr -d ' ')
+fi
+
 total=$(awk -F'\t' '{ s += $2 } END { print s + 0 }' "$tmp/counts")
 based=$(baseline_total "$baseline")
+held="$based baselined"; [ "${ENFORCEMENT_LEVEL:-ratchet}" != mandatory ] || held="$excepted excepted"
 viol="$(baseline_compare "$baseline" "$tmp/counts")"; brc=$?
 if [ "$brc" -eq 2 ]; then
   printf '%s\t%s\t%s\t%s\n' "$id" "$class" skip "no writable temp directory (TMPDIR or .agents/run/tmp/)"
   exit 2
 fi
 if [ "$brc" -eq 0 ]; then
-  printf '%s\t%s\t%s\t%s\n' "$id" "$class" pass "$checked files checked, no new architecture violations ($based baselined)."
+  printf '%s\t%s\t%s\t%s\n' "$id" "$class" pass "$checked files checked, no new architecture violations ($held)."
   exit 0
 fi
 nv=$(printf '%s\n' "$viol" | wc -l | tr -d ' ')
 printf '%s\t%s\t%s\t%s\n' "$id" "$class" fail "$nv file(s) with new architecture violations ($total in all)."
 printf '%s\n' "$viol" | head -5 | awk -F'\t' '{ printf "  %s: %s architecture violation(s) (allowed %s)\n", $1, $2, $3 }'
+[ -s "$tmp/counts.expired" ] && awk -F'\t' '{ printf "  %s: exception expired on %s\n", $1, $2 }' "$tmp/counts.expired" | head -5
 printf '  guidance: %s\n' "$GUIDANCE"
 exit 1

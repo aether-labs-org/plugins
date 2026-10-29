@@ -259,4 +259,64 @@ printf "DIFF_COVERAGE_MIN=80\n" > "$r/.agents/rules/testing-strategy.env"; cp "$
 sed -i 's|^CMD=.*|CMD=(true)|' "$r/scripts/sensors/slow/diff-coverage.sh"; sed -i '4s/.*/l4 changed/' "$r/src/a.ts"
 out="$(cd "$r" && bash scripts/gate.sh slow 2>&1)"; rc=$?
 [ $rc -eq 1 ] && printf '%s\n' "$out" | grep -q 'gate: slow - FAILED (1 of 1)'; check "gate.sh slow runs diff-coverage" $?
+
+# ================= mandatory rules (D43): EXCEPTIONS with a deadline, no baseline
+# mand_case SENSOR REPO ENVNAME BADPATH BASELINE_FILE EXTRA_RUN_ARGS...
+# The repo must fail SENSOR for BADPATH (and only that path) under ENVNAME as a ratchet rule with no baseline.
+mand_case() {
+  local s="$1" r="$2" bad="$4" bl="$5" base e
+  e="$r/.agents/rules/$3"
+  base="$(cat "$e")"
+  printf '%s\nENFORCEMENT_LEVEL=mandatory\n' "$base" > "$e"
+  run "$r" "$s" KEEL_TODAY=2026-10-29; [ $rc -eq 1 ] && printf '%s\n' "$out" | grep -qF "$bad"; check "$s: mandatory without an exception fails" $?
+  printf '%s\nENFORCEMENT_LEVEL=mandatory\nEXCEPTIONS='"'"'%s 2027-01-01'"'"'\n' "$base" "$bad" > "$e"
+  run "$r" "$s" KEEL_TODAY=2026-10-29
+  [ $rc -eq 0 ] && printf '%s\n' "$out" | head -1 | grep -q "^$s	[a-z]*	pass	" && printf '%s\n' "$out" | head -1 | grep -q '1 excepted'; check "$s: an exception before its deadline is skipped" $?
+  run "$r" "$s" KEEL_TODAY=2027-01-01; [ $rc -eq 0 ]; check "$s: the deadline day itself is still skipped" $?
+  run "$r" "$s" KEEL_TODAY=2027-01-02
+  [ $rc -eq 1 ] && printf '%s\n' "$out" | grep -qF "$bad" && printf '%s\n' "$out" | grep -qF "exception expired on 2027-01-01"; check "$s: after its deadline the exception fails and says so" $?
+  printf '%s\nENFORCEMENT_LEVEL=mandatory\nEXCEPTIONS='"'"'other/path.ts 2027-01-01'"'"'\n' "$base" > "$e"
+  run "$r" "$s" KEEL_TODAY=2026-10-29; [ $rc -eq 1 ]; check "$s: an exception for another path does not hide this one" $?
+  printf '%s\nENFORCEMENT_LEVEL=mandatory\nEXCEPTIONS='"'"'junk-without-a-date'"'"'\n' "$base" > "$e"
+  run "$r" "$s" KEEL_TODAY=2026-10-29; [ $rc -eq 1 ]; check "$s: a line without a valid date is no exception" $?
+  printf '%s\nEXCEPTIONS='"'"'%s 2027-01-01'"'"'\n' "$base" "$bad" > "$e"
+  run "$r" "$s" KEEL_TODAY=2026-10-29; [ $rc -eq 1 ]; check "$s: a ratchet rule (no ENFORCEMENT_LEVEL) ignores EXCEPTIONS" $?
+  printf '%s\nENFORCEMENT_LEVEL=ratchet\nEXCEPTIONS='"'"'%s 2027-01-01'"'"'\n' "$base" "$bad" > "$e"
+  run "$r" "$s" KEEL_TODAY=2026-10-29; [ $rc -eq 1 ]; check "$s: ENFORCEMENT_LEVEL=ratchet ignores EXCEPTIONS" $?
+  printf '%s\nENFORCEMENT_LEVEL=mandatory\n' "$base" > "$e"
+  printf '# measured_at: 2026-10-20 review_by: 2027-04-20\n%s\t%s\n' "$bad" "${6:-1}" > "$r/.agents/baselines/$bl"
+  run "$r" "$s" KEEL_TODAY=2026-10-29; [ $rc -eq 1 ]; check "$s: a mandatory rule does not honour a TSV baseline" $?
+  printf '%s\n' "$base" > "$e"
+  run "$r" "$s" KEEL_TODAY=2026-10-29; [ $rc -eq 0 ]; check "$s: the same baseline passes a ratchet rule" $?
+}
+# file-size
+r="$(mk)"; put "$r" file-size
+printf "LIMIT=5\nINCLUDE='src'\n" > "$r/.agents/rules/file-size.env"; nlines 7 > "$r/src/a.ts"; commit "$r"
+mand_case file-size "$r" file-size.env src/a.ts file-size.tsv 7
+# folder-layout
+r="$(mk)"; put "$r" folder-layout
+mkdir -p "$r/src/app" "$r/src/misc"; echo 1 > "$r/src/app/x.ts"; echo 1 > "$r/src/misc/y.ts"
+printf "INCLUDE='src'\nALLOWED='src/app/*'\n" > "$r/.agents/rules/folder-layout.env"; commit "$r"
+mand_case folder-layout "$r" folder-layout.env src/misc/y.ts folder-layout.tsv
+# test-presence
+r="$(mk)"; put "$r" test-presence
+printf "INCLUDE='src/main'\nMAPPINGS='^src/main/java/(.*)\\\\.java\$|src/test/java/\\\\1Test.java'\n" > "$r/.agents/rules/testing-strategy.env"
+mkdir -p "$r/src/main/java/a"; echo c > "$r/src/main/java/a/Bar.java"; commit "$r"
+mand_case test-presence "$r" testing-strategy.env src/main/java/a/Bar.java test-presence.tsv
+# code-language
+r="$(mk)"; put "$r" code-language; mkdir -p "$r/scripts/sensors/stoplists"; cp "$SL" "$r/scripts/sensors/stoplists/pt.txt"
+printf "INCLUDE='src'\n" > "$r/.agents/rules/code-language.env"; printf 'function açãoX() {}\n' > "$r/src/b.ts"; commit "$r"
+mand_case code-language "$r" code-language.env src/b.ts code-language.tsv 3
+# architecture-grep
+r="$(mk)"; put "$r" architecture-grep
+cat > "$r/.agents/rules/architecture.env" <<ENV
+STYLE=hexagonal
+LANG=java
+BASE=com.acme
+LAYERS='$LAYERS_JAVA'
+FORBIDDEN='domain|org.springframework'
+ENV
+J="$r/src/main/java/com/acme"; mkdir -p "$J/domain" "$J/adapter/web"
+printf 'package com.acme.domain;\nimport com.acme.adapter.web.X;\n' > "$J/domain/Foo.java"; printf 'package com.acme.adapter.web;\npublic class X {}\n' > "$J/adapter/web/X.java"; commit "$r"
+mand_case architecture-grep "$r" architecture.env src/main/java/com/acme/domain/Foo.java architecture-grep.tsv
 finish

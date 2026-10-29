@@ -3,7 +3,10 @@
 # guard - security. Fails when the harness itself was loosened since the base commit: a baseline row
 # that grew or appeared, a rule limit that relaxed, a widened allow-list, a changed ENFORCEMENT, a
 # deleted rule, a fast/slow budget that grew, or a sensor removed or moved to disabled/. A loosening
-# passes only when an ADR added in the same change names the loosened file.
+# passes only when an ADR added in the same change names the loosened file. For a rule with
+# ENFORCEMENT_LEVEL=mandatory (D43) that is not enough: any loosening of its env file, sensors or
+# baselines, a later EXCEPTIONS deadline or a new exception line, or a lower ENFORCEMENT_LEVEL needs a
+# superseding ADR (a `Supersedes: <existing ADR path>` line) that names the file.
 # Base: KEEL_GUARD_BASE, else the merge-base with origin/HEAD, else HEAD. SCOPE is not used.
 # Out: line 1 = id<TAB>class<TAB>status<TAB>summary. Exit 0 pass / 1 fail / 2 skip.
 set -uo pipefail
@@ -13,6 +16,7 @@ class=security
 # --- keel:repo-specific begin ---
 ADR_DIRS="docs/adr doc/adr docs/decisions docs/architecture/decisions"
 GUIDANCE='undo the loosening and fix the code instead. If loosening is really the decision, add an ADR in this same change that names each file listed above and says why. Editing, deleting or disabling this sensor is the wrong fix.'
+GUIDANCE_MANDATORY='a line marked [mandatory] belongs to a rule with ENFORCEMENT_LEVEL=mandatory: an ADR that only names the file does not unlock it. Undo the loosening, or add a superseding ADR in this same change that names the file, says why, and has a line "Supersedes: <path of an existing ADR>" pointing at an existing ADR in the ADR folder. CODEOWNERS plus branch protection must approve it; keel cannot check that locally.'
 # --- keel:repo-specific end ---
 
 # shellcheck disable=SC1090,SC1091
@@ -113,18 +117,90 @@ git ls-tree --name-only "$base" -- scripts/sensors/ scripts/sensors/slow/ 2>/dev
     [ -f "$f" ] || loose "$f" "sensor removed or disabled"
   done
 
-# A loosened file passes when an ADR added since the base names it.
+# 5. Mandatory rules (D43). A rule with ENFORCEMENT_LEVEL=mandatory (at the base) is not loosened by an
+# ordinary ADR: its env file, its sensors and its baselines are "hard" files (hardmap: path<TAB>rule env),
+# and a loosening of one needs a superseding ADR (below). Extra loosenings checked here: the level going
+# down or disappearing, an EXCEPTIONS line added, a deadline moved later. A baseline for a mandatory rule
+# that is not at the base is already caught by section 1 (its rows appear) and is hard here.
+: > "$tmp/hardmap"
+hard_add() { printf '%s\t%s\n' "$1" "$2" >> "$tmp/hardmap"; } # hard_add PATH RULE_ENV
+# exc_rows VALUE -> path<TAB>date for each valid EXCEPTIONS line (the date is the last word of the line)
+exc_rows() {
+  printf '%s\n' "$1" | tr -d '\r' | awk '{ sub(/^[ \t]+/, ""); sub(/[ \t]+$/, "") }
+    /^#/ || $0 == "" { next }
+    match($0, /[ \t]+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) { d = substr($0, RSTART); sub(/^[ \t]+/, "", d); p = substr($0, 1, RSTART - 1); if (p != "") print p "\t" d }'
+}
+# mand_sensors ENVFILE RULE_ENV -> the rule's sensors and baselines are hard files
+mand_sensors() {
+  local it s
+  for it in $(env_get "$1" ENFORCEMENT | tr ',' ' '); do
+    case "$it" in
+      sensor:?*) s="${it#sensor:}"; hard_add ".agents/baselines/$s.tsv" "$2"; hard_add "scripts/sensors/$s.sh" "$2"; hard_add "scripts/sensors/slow/$s.sh" "$2" ;;
+    esac
+  done
+}
+{ git ls-tree --name-only "$base" -- .agents/rules/ 2>/dev/null | grep '\.env$'
+  git ls-files --cached --others --exclude-standard -- '.agents/rules/*.env' 2>/dev/null; } | sort -u > "$tmp/allrules"
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  lo=""; ln=""; had=0
+  if git cat-file -e "$base:$f" 2>/dev/null; then
+    had=1; at_base "$f" > "$tmp/m.old"; lo="$(env_get "$tmp/m.old" ENFORCEMENT_LEVEL)"
+  fi
+  [ -f "$f" ] && ln="$(env_get "$f" ENFORCEMENT_LEVEL)"
+  [ "$ln" = mandatory ] && mand_sensors "$f" "$f"
+  [ "$had" = 1 ] && [ "$lo" = mandatory ] || continue
+  hard_add "$f" "$f"; mand_sensors "$tmp/m.old" "$f"
+  [ -f "$f" ] || continue # a deleted rule is reported by section 2
+  if ! grep -q '^[[:space:]]*ENFORCEMENT_LEVEL=' "$f"; then
+    loose "$f" "ENFORCEMENT_LEVEL removed (was mandatory)"
+  elif [ "$ln" != mandatory ]; then
+    loose "$f" "ENFORCEMENT_LEVEL changed from mandatory to ${ln:-empty}"
+  fi
+  exc_rows "$(env_get "$tmp/m.old" EXCEPTIONS)" > "$tmp/e.old"
+  exc_rows "$(env_get "$f" EXCEPTIONS)" > "$tmp/e.new"
+  awk -F'\t' 'NR == FNR { if (!($1 in o) || $2 < o[$1]) o[$1] = $2; next }
+    !($1 in o) { printf "EXCEPTIONS gained %s (due %s)\n", $1, $2; next }
+    $2 > o[$1] { printf "EXCEPTIONS deadline for %s moved later (%s -> %s)\n", $1, o[$1], $2 }' "$tmp/e.old" "$tmp/e.new" |
+    while IFS= read -r w; do loose "$f" "$w"; done
+done < "$tmp/allrules"
+is_hard() { awk -F'\t' -v p="$1" '$1 == p { found = 1 } END { exit !found }' "$tmp/hardmap"; }
+
+# A loosened file passes when an ADR added since the base names it. A hard file needs a superseding ADR:
+# one that names the file (or the mandatory rule it belongs to) and has a line `Supersedes: <path>`
+# pointing at an existing ADR (at the base) in an ADR folder.
 for d in $ADR_DIRS; do
   git diff --name-only --diff-filter=A "$base" -- "$d" 2>/dev/null
   git ls-files --others --exclude-standard -- "$d" 2>/dev/null
 done | sort -u > "$tmp/adrs"
-: > "$tmp/left"; covered=0
+: > "$tmp/sadrs"
+while IFS= read -r a; do
+  [ -f "$a" ] || continue
+  sed -n 's/^[[:space:]]*Supersedes:[[:space:]]*\([^[:space:]]*\).*/\1/p' "$a" | while IFS= read -r t; do
+    t="${t#./}"
+    for d in $ADR_DIRS; do
+      case "$t" in "$d"/*) git cat-file -e "$base:$t" 2>/dev/null && { printf '%s\n' "$a" >> "$tmp/sadrs"; break; } ;; esac
+    done
+  done
+done < "$tmp/adrs"
+: > "$tmp/left"; covered=0; nhard=0
 while IFS="$(printf '\t')" read -r f what; do
   [ -n "$f" ] || continue
   ok=0
-  while IFS= read -r a; do
-    [ -f "$a" ] && grep -qF -- "$f" "$a" && { ok=1; break; }
-  done < "$tmp/adrs"
+  if is_hard "$f"; then
+    awk -F'\t' -v p="$f" '$1 == p { print $2 }' "$tmp/hardmap" | sort -u > "$tmp/names"
+    while IFS= read -r a; do
+      [ -f "$a" ] || continue
+      if grep -qF -- "$f" "$a"; then ok=1; break; fi
+      while IFS= read -r nm; do grep -qF -- "$nm" "$a" && { ok=1; break; }; done < "$tmp/names"
+      [ "$ok" = 1 ] && break
+    done < "$tmp/sadrs"
+    if [ "$ok" != 1 ]; then nhard=$((nhard + 1)); what="$what [mandatory]"; fi
+  else
+    while IFS= read -r a; do
+      [ -f "$a" ] && grep -qF -- "$f" "$a" && { ok=1; break; }
+    done < "$tmp/adrs"
+  fi
   if [ "$ok" = 1 ]; then covered=$((covered + 1)); else printf '%s: %s\n' "$f" "$what" >> "$tmp/left"; fi
 done < "$tmp/loose"
 
@@ -139,5 +215,9 @@ if [ "$nl" -eq 0 ]; then
 fi
 printf '%s\t%s\t%s\t%s\n' "$id" "$class" fail "$nl loosening(s) of the harness since $short without an ADR."
 head -5 "$tmp/left" | sed 's/^/  /'
-printf '  guidance: %s\n' "$GUIDANCE"
+if [ "$nhard" -gt 0 ]; then
+  printf '  guidance: %s %s\n' "$GUIDANCE" "$GUIDANCE_MANDATORY"
+else
+  printf '  guidance: %s\n' "$GUIDANCE"
+fi
 exit 1

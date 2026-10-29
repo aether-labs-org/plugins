@@ -89,4 +89,99 @@ r="$(new_repo)"; install_asset "$r" assets/core/lib/envparse.sh scripts/lib/envp
 mkdir -p "$r/.agents/baselines"; printf 'schema_version: 2\n' > "$r/.agents/state.yml"; printf 'src/a.ts\t9\n' > "$r/.agents/baselines/lint.tsv"
 run "$r"; [ $rc -eq 0 ] && printf '%s' "$out" | grep -q 'Harness installed in this change'; check "harness installed in this change: pass" $?
 r="$(mk)"; rm "$r/scripts/lib/envparse.sh"; run "$r"; [ $rc -eq 2 ]; check "missing envparse lib: skip" $?
+
+# --- mandatory rules (D43): ENFORCEMENT_LEVEL=mandatory, exceptions that only shrink, a superseding ADR
+ENVF=.agents/rules/file-size.env
+# wenv REPO LIMIT LEVEL_LINE EXCEPTIONS_BODY -> writes the file-size rule env (LEVEL_LINE and the body may be empty)
+wenv() {
+  { printf 'RULE_ID=file-size\nENFORCEMENT=sensor:file-size\n'
+    [ -n "$3" ] && printf '%s\n' "$3"
+    printf 'LIMIT=%s\nINCLUDE=src\n' "$2"
+    [ -n "$4" ] && printf "EXCEPTIONS='%s'\n" "$4"
+  } > "$1/$ENVF"
+}
+EXC2='src/old.txt 2027-03-01
+src/older.txt 2026-12-01'
+# mkm -> committed harness whose file-size rule is mandatory, with two exceptions and an existing ADR
+mkm() {
+  local r; r="$(mk)"
+  wenv "$r" 10 ENFORCEMENT_LEVEL=mandatory "$EXC2"
+  printf '# ADR 0001\nFile size is mandatory.\n' > "$r/docs/adr/0001-file-size.md"
+  (cd "$r" && git add -A && git commit -q -m mandatory)
+  printf '%s\n' "$r"
+}
+r="$(mkm)"; run "$r"; [ $rc -eq 0 ]; check "mandatory: an unchanged mandatory rule passes" $?
+
+r="$(mkm)"; wenv "$r" 50 ENFORCEMENT_LEVEL=mandatory "$EXC2"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'LIMIT raised from 10 to 50'; check "mandatory: raising LIMIT fails" $?
+printf '%s\n' "$out" | grep -qF 'Supersedes: <path of an existing ADR>' && printf '%s\n' "$out" | grep -q '^  guidance: .*mandatory.*superseding ADR'; check "mandatory: the guidance names the superseding-ADR route" $?
+printf 'Raise %s to 50.\n' "$ENVF" > "$r/docs/adr/0002-raise.md"
+run "$r"; [ $rc -eq 1 ]; check "mandatory: an ADR naming the file is not enough" $?
+printf 'Raise %s to 50.\nSupersedes: docs/adr/0001-file-size.md\n' "$ENVF" > "$r/docs/adr/0002-raise.md"
+run "$r"; [ $rc -eq 0 ] && printf '%s' "$out" | head -1 | grep -q '1 loosening(s)'; check "mandatory: a superseding ADR that names the file passes" $?
+printf 'Raise %s to 50.\nSupersedes: docs/adr/0099-missing.md\n' "$ENVF" > "$r/docs/adr/0002-raise.md"
+run "$r"; [ $rc -eq 1 ]; check "mandatory: Supersedes pointing at a missing ADR does not count" $?
+printf 'Raise something else.\nSupersedes: docs/adr/0001-file-size.md\n' > "$r/docs/adr/0002-raise.md"
+run "$r"; [ $rc -eq 1 ]; check "mandatory: a superseding ADR that does not name the file does not count" $?
+printf 'Raise %s to 50.\nSupersedes: docs/adr/0002-raise.md\n' "$ENVF" > "$r/docs/adr/0002-raise.md"
+run "$r"; [ $rc -eq 1 ]; check "mandatory: an ADR cannot supersede itself (the target must exist at the base)" $?
+
+# a superseding ADR from an earlier commit does not cover a later loosening
+r="$(mkm)"; wenv "$r" 50 ENFORCEMENT_LEVEL=mandatory "$EXC2"
+printf 'Raise %s.\nSupersedes: docs/adr/0001-file-size.md\n' "$ENVF" > "$r/docs/adr/0002-raise.md"
+(cd "$r" && git add -A && git commit -q -m adr2)
+wenv "$r" 60 ENFORCEMENT_LEVEL=mandatory "$EXC2"
+out="$(cd "$r" && KEEL_GUARD_BASE=HEAD bash scripts/sensors/guard.sh)"; rc=$?
+[ $rc -eq 1 ]; check "mandatory: an earlier superseding ADR does not cover a new loosening" $?
+
+# the same loosening on a ratchet rule keeps the ordinary ADR route
+r="$(mk)"; wenv "$r" 50 "" ""; printf 'Raise %s.\n' "$ENVF" > "$r/docs/adr/0002-raise.md"
+run "$r"; [ $rc -eq 0 ]; check "ratchet: an ADR naming the file still passes" $?
+
+# EXCEPTIONS only shrink
+r="$(mkm)"; wenv "$r" 10 ENFORCEMENT_LEVEL=mandatory "$EXC2
+src/new.txt 2027-01-01"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'EXCEPTIONS gained src/new.txt'; check "mandatory: a new EXCEPTIONS line fails" $?
+printf 'Allow src/new.txt in %s.\n' "$ENVF" > "$r/docs/adr/0002-exc.md"
+run "$r"; [ $rc -eq 1 ]; check "mandatory: a new EXCEPTIONS line fails even with an ADR naming the file" $?
+printf 'Allow src/new.txt in %s.\nSupersedes: docs/adr/0001-file-size.md\n' "$ENVF" > "$r/docs/adr/0002-exc.md"
+run "$r"; [ $rc -eq 0 ]; check "mandatory: a new EXCEPTIONS line passes with a superseding ADR" $?
+
+r="$(mkm)"; wenv "$r" 10 ENFORCEMENT_LEVEL=mandatory 'src/old.txt 2027-09-01
+src/older.txt 2026-12-01'
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'EXCEPTIONS deadline for src/old.txt moved later (2027-03-01 -> 2027-09-01)'; check "mandatory: moving a deadline later fails" $?
+r="$(mkm)"; wenv "$r" 10 ENFORCEMENT_LEVEL=mandatory 'src/old.txt 2027-01-15
+src/older.txt 2026-12-01'
+run "$r"; [ $rc -eq 0 ]; check "mandatory: moving a deadline earlier passes" $?
+r="$(mkm)"; wenv "$r" 10 ENFORCEMENT_LEVEL=mandatory 'src/old.txt 2027-03-01'
+run "$r"; [ $rc -eq 0 ]; check "mandatory: removing an exception passes" $?
+r="$(mkm)"; wenv "$r" 10 ENFORCEMENT_LEVEL=mandatory ""
+run "$r"; [ $rc -eq 0 ]; check "mandatory: emptying EXCEPTIONS passes" $?
+r="$(mkm)"; wenv "$r" 10 ENFORCEMENT_LEVEL=mandatory 'src/with space.txt 2027-03-01
+src/older.txt 2026-12-01'
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'EXCEPTIONS gained src/with space.txt'; check "mandatory: an exception path with a space is one path" $?
+
+# the level itself
+r="$(mkm)"; wenv "$r" 10 ENFORCEMENT_LEVEL=ratchet "$EXC2"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'ENFORCEMENT_LEVEL changed from mandatory to ratchet'; check "mandatory: mandatory -> ratchet fails" $?
+printf 'Make it ratchet: %s\n' "$ENVF" > "$r/docs/adr/0002-ratchet.md"
+run "$r"; [ $rc -eq 1 ]; check "mandatory: mandatory -> ratchet fails even with an ADR naming the file" $?
+r="$(mkm)"; wenv "$r" 10 "" "$EXC2"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'ENFORCEMENT_LEVEL removed'; check "mandatory: deleting the ENFORCEMENT_LEVEL key fails" $?
+r="$(mk)"; wenv "$r" 10 ENFORCEMENT_LEVEL=mandatory ""
+run "$r"; [ $rc -eq 0 ]; check "ratchet -> mandatory is tightening and passes" $?
+r="$(mkm)"; rm "$r/$ENVF"; printf 'Drop %s.\n' "$ENVF" > "$r/docs/adr/0002-drop.md"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF 'rule deleted'; check "mandatory: deleting the rule fails even with an ADR naming the file" $?
+r="$(mkm)"; mkdir -p "$r/scripts/sensors/disabled"; (cd "$r" && git mv scripts/sensors/file-size.sh scripts/sensors/disabled/file-size.sh)
+printf 'Disable scripts/sensors/file-size.sh.\n' > "$r/docs/adr/0002-off.md"
+run "$r"; [ $rc -eq 1 ]; check "mandatory: disabling the rule's sensor fails even with an ADR naming it" $?
+
+# a TSV baseline may not appear for a mandatory rule
+r="$(mkm)"; printf 'src/big.txt\t20\n' >> "$r/.agents/baselines/file-size.tsv"
+printf 'Baseline src/big.txt in .agents/baselines/file-size.tsv.\n' > "$r/docs/adr/0002-base.md"
+run "$r"; [ $rc -eq 1 ] && printf '%s' "$out" | grep -qF '.agents/baselines/file-size.tsv: src/big.txt 0 -> 20'; check "mandatory: a baseline row for a mandatory rule fails even with an ADR naming the file" $?
+printf 'Baseline src/big.txt in .agents/baselines/file-size.tsv.\nSupersedes: docs/adr/0001-file-size.md\n' > "$r/docs/adr/0002-base.md"
+run "$r"; [ $rc -eq 0 ]; check "mandatory: a baseline row for a mandatory rule passes with a superseding ADR naming the baseline" $?
+r="$(mk)"; printf 'src/big.txt\t20\n' >> "$r/.agents/baselines/file-size.tsv"; printf 'Baseline .agents/baselines/file-size.tsv.\n' > "$r/docs/adr/0002-base.md"
+run "$r"; [ $rc -eq 0 ]; check "ratchet: the same baseline row passes with an ADR naming the file" $?
 finish
