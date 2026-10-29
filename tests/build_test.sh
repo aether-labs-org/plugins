@@ -67,10 +67,19 @@ g="$root/plugins/keel-harness/evals/build-typescript/graders"
 ! grep -q "PreToolUse" "$S"; check "SKILL.md installs no blocking hook" $?
 
 # --- Task 22: validator and guide are installed
-for s in 'scripts/harness-check.sh' '.agents/README.md' 'make harness-check' 'harness is clean' 'harness-check: ; @bash scripts/harness-check.sh'; do
+for s in 'scripts/harness-check.sh' '.agents/README.md' 'make harness-check' 'harness-check: ; @bash scripts/harness-check.sh'; do
   has "$S" "$s"; check "SKILL.md contains: $s" $?
 done
 [ "$(wc -l < "$S")" -le 250 ]; check "SKILL.md still at most 250 lines" $?
+
+# --- F2c-2: the order is enforced by scripts/keel; the prose checklist of section 10 is gone
+for s in 'scripts/keel check pre build' 'scripts/keel plan build' 'keel approve build' 'scripts/keel apply build' 'scripts/keel verify build' \
+         'before the first write' 'the acceptance came from the request'; do
+  has "$S" "$s"; check "SKILL.md calls keel: $s" $?
+done
+[ "$(grep -c '^- \[ \]' "$S")" -eq 0 ]; check "SKILL.md keeps no '- [ ]' checklist (keel verify build replaces it)" $?
+[ "$(wc -l < "$S")" -le 245 ]; check "SKILL.md is well under 250 lines after the keel wiring" $?
+has "$S" 'Every command cited in `AGENTS.md` really exists' && has "$S" '→ docs/X.md` pointers.'; check "SKILL.md keeps the two checks keel cannot make" $?
 
 # --- Task 20: stacks
 L="$sk/references/sensors-by-language.md"

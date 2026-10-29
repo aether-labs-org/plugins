@@ -30,6 +30,12 @@ for f in case.yaml prompt.md scaffold.sh; do [ -f "$ev/$f" ]; check "assess-clau
 [ "$(ls "$ev/graders" 2>/dev/null | wc -l)" -ge 3 ]; check "assess-claude-md has 3 graders" $?
 bash -n "$ev/scaffold.sh" 2>/dev/null; check "assess-claude-md scaffold parses" $?
 
+# --- F2c-2: assess runs through scripts/keel
+for s in "scripts/keel check pre assess" "scripts/keel verify assess"; do
+  grep -qF -- "$s" "$sk/SKILL.md"; check "assess SKILL.md calls: $s" $?
+done
+awk '/keel check pre assess/{a=NR} /keel verify assess/{v=NR} END{exit !(a>0 && v>a)}' "$sk/SKILL.md"; check "assess runs check pre first and verify last" $?
+
 # --- doctor folded into assess (D51, F2c-1): the health check half
 f="$sk/SKILL.md"
 chk="$sk/references/checks.md"

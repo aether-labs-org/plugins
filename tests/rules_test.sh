@@ -18,10 +18,15 @@ has "$S" 'ADR'; check "description mentions ADR" $?
 [ "$(wc -l < "$S")" -le 250 ]; check "rules SKILL.md is at most 250 lines" $?
 for s in 'interview.md' '0001-agent-harness-context' 'AskUserQuestion' 'at most 4 questions' 'measure.sh' 'render.sh' \
          'KEEL_MEASURE=1' 'FreezingArchRule' 'gate-slow' '.agents/plans/' 'origin:' 'decision:' \
-         'writes only what the user approved' 'never migrates' '/keel-harness:build' 'scripts/gate.sh' \
+         'writes only what the user approved' 'never migrates' '/keel-harness:build' 'scripts/keel check pre rules' \
          '300 lines' 'docs/architecture.md' 'docs/conventions.md' 'docs/testing.md'; do
   has "$S" "$s"; check "rules SKILL.md contains: $s" $?
 done
+for s in 'scripts/keel plan rules' 'keel approve rules' 'scripts/keel apply rules' 'scripts/keel verify rules' 'before the first write'; do
+  has "$S" "$s"; check "rules SKILL.md calls keel (F2c-2): $s" $?
+done
+[ "$(grep -c '^- \[ \]' "$S")" -eq 0 ]; check "rules SKILL.md keeps no '- [ ]' checklist (keel verify rules replaces it)" $?
+! grep -q 'Every approved rule has its section' "$S"; check "rules SKILL.md dropped the prose Done-when list" $?
 R="$sk/references"
 C="$R/catalog.md"
 for e in file-size folder-layout architecture code-language testing-strategy adopted-patterns; do

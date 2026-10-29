@@ -26,10 +26,11 @@ catalog entry before proposing its rule.
 
 ## 0. Precondition
 
-Rule sensors run inside the gates, so this skill needs `scripts/gate.sh`, `scripts/lib/baseline.sh`,
-`scripts/lib/envparse.sh`, `scripts/sensors/guard.sh` and the Makefile targets `gate-fast` and `gate-slow`. If any is missing, offer to run
-`/keel-harness:build` first (in greenfield, build installs the runner even when no tool sensor can
-run yet; a gate with zero sensors is valid). Continue only when the user agrees or they exist.
+Rule sensors run inside the gates, so run `${CLAUDE_PLUGIN_ROOT}/scripts/keel check pre rules` from the
+repository root. It exits non-zero with one `missing: …` line per absent piece of the harness; then offer to
+run `/keel-harness:build` first (in greenfield, build installs the runner even when no tool sensor can
+run yet; a gate with zero sensors is valid). Continue only when the user agrees or it exits 0. The order of
+this skill is enforced by `${CLAUDE_PLUGIN_ROOT}/scripts/keel` (`${CLAUDE_PLUGIN_ROOT}/contracts/flow.md`).
 
 ## 1. Context interview
 
@@ -85,6 +86,13 @@ option of each question and say so. Group by topic: architecture, then testing, 
 
 ## 7. Write
 
+First record what the rounds approved as one proposal: the ADRs, topic files, env files, sensors,
+baselines, generated tool config and local plans, each with its path. Save it to a temporary file (`mktemp`; under
+`.agents/run/tmp/` when that fails), run `${CLAUDE_PLUGIN_ROOT}/scripts/keel plan rules <file>` and show
+it. After the user accepts it, run `${CLAUDE_PLUGIN_ROOT}/scripts/keel approve rules <hash>` with the hash `plan` printed; acceptance
+given up front in the user's own request counts, and the reply says so. An amended proposal needs
+`keel plan` again. Run `${CLAUDE_PLUGIN_ROOT}/scripts/keel apply rules` before the first write and stop if it exits non-zero.
+
 Write only what was approved, in this order:
 
 1. The ADR in `<adr_dir>/`, when the round had a real trade-off, the rule is breaking, or the
@@ -135,7 +143,6 @@ sensor's numbers, and record it as `PLAN=` in the rule's env file. Plans never g
 
 ## Done when
 
-- [ ] Every approved rule has its section (with `<a id>` anchor), env file, `AGENTS.md` line and sensor or `inferential`.
-- [ ] Every number in a section matches its env file; `make harness-check` reports no warning.
-- [ ] `make gate-fast` was run and read; baselines came from `KEEL_MEASURE=1`.
-- [ ] Nothing was written that the user did not approve.
+Run `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify rules` (after the `make gate-fast` of section 7, step 8). Fix every `fail`
+line and run it again until it exits 0. It cannot check one thing: each approved rule has its line in the
+right `AGENTS.md` and a sensor or `inferential`, and each baseline came from `KEEL_MEASURE=1`.

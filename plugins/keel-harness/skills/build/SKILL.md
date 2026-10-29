@@ -29,6 +29,12 @@ Every stack also gets `sensors/common/secrets.sh` and `sensors/common/guard.sh`.
 are not bundled, and install only the layers that are. Each phase installs independently and is
 resumable.
 
+## 0. Precondition
+
+The order of this skill is enforced by `${CLAUDE_PLUGIN_ROOT}/scripts/keel` (`${CLAUDE_PLUGIN_ROOT}/contracts/flow.md`).
+Start with `${CLAUDE_PLUGIN_ROOT}/scripts/keel check pre build` from the repository root. When it exits
+non-zero, show its `missing:` lines and stop.
+
 ## 1. Read the picture
 
 If `assess` already ran in this session, reuse its report table (axis states, evidence, costs). If
@@ -114,7 +120,7 @@ with the sensor's own measurement and the user's approval:
 KEEL_MEASURE=1 bash scripts/sensors/lint.sh > .agents/baselines/lint.tsv
 ```
 
-`security` and `correctness` sensors never get one (see `${CLAUDE_PLUGIN_ROOT}/contracts/sensor.md`).
+`security` and `correctness` sensors never get one (`contracts/sensor.md`).
 
 **Makefile targets**, added beside `bootstrap`:
 
@@ -133,15 +139,13 @@ Also install the portable validator and the hand-editing guide:
 `cp "${CLAUDE_PLUGIN_ROOT}/assets/core/README.agents.md" .agents/README.md`.
 
 Everything installed is plain `bash` that must run with this plugin absent: no `${CLAUDE_*}`
-variable, no path into the plugin, no `claude` call, no network. Verify by running `make gate-fast`
-and reading it.
+variable, no path into the plugin, no `claude` call, no network. Run `make gate-fast` and read it.
 
 ## 6. The output contract
 
 Every sensor emits the seven fields of `${CLAUDE_PLUGIN_ROOT}/contracts/sensor.md` section 1; the copied assets
-already do. When editing the repo-specific block keep: `guidance` on `fail` only, in this
-repository's terms and naming the wrong fix ("never edit the test to match"); `class` deciding
-baselines (`security` and `correctness` never get a TSV baseline); and the detail cap.
+already do. In the repo-specific block keep `guidance` on `fail` only, in this repository's terms and
+naming the wrong fix ("never edit the test to match"), and the detail cap.
 
 ## 7. The Stop hook
 
@@ -151,18 +155,11 @@ continues only while the gate fails, up to its loop guard.
 
 1. Copy `${CLAUDE_PLUGIN_ROOT}/assets/adapters/claude/claude-stop.sh` to `scripts/hooks/claude-stop.sh`
    (`chmod +x`).
-2. Show the user the block in `${CLAUDE_PLUGIN_ROOT}/assets/adapters/claude/settings-stop.json` and, once they
+2. Show the user the block in `${CLAUDE_PLUGIN_ROOT}/assets/adapters/claude/settings-stop.json` (one `Stop`
+   entry, `"timeout": 120`, command `"\"${CLAUDE_PROJECT_DIR}\"/scripts/hooks/claude-stop.sh"`) and, once they
    accept, **merge** it into `.claude/settings.json`: read the file, append the `Stop` entry to the
    existing `hooks` object (or array), keep every other key unchanged; create the file with exactly
    that block if it does not exist.
-
-```json
-{ "hooks": { "Stop": [ { "hooks": [ {
-  "type": "command",
-  "command": "\"${CLAUDE_PROJECT_DIR}\"/scripts/hooks/claude-stop.sh",
-  "timeout": 120
-} ] } ] } }
-```
 
 **`${CLAUDE_PROJECT_DIR}` is copied literally**, backslash-escaped quotes included. It is a variable
 Claude Code sets when it runs the hook; never replace it with this repository's absolute path. The
@@ -189,8 +186,9 @@ A `schema_version: 2` state (v0.2) gets one round, each item accept-or-drop: del
 
 ## 8. Propose, then write
 
-After the rounds, show one structured proposal covering every file to be created or changed, so the
-user can accept, drop or amend items in one pass:
+After the rounds, write one structured proposal covering every file to be created or changed, to a
+temporary file (`mktemp`; under `.agents/run/tmp/` when that fails), and record it with `${CLAUDE_PLUGIN_ROOT}/scripts/keel plan build <file>`, which prints
+`proposal build <hash>`; show the user the proposal so they can accept, drop or amend items in one pass:
 
 ```
 Proposed for this repository:
@@ -203,10 +201,14 @@ HOOK       scripts/hooks/claude-stop.sh + a Stop entry in .claude/settings.json 
 ENFORCE    ci: .github/workflows/keel.yml; precommit: {{lefthook | pre-commit | husky | none}} (references/enforcement.md)
 ```
 
-**Write nothing before the user accepts.** This rule has no exception. The user's own request can
-grant that acceptance up front ("do not pause for confirmation") for every high- or low-confidence
-layer in the proposal: present it and proceed in the same reply. A `none`-confidence layer stays
-uninstalled regardless. In short: before writing anything, wait for the answer.
+**Write nothing before the user accepts.** This rule has no exception. Once they accept, run
+`${CLAUDE_PLUGIN_ROOT}/scripts/keel approve build <hash>` with the hash `plan` printed; if they amend
+the proposal, run `keel plan build <file>` again (the old approval no longer counts). The user's own
+request can grant that acceptance up front ("do not pause for confirmation") for every high- or
+low-confidence layer: present the proposal, run `plan` and `approve` in the same reply, and say in
+that reply that the acceptance came from the request. A `none`-confidence layer stays uninstalled
+regardless. Then run `${CLAUDE_PLUGIN_ROOT}/scripts/keel apply build` **before the first write** and
+stop if it exits non-zero. In short: before writing anything, wait for the answer.
 
 ## 9. Write `.agents/state.yml`
 
@@ -225,26 +227,15 @@ not_installed:                    # layer or sensor -> the reason, in keel's wor
 
 Each key's type, writer and reader are in `${CLAUDE_PLUGIN_ROOT}/contracts/state.md`. Use the real reason for each `not_installed` entry; never a generic one. Ignore the generated files (section 7); `.agents/state.yml`, `.agents/gate.env` and `.agents/baselines/` are committed.
 
-## 10. Self-verify
+## 10. Verify
 
-Check what the copied assets do not already guarantee:
+Run `make gate-fast` and read it, then `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify build`. Fix every `fail` line and run it again until it
+exits 0; only then report the layer installed. The items are in `${CLAUDE_PLUGIN_ROOT}/contracts/flow.md`.
+Two things it cannot check, so check them by hand:
 
-- [ ] `AGENTS.md` is 100 lines or fewer; deep content is `→ docs/X.md` pointers; no `{{...}}` left.
-- [ ] Every command cited in `AGENTS.md` really exists and runs here (re-check by hand).
-- [ ] `Last updated: YYYY-MM-DD` is set; nothing was written before the user confirmed.
-- [ ] `.agents/state.yml` parses as YAML and has `schema_version: 3`; `.gitignore` ignores `.agents/run/`.
-- [ ] `make gate-fast` was actually run and its output read; its verdict line reads
-      `gate: fast - ...` and each sensor's `cut -f1` is its own id.
-- [ ] `make harness-check` was run and prints `harness is clean` (no `enforcement-drift`).
-- [ ] Each `heuristic` sensor with a baseline has `.agents/baselines/<id>.tsv` from `KEEL_MEASURE=1`.
-- [ ] A sensor that blew the budget is named, with its seconds, under `not_installed`.
-- [ ] `scripts/` has no `${CLAUDE_*}`, plugin path or `claude` call; `scripts/sensors/guard.sh` and `scripts/lib/envparse.sh` exist.
-- [ ] `.claude/settings.json` parses as JSON and kept every key it had; the `Stop` entry is
-      present; there is no PostToolUse gate entry; `scripts/hooks/claude-stop.sh` is executable.
-- [ ] The hook `command` contains the literal `${CLAUDE_PROJECT_DIR}`
-      (`grep -q '\${CLAUDE_PROJECT_DIR}' .claude/settings.json`).
+- Every command cited in `AGENTS.md` really exists and runs here.
+- Deep content in `AGENTS.md` is `→ docs/X.md` pointers.
 
-When it is all green, offer the next step: `/keel-harness:rules` to propose the project's own rules (architecture, testing strategy, conventions).
-
-If a check fails, fix it and re-verify before reporting the layer installed. Each phase is
-**resumable**: a layer already `installed` is not re-proposed on a later run.
+When it exits 0, offer the next step: `/keel-harness:rules` to propose the project's own rules
+(architecture, testing strategy, conventions). Each phase is **resumable**: a layer already `installed`
+is not re-proposed on a later run.
