@@ -139,4 +139,14 @@ grep -qF 'never guess it' "$M"; check "memory.md does not guess the project dire
 grep -qF 'edits or deletes that entry' "$M" && grep -qF 'never edits, creates or deletes a memory file' "$M"; check "memory.md proposes edit or delete and never edits memory" $?
 has 'references/memory.md'; check "assess SKILL.md points at references/memory.md" $?
 has 'Assess never edits memory'; check "assess SKILL.md: Assess never edits memory" $?
+
+# --- F6: adherence diagnosis (spec 5.4)
+A="$sk/references/adherence.md"
+[ -f "$A" ]; check "adherence.md exists" $?
+grep -qF 'plan-adherence' "$A" && grep -qF 'Opt-in' "$A"; check "adherence.md cites plan-adherence and is opt-in" $?
+for s in 'keel apply' 'keel verify' 'keel plan' 'keel approve' 'check pre' 'Gate run' 'file:line' 'Happened?' 'yes' 'no'; do
+  grep -qF -- "$s" "$A"; check "adherence.md covers: $s" $?
+done
+grep -qF 'before the first' "$A" && grep -qF 'after the last write' "$A"; check "adherence.md checks apply before the first write and verify after the last" $?
+has 'references/adherence.md' && has 'how well agents follow the harness'; check "assess SKILL.md offers the adherence diagnosis only when the user asks" $?
 exit $fail

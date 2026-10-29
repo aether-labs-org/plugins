@@ -144,6 +144,10 @@ env-file number or an `AGENTS.md` line). The comparison is inferential: say so, 
 "looks like", not a fact. Assess never edits memory; it proposes that the user edits or deletes the entry.
 Say nothing when memory is absent, off or coherent.
 
+**2e. Adherence (opt-in).** Offer this only when the user asks how well agents follow the harness. Read
+`references/adherence.md` and run it on the transcript the user points at: per phase of the flow, yes or
+no, with the transcript line.
+
 Two more things to do every time:
 
 - **Validator drift.** Compare the repository's copy with the plugin's:
