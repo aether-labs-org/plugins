@@ -52,7 +52,7 @@ This is a release candidate: built and tested, but not yet measured with evals. 
 - **`guard`:** rejects a loosened baseline or configuration unless an ADR names the file.
 - **`scripts/keel` flow:** `plan`, `approve`, `apply`, `verify`, `measure` and `check` enforce the order of each skill's phases.
 - **Consequence map and protect hook:** harness paths are classified by consequence, and `claude-protect.sh` denies edits to them outside an approved flow.
-- **Mandatory rules:** a rule with `ENFORCEMENT_LEVEL=mandatory` cannot be loosened, and its sensors are a required CI check.
+- **Mandatory rules:** a rule with `ENFORCEMENT_LEVEL=mandatory` has exceptions with deadlines that only shrink, and `guard` lets it loosen only through a superseding ADR; `build` tells you to make the `keel` CI check required (keel cannot set branch protection).
 - **Versioned plans and progress:** a plan needs an Acceptance section; `.agents/progress.md` logs each closed plan.
 - **Exemplars and catalog entries:** "follow X, not Y" exemplars, a generic pattern sensor and 21 catalog entries, none with a with/without run yet.
 - **Feedback:** gate history in `.agents/run/history/`, a lessons inbox, and `assess` checks for sensors that are always green or always red.
