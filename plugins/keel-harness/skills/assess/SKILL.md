@@ -18,41 +18,31 @@ disallowed-tools: Write Edit NotebookEdit
 # Assess
 
 Report how ready this repository is for AI coding agents, or whether its installed harness is still
-healthy.
+healthy. The skill reads and reports; every fix is proposed, never made.
 
-## 0. Which question
+## 0. Precondition
 
 First run `${CLAUDE_PLUGIN_ROOT}/scripts/keel check pre assess` from the repository root. It prints
-`snapshot <token>`, the repository's status for the check at the end; keep the token. It writes nothing; when it exits non-zero (not a git work tree), show its
-`missing:` line and stop. Then look for `.agents/state.yml`.
+`snapshot <token>`, the repository's status for the check at the end; keep the token. It writes nothing;
+when it exits non-zero (not a git work tree), show its `missing:` line and stop. Then look for
+`.agents/state.yml`, which decides the question:
 
-- **Absent: the readiness question.** No harness is installed. Follow sections 2 to 5: the rubric,
-  the cost to close each gap, the report table.
-- **Present: the health question.** A harness is installed. Follow sections 6 to 8: run the validator,
-  explain each warning, propose the fix.
+- **Absent: the readiness question.** No harness is installed. Run phase 1: the rubric, the cost to
+  close each gap, the report table.
+- **Present: the health question.** A harness is installed. Run phase 2: run the validator, explain
+  each warning, propose the fix.
 - **The user asks both** (for example "is the harness current, and is the repo ready for more?"): do
   both, health check first, then the rubric for the axes the harness does not already settle.
 
-## 1. The single rule
+## Phases
 
-**This skill writes nothing.** The tool list enforces it for `Write`, `Edit` and `NotebookEdit`; this
-rule covers the shell. No shell command that modifies the
-repository — no `touch`, no `mkdir`, no `git add`/`commit`, no formatter or fixer run "just to
-check". Discovery is read-only: `cat`, `ls`, `find`, `grep`, and commands that only report (`--dry-run`,
-`--check`, a linter or type checker's default read-only invocation). If a command would change a
-file, or you are not sure whether it would, do not run it. When a sensor's cost can only be
-measured by running it, running it to measure is fine as long as it does not persist output the
-repository would otherwise not have (e.g. do not let it write a cache file into a tracked
-directory — redirect elsewhere or discard).
+### Phase 1 - Readiness (no harness installed)
 
-Running `harness-check.sh` (section 6) is allowed: the validator is read-only, and its only possible
-write is git-ignored temporary state under `.agents/run/tmp/`. So is `scripts/keel`: its assess commands
-write nothing (the snapshot is a token in this conversation).
+Goal: classify the seven axes, with the file that proves each one and the cost to close each gap.
+Question to the human: confirm the inferred mode (greenfield or brownfield); nothing else is asked.
 
-## 2. Discovery (readiness)
-
-Identify the stack(s) by reading the filesystem. Monorepos can show more than one stack — expect
-and handle several.
+**1a. Discovery.** Identify the stack(s) by reading the filesystem. Monorepos can show more than one
+stack: expect and handle several.
 
 | Marker | Stack |
 | --- | --- |
@@ -95,51 +85,31 @@ grep -lE 'archunit|pitest|info.solidsoft.pitest' pom.xml build.gradle build.grad
 ```
 
 Also infer the **mode**: `greenfield` when no tracked source files exist in the stack's source
-roots, `brownfield` otherwise. State the evidence as an inference for the user to confirm; never
-record it as fact.
+roots, `brownfield` otherwise. State the evidence as an inference for the user to confirm; the mode
+is an inference, not a fact.
 
-## 3. Scoring
+**1b. Scoring.** Read `references/rubric.md` and classify each of the seven axes — `Bootstrap`,
+`Guides`, `Fast sensors`, `Slow sensors`, `Enforcement`, `Context`, `Rules` — as `present`, `partial`,
+or `absent`, per the table there. For every axis, record the repo-relative file that proves the
+classification (a lockfile, a config file, a workflow file, `AGENTS.md` itself). If nothing proves it,
+there is no evidence, and the axis cannot be `present`.
 
-Read `references/rubric.md` and classify each of the seven axes — `Bootstrap`, `Guides`,
-`Fast sensors`, `Slow sensors`, `Enforcement`, `Context`, `Rules` — as `present`, `partial`, or `absent`,
-per the table there. For every axis, record the repo-relative file that proves the classification
-(a lockfile, a config file, a workflow file, `AGENTS.md` itself). If nothing proves it, there is no
-evidence, and the axis cannot be `present`.
+**1c. Cost.** For each axis that is not `present`, state the cost of closing the gap in **estimated
+setup minutes** — how long `build` (or `rules`, for the `Rules` axis) would take, confirmations
+included. It is an estimate: it cannot be measured before the skill runs. **Enforcement** (pre-commit,
+CI) is closed by `build`, which proposes both layers (a CI workflow and a pre-commit hook), so quote
+its setup minutes like any other axis. For a missing or non-running fast sensor, also state the
+**seconds it would add to the gate**, measured by actually running the tool once if it is installed.
+If the tool is not installed, write `not measured` — never guess or estimate a number. See `references/rubric.md` for the full cost-unit
+definitions and the three-confidence inference table used when a judgment call is needed.
 
-## 4. Cost
+### Phase 2 - Health (harness installed)
 
-For each axis that is not `present`, state the cost of closing the gap in **estimated setup
-minutes** — how long `build` (or `rules`, for the `Rules` axis) would take, confirmations included.
-It is an estimate: it cannot be measured before the skill runs. **Enforcement** (pre-commit, CI) is
-closed by `build`, which proposes both layers (a CI workflow and a pre-commit hook), so quote its setup
-minutes like any other axis. For a missing or non-running fast sensor, also
-state the **seconds it would add to the gate**, measured by actually running the tool once if it
-is installed. If the tool is not installed, write `not measured` — never guess or estimate a
-number. See `references/rubric.md` for the full cost-unit definitions and the three-confidence
-inference table used when a judgment call is needed.
+Goal: report every condition under which the installed harness has drifted, with the fix for each.
+Question to the human: none; report and propose, then stop.
 
-## 5. The report
-
-Emit the mode inference above the table, then exactly this Markdown table, one row per axis, in the fixed axis order above:
-
-```
-| Axis | State | Evidence | Cost to close |
-```
-
-- **Evidence** is a backtick-quoted repo-relative path, or `—` when there is none.
-- **Cost to close** is `N estimated setup minutes`, `+N.Ns gate`, `not measured`, or `—` (for a `present`
-  axis, which has nothing to close).
-
-After the table, add a short paragraph per `absent` axis naming what is missing and the cheapest
-next step to close it. Say nothing about `present` or `partial` axes beyond the table row.
-
-**Never emit a total, an overall grade, or an aggregate score.** There is no aggregate score —
-see `references/rubric.md` for why.
-
-## 6. Run the validator (health)
-
-There is one implementation of the checks, the validator `harness-check.sh`. Run the plugin's latest
-copy from the repository root:
+**2a. Run the validator.** There is one implementation of the checks, the validator
+`harness-check.sh`. Run the plugin's latest copy from the repository root:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/assets/core/harness-check.sh"
@@ -148,16 +118,14 @@ bash "${CLAUDE_PLUGIN_ROOT}/assets/core/harness-check.sh"
 It prints one line per warning, `warn<TAB><check-id><TAB><file><TAB><message><TAB><fix>`, then
 `harness-check: N warning(s)` or `harness-check: harness is clean`. Exit 0 clean, 1 warnings, 2 no
 harness. Exit 2 means `.agents/state.yml` is missing, so this is the readiness question: say so, point
-at `/keel-harness:build` and continue with section 2; that is a precondition, not a warning. Exit 3
+at `/keel-harness:build` and continue with phase 1; that is a precondition, not a warning. Exit 3
 means no writable temp directory (`TMPDIR`, else `.agents/run/tmp/`): report it, never guess the checks.
 
-## 7. Explain each warning (health)
-
-The fifteen checks, what each one means and where its fix goes are in `references/checks.md`. For
-each warning the validator prints, say in plain words what is wrong, name the file, and propose the
-fix through `/keel-harness:build` or `/keel-harness:rules` as that table says. **One broken condition
-produces exactly one warning.** Stay silent about checks that found nothing: a clean harness is a valid
-answer, and this skill never manufactures a warning.
+**2b. Explain each warning.** The fifteen checks, what each one means and where its fix goes are in
+`references/checks.md`. For each warning the validator prints, say in plain words what is wrong, name
+the file, and propose the fix through `/keel-harness:build` or `/keel-harness:rules` as that table
+says. **One broken condition produces exactly one warning.** Stay silent about checks that found
+nothing: a clean harness is a valid answer, and this skill never manufactures a warning.
 
 Two more things to do every time:
 
@@ -168,11 +136,57 @@ Two more things to do every time:
   at Claude Code's `/doctor prompt-audit` for contradictions across `AGENTS.md`, `CLAUDE.md` and
   the rest.
 
-## 8. The health report
+## Output contract
 
-List the warnings (check id, file, what is wrong, the proposed fix), then the validator drift line.
-Report and propose, then stop. The health check looks once, not across time: checks that need run
-history (how often a sensor's failures are real) are not part of it.
+**Readiness report.** Emit the mode inference above the table, then exactly this Markdown table, one
+row per axis, in the fixed axis order above:
 
-Last, run `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify assess <token>`. It exits 1 when the repository's status
-differs from the snapshot, which means this run wrote something: say so and name what changed.
+```
+| Axis | State | Evidence | Cost to close |
+```
+
+- **Evidence** is a backtick-quoted repo-relative path, or `—` when there is none.
+- **Cost to close** is `N estimated setup minutes`, `+N.Ns gate`, `not measured`, or `—` (for a `present`
+  axis, which has nothing to close).
+
+After the table, add a short paragraph per `absent` axis naming what is missing and the cheapest
+next step to close it. Say nothing about `present` or `partial` axes beyond the table row. There is no
+total, no overall grade and no aggregate score: see `references/rubric.md` for why.
+
+**Health report.** List the warnings (check id, file, what is wrong, the proposed fix), then the
+validator drift line. Report and propose, then stop. The health check looks once, not across time:
+checks that need run history (how often a sensor's failures are real) are not part of it.
+
+## Discipline
+
+**This skill writes nothing.** The tool list removes `Write`, `Edit` and `NotebookEdit`; this rule
+covers the shell. No shell command that modifies the repository — no `touch`, no `mkdir`, no
+`git add`/`commit`, no formatter or fixer run "just to check". Discovery is read-only: `cat`, `ls`,
+`find`, `grep`, and commands that only report (`--dry-run`, `--check`, a linter or type checker's
+default read-only invocation). If a command would change a file, or you are not sure whether it
+would, do not run it. When a sensor's cost can only be measured by running it, running it to measure
+is fine as long as it does not persist output the repository would otherwise not have (e.g. do not
+let it write a cache file into a tracked directory — redirect elsewhere or discard).
+
+Allowed: `harness-check.sh` (phase 2a) is read-only, and its only possible write is git-ignored
+temporary state under `.agents/run/tmp/`. So is `scripts/keel`: its assess commands write nothing
+(the snapshot is a token in this conversation).
+
+| The excuse | Why it is wrong |
+| --- | --- |
+| "A formatter run is harmless" | A formatter or fixer rewrites tracked files; `keel verify assess` then fails and this run has changed the repository it was asked to judge. |
+| "I'll just create the missing AGENTS.md to show" | The report names what is missing and `/keel-harness:build` creates it, after a proposal the user accepts. Assess has no proposal step. |
+| "Touching a cache file is not a change" | `touch` and `mkdir` are writes. A cache the repository would not otherwise have shows up in the status snapshot. |
+| "The user said just fix it" | Assess proposes the fix and names the skill that makes it. The user runs that skill; this one stays read-only. |
+| "I'm not sure this command writes, but it probably does not" | Not sure means do not run it. |
+| "The tool is not installed, so I'll estimate its seconds" | Write `not measured`. Never guess a number. |
+| "The harness is clean, so I'll find something to report" | A clean harness is a valid answer. This skill never manufactures a warning. |
+| "A total makes the table easier to read" | Never emit a total, an overall grade or an aggregate score; the table has one row per axis and nothing else. |
+| "I know the build command, no need to look" | Never invent commands: use only what discovery found. |
+| "The scan can say the repo is brownfield" | The mode is an inference for the user to confirm; never record it as fact. |
+
+## Done when
+
+Run `${CLAUDE_PLUGIN_ROOT}/scripts/keel verify assess <token>`, with the token `check pre assess`
+printed. It exits 1 when the repository's status differs from the snapshot, which means this run
+wrote something: say so and name what changed.
