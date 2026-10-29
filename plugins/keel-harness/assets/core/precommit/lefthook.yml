@@ -1,0 +1,5 @@
+# keel-harness: merge this entry into lefthook.yml.
+pre-commit:
+  commands:
+    keel-gate:
+      run: make gate-fast

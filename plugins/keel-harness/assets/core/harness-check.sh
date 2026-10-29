@@ -147,6 +147,27 @@ check_guard_missing() {
   warn guard-missing scripts/sensors/guard.sh "no guard sensor or no scripts/lib/envparse.sh, so the harness can be loosened without anyone noticing" "Run /keel-harness:build to install scripts/sensors/guard.sh and scripts/lib/envparse.sh"
 }
 
+# --- enforcement-drift
+# A ci or precommit layer that state.yml records as installed must still run the same gate.
+check_enforcement_drift() {
+  local f found
+  if grep -qE '(^|[{ ,])ci: *installed' .agents/state.yml; then
+    found=""
+    for f in .github/workflows/*.yml .github/workflows/*.yaml; do
+      [ -f "$f" ] && grep -qE 'make gate-fast|scripts/gate\.sh' "$f" && found=1
+    done
+    [ -n "$found" ] || warn enforcement-drift .github/workflows "the ci layer is installed but no workflow runs make gate-fast, so CI checks something other than the local gate" "Restore .github/workflows/keel.yml with /keel-harness:build, or set ci: not_installed in .agents/state.yml"
+  fi
+  if grep -qE '(^|[{ ,])precommit: *installed' .agents/state.yml; then
+    found=""
+    for f in lefthook.yml .lefthook.yml .pre-commit-config.yaml .husky/pre-commit; do
+      [ -f "$f" ] && grep -qE 'make gate-fast|scripts/gate\.sh' "$f" && found=1
+    done
+    [ -n "$found" ] || warn enforcement-drift .agents/state.yml "the precommit layer is installed but no pre-commit hook runs make gate-fast" "Add the keel-gate entry back with /keel-harness:build, or set precommit: not_installed in .agents/state.yml"
+  fi
+  return 0
+}
+
 # --- sensor-malformed
 check_sensor_malformed() {
   local s name id cls problems
@@ -299,6 +320,7 @@ check_dangling_pointer
 check_hook_missing
 check_run_state
 check_guard_missing
+check_enforcement_drift
 check_sensor_malformed
 check_sensor_unavailable
 check_rule_inconsistent

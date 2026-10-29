@@ -1,0 +1,31 @@
+# Managed by keel-harness. Edit only between the keel:repo-specific markers - see .agents/README.md.
+# keel - the same gate an agent runs locally (make gate-fast), on every pull request. guard compares
+# the harness with the pull request's target branch, so a loosening without an ADR fails here too.
+# harness-check is advisory: its review-due warning is date-driven and must not fail unrelated PRs.
+# The checkout has no uncommitted changes, so SCOPE is the whole repository. The slow gate is not run
+# here: its sensors (mutation, diff coverage) are scoped to changed files and would cover everything.
+name: keel
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+      # --- keel:repo-specific begin ---
+      # Toolchain setup copied from this repository's existing workflows (e.g. actions/setup-node).
+      # --- keel:repo-specific end ---
+      - name: Bootstrap
+        run: make bootstrap
+      - name: Fast gate
+        env:
+          KEEL_GUARD_BASE: ${{ github.base_ref && format('origin/{0}', github.base_ref) || '' }}
+        run: make gate-fast
+      - name: Harness check (advisory)
+        run: make harness-check || echo "::warning title=keel harness-check::warnings above; run make harness-check locally"
