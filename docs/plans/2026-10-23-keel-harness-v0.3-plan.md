@@ -28,7 +28,7 @@ run on the owner's machine), folded `doctor` into `assess` (D51), and tied profi
 | E3 Tool cases | ☐ after E2 (merged) and H1 | `2026-10-28-…-e3-plan.md` | not run yet: no `feat/keel-harness-v0.3-e3` branch on 2026-10-29 | owner's machine; AppArmor profile for `bwrap`, removed after (D50) |
 | F2a Layout | ✅ done 2026-10-24 | `2026-10-24-…-f2a-plan.md` | `13af4a2`; 1020 `ok`; 56 files, as planned | — |
 | F2b State + ADR folder | ✅ done 2026-10-28 | `2026-10-28-…-f2b-plan.md` | `6d16fe3`; 1028 `ok` (1031 with E1) | — |
-| F2c Skills and flow | ◐ F2c-1 done 2026-10-29 (validated, merged); F2c-2 done 2026-10-29 (`scripts/keel`, branch `feat/keel-harness-v0.3-f2c2`, not merged); F2c-3 (C) | `2026-10-29-…-f2c1/f2c2/f2c3-plan.md` | `646d5ae`, `dc95a1b`, `cfa7a77`; 1156 `ok` (1085 before); `validate --strict` passes; owner's paid run of `assess-*-drift` and `assess-*` still open (D51) | F2c-2 (`scripts/keel`), F2c-3 (skill template, traceability) |
+| F2c Skills and flow | ✅ done 2026-10-29 (F2c-1 and F2c-2 merged; F2c-3 on `feat/keel-harness-v0.3-f2c3`); `ENFORCEMENT_LEVEL` moved to F3c; evals not re-run (owner) | `2026-10-29-…-f2c1/f2c2/f2c3-plan.md` | `646d5ae`, `dc95a1b`, `cfa7a77`; F2c-3: 1755 `ok` (1505 before), `validate --strict` passes, 9 traceability rows are written gaps (`none`); owner's paid re-run of `--tag readonly`, `--tag bash` and the new `--tag pressure` still open (D51) | owner: re-run the eval groups |
 | F2d Assess and context | ☐ wave D | `2026-10-29-…-f2d-plan.md` | — | after F2c |
 | F3a CI + pre-commit | ◐ done 2026-10-28, gap: workflow not run on GitHub | `2026-10-28-…-f3a-plan.md` | `9e5d26f`, `13abe5a`; 1063 `ok` (1112 with E2); `claude plugin validate --strict` passes; Task 4 skipped by the owner: `github.base_ref` and `fetch-depth: 0` unproven on GitHub | F3c |
 | F3b Versioned plans | ☐ wave D | `2026-10-29-…-f3b-plan.md` | — | after F2c |
@@ -197,14 +197,15 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
 - [ ] `contracts/rule-env.md` gains `ENFORCEMENT_LEVEL=mandatory|ratchet` (default `ratchet`).
   `harness-check` warns on a `mandatory` rule without a computational sensor. `AGENTS.md` lists the
   `mandatory` rules first. `rules` reads `.specify/memory/constitution.md` when it is present.
-- [ ] Rewrite each SKILL.md on the template in spec §5.5, one skill at a time: **assess (with
+- [x] Rewrite each SKILL.md on the template in spec §5.5, one skill at a time: **assess (with
   doctor folded in), then build, then rules**. Each prose self-verify list moves into
-  `keel verify <skill>`.
+  `keel verify <skill>`. Done in F2c-3; `tests/keel_template_test.sh` pins the five headings.
 - [x] `disallowed-tools: Write Edit NotebookEdit` on `assess`.
 - [x] `tests/keel_skill_size_test.sh`: every SKILL.md under 20,000 bytes.
-- [ ] Traceability matrix (`contracts/flow.md`): every `never`/`always` in a skill maps to a test, a
-  `keel verify` item or an eval grader, classified by form (recipe / slot / discipline).
-- [ ] Pressure tests for the discipline rules.
+- [x] Traceability matrix (`contracts/flow.md`): every `never`/`always` in a skill maps to a test, a
+  `keel verify` item or an eval grader, classified by form (recipe / slot / discipline). Done in F2c-3;
+  `tests/keel_traceability_test.sh` keeps it complete; the `none` rows are the open gaps.
+- [x] Pressure tests for the discipline rules. Done in F2c-3 for `assess` (three `--tag pressure` cases, written, not run).
   - `assess` is read-only, so with/without evals in a cloud session can test it.
   - For `build` and `rules`, "write nothing before the user accepts" is enforced by `keel apply` and
     covered by its tests; the `tools` group (E3) measures the effect.
@@ -214,6 +215,8 @@ Plan: `docs/plans/2026-10-28-keel-harness-v0.3-f2b-plan.md`.
   - `build-*` and `rules-*` not worse than E3 (re-run on the owner's machine);
   - `validate --strict` ok;
   - a v0.2 repository upgrades through `build` with a green gate.
+  - Status 2026-10-29: the test suite is green (1755 `ok`) and `validate --strict` passes; the
+    eval comparisons above are not re-run (owner, paid).
 
 ### F2d — assess and context
 
