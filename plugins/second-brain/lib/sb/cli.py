@@ -281,7 +281,10 @@ def cmd_upgrade(args, init_mod, target, out, err):
     except (VaultError, ValueError, OSError, subprocess.SubprocessError) as exc:
         print("sb: upgrade failed: %s" % exc, file=err)
         return EXIT_USAGE
-    verb = "applied" if result["applied"] else "would apply (pass --yes to apply)"
+    if not result["actions"]:
+        verb = "nothing to do"
+    else:
+        verb = "applied" if result["applied"] else "would apply (pass --yes to apply)"
     lines = ["%s: %d action(s)" % (verb, len(result["actions"]))]
     lines += ["  " + a for a in result["actions"]]
     if result["kept"]:

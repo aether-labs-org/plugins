@@ -19,10 +19,13 @@ it to remind Claude of relevant notes. Design:
 /plugin marketplace add anthropics/skills
 /plugin marketplace add kepano/obsidian-skills
 /plugin marketplace add aether-labs-org/plugins
-/plugin install second-brain@aether-labs
+/plugin install second-brain@aether-labs --scope project
 ```
 
-Add the two dependency marketplaces first: installing fails with `Dependency "document-skills@anthropic-agent-skills" ... not found`
+Install with `--scope project` (run it inside the vault): the vault's `.claude/settings.json`
+records the plugin, its two dependencies and the three marketplaces (`extraKnownMarketplaces`), and
+you commit it, so everyone who opens the vault is offered the same setup. `sb init` writes that file;
+`sb doctor` checks it. Add the two dependency marketplaces first: installing fails with `Dependency "document-skills@anthropic-agent-skills" ... not found`
 while they are missing. The plugin declares two dependencies, which Claude Code installs with it:
 `document-skills` (the `pdf`, `docx`, `pptx` and `xlsx` skills) and `obsidian` (including `defuddle`
 for web pages). They ship no extraction tools: for formats other than Markdown install what
@@ -45,13 +48,74 @@ $ mkdir ~/brain && cd ~/brain && claude
 > /second-brain:lint
 ```
 
-The vault is the directory where `claude` runs.
+The vault is the directory where `claude` runs, and it is its own git repository: `sb init`
+refuses a directory inside another repository, and `sb doctor` fails when the git top-level is not
+the vault root.
+
+## Profiles and folders
+
+`/second-brain:init` asks for a profile (and the language, and for `squad` a git remote). Folder
+names and their `_about.md` texts ship in English; you edit `_about.md` as you wish.
+
+| Profile | `wiki/` folders | Sync |
+| --- | --- | --- |
+| `personal` | Projects, Areas, Resources, Archive | local |
+| `work` | Projects, Areas, Resources, Decisions, Meetings, Archive | local |
+| `project` | Context, Decisions, Meetings, References, Glossary, Archive | local |
+| `squad` | as `project` | squad (git pull/push) |
+
+Every folder may hold an `_about.md` (not a note: search, lint and the index skip it):
+
+```
+---
+description: Concepts, references and entities reused across projects.
+protected: false
+---
+## Conventions
+## Examples
+## Anti-examples
+```
+
+At the start of each session the `SessionStart` hook gives Claude the compact folder tree (at most
+2,000 characters, from `description`) and one status line (`inbox N · unreviewed M · sync …`), so it
+files notes where they belong. `protected: true` makes every agent write under that folder ask you
+first (tier T2). A folder without `_about.md` is reported as `SB111` (information only; `sb lint`
+still exits `0`). `sb tree [--compact] [--json]` prints the same tree.
+
+`sb init` also writes `.claude/settings.json` (plugins, marketplaces and the deny rules
+`Edit(/_raw/**)`, `git push --force`/`-f`, `git reset --hard`, `git clean`; never overwritten),
+`_meta/web-clipper-template.json`, `_views/unreviewed.base` and a `.gitignore` (`.sb/`,
+`.obsidian/workspace*`, `.smart-env/`, and in squad vaults `_index.md` and `_log.md`).
+
+### Upgrading a v0.1 vault
+
+`sb init --upgrade` prints what it would add (missing `_about.md`, settings, templates, `.gitignore`
+lines, `schema_version: 2`) and changes nothing; `sb init --upgrade --yes` applies it. It never
+overwrites a file you have; it lists them as kept. `--profile squad` also turns a vault into a squad
+vault and runs `git rm --cached` on `_index.md` and `_log.md`. Running it again reports no action.
+
+### Squad vaults (2-5 people, one git remote)
+
+1. One person runs `/second-brain:init`, chooses `squad`, gives the remote URL and pushes.
+2. Everyone else clones the repository, installs the plugin with `--scope project` and runs `claude`
+   in it.
+3. **SessionStart** (squad vaults only) commits a dirty tree as `sb: local changes before sync`,
+   then runs `git pull --rebase` (20 s limit). It never uses `--autostash`. If the rebase conflicts
+   it runs `git rebase --abort`, keeps both commits, and the status line says
+   `sync conflict: <files>`; resolve it yourself with git. A failed push from an earlier session is
+   retried.
+4. **SessionEnd** (60 s timeout) commits as the git-configured user with the message
+   `sb: session YYYY-MM-DD (N files)` and the trailers `Sb-Session: <session id>` and
+   `Sb-Files: <n>`, then runs `git push` (45 s). If the push fails (offline, rejected) it writes
+   `.sb/push-pending` and the next SessionStart retries.
+5. `_index.md` and `_log.md` stay local: each person regenerates them. There is no secret scanning
+   before a push.
 
 ## Skills
 
 | Skill | What it does | Example |
 | --- | --- | --- |
-| `init` (user-invoked only) | Creates the vault layout, `CLAUDE.md`, marker; idempotent | `/second-brain:init pt-BR` |
+| `init` (user-invoked only) | Creates a vault from a profile (folders with `_about.md`, settings, templates), upgrades v0.1 vaults, runs `sb doctor`; never overwrites | `/second-brain:init squad pt-BR` |
 | `capture` | Saves text verbatim into `_inbox/`, no organising | `/second-brain:capture read about interleaving` |
 | `ingest` | Turns one source (inbox clip, `_raw/` file, pdf, docx, pptx, xlsx, URL) into N atomic notes or `[!agent]` blocks, with provenance and no duplicates | `/second-brain:ingest` |
 | `find` | Answers from the vault with `sb search`, cites `[[Note]]`, labels unreviewed notes, admits gaps; also fires on implicit questions ("how did I do X again?") | `/second-brain:find spaced repetition` |
@@ -76,7 +140,10 @@ The vault is the directory where `claude` runs.
 | `sb source save SOURCE_ID --tool T --origin O` | Reads extracted Markdown on stdin, strips invisible characters and HTML comments, flags lines that look like instructions to a model (`suspicious`), writes `_raw/.converted/<id>.md` |
 | `sb inbox done FILE --title T` | Moves an item from `_inbox/` to `_inbox/_done/` without overwriting and logs `ingest`; the last step of `ingest` |
 | `sb log EVENT TITLE` | Append `## [date] EVENT \| TITLE` to `_log.md` (`init capture ingest update link lint`) |
-| `sb init [--language L] [--areas a,b] [--git]` | Scaffold a vault; writes `.second-brain.json` last; idempotent |
+| `sb tree [--compact]` | Folders under `wiki/` with their `_about.md` description; `--compact` is the at-most-2,000-character form the hook injects |
+| `sb doctor` | Five checks, each `ok`, `warn` or `fail` with a fix: Python and FTS5; `.claude/settings.json`; extraction tools (`pandoc`, `markitdown`, `pdftotext`, `npx`, `pypdf`); hooks heartbeat younger than 7 days; git (and, for squad, remote, upstream, no `push-pending`). Exits `1` on a `fail` and ends with the recommended Obsidian setup |
+| `sb init [--profile P] [--language L] [--areas a,b] [--git] [--remote URL]` | Scaffold a vault (`personal` by default); writes `.second-brain.json` last; idempotent; refuses a directory inside another git repository (exit `2`) |
+| `sb init --upgrade [--profile P] [--yes]` | Migrate a v0.1 vault: adds missing files only; dry run unless `--yes` |
 
 Exit codes: `0` ok, `1` findings, `2` usage error or not inside a vault.
 
@@ -88,9 +155,10 @@ Exit codes: `0` ok, `1` findings, `2` usage error or not inside a vault.
 | SB104 | Duplicate basename or title |
 | SB105 | `_index.md` out of sync with `wiki/` |
 | SB106 | `origin: agent` note without `reviewed` |
-| SB107 | `schema_version` older than the CLI's |
+| SB107 | `schema_version` older than the CLI's (`run sb init --upgrade`) |
 | SB108 | Frontmatter unparseable, unknown enum, bad date or missing key |
 | SB109 | `source` path does not exist |
+| SB111 | Folder under `wiki/` has no `_about.md` (information; does not fail `sb lint`) |
 
 ```
 sb lint
@@ -124,7 +192,7 @@ Who may write what is decided by the note's **trust tier**:
 | --- | --- | --- |
 | T0 | `origin: agent` and no `reviewed` | Free |
 | T1 | `origin` human or mixed (or missing), or `reviewed` set | Appending a `> [!agent]` block or adding `[[links]]` passes; anything else asks you |
-| T2 | `protected: true` or `status: evergreen` | Every change asks you |
+| T2 | `protected: true`, `status: evergreen`, or a note under a folder whose `_about.md` says `protected: true` | Every change (including a new note in that folder) asks you |
 
 An addition to a T1 note is a callout at the end of the note, with exactly this header:
 
@@ -140,7 +208,7 @@ Properties; until you do, `SB106` and the `unreviewed` label keep the note visib
 
 ## Protection and auto-commit
 
-Four hooks, all no-ops in a directory without `.second-brain.json`:
+Five hooks, all no-ops in a directory without `.second-brain.json`:
 
 - **PreToolUse guard** denies writes to `_raw/**`, `.claude/**`, the top-level `CLAUDE.md` and
   `.second-brain.json` (and `rm`/`mv`/`>` style Bash commands that target them), asks before
@@ -151,11 +219,31 @@ Four hooks, all no-ops in a directory without `.second-brain.json`:
 - **UserPromptSubmit recall** adds candidate notes to the context (see [Recall](#recall)).
 - **PostToolUse check** runs the frontmatter checks on a note the agent just wrote, reports
   problems back to it and rewrites `_index.md` when it drifted.
+- **SessionStart** injects the folder tree and status, records `.sb/heartbeat.json` (for
+  `sb doctor`), regenerates `_index.md` when it drifted and, in squad vaults, pulls (see
+  [Squad vaults](#squad-vaults-2-5-people-one-git-remote)).
 - **SessionEnd auto-commit**: when the vault has a `.git`, `auto_commit` is on and there are
-  changes, runs `git add -A` and commits `sb: session YYYY-MM-DD (N files)`. **One commit per
-  session, local only, never pushed.** It is skipped during a merge or rebase. Turn it off in the
+  changes, runs `git add -A` and commits `sb: session YYYY-MM-DD (N files)` with the `Sb-Session`
+  and `Sb-Files` trailers. **One commit per session; local only, except in squad vaults, where the
+  commit is pushed.** It is skipped during a merge or rebase. Turn it off in the
   plugin's settings (`/plugin` → configure `auto_commit`) or set the `auto_commit` user option to
   `false`.
+
+## Recommended Obsidian setup
+
+`sb doctor` ends with this table.
+
+| Need | Recommendation | Note |
+| --- | --- | --- |
+| Agent inside Obsidian | *Terminal* (polyipseity) | Runs the real `claude`, so the hooks apply. This is the only supported path; Claudian and Agent Client are not |
+| Web capture | Obsidian Web Clipper + `_meta/web-clipper-template.json` | Saves to `_inbox/` with `title`, `url`, `captured`. Import it under Web Clipper settings, Templates, Import |
+| Review queue | Bases (core, Obsidian 1.9+) + `_views/unreviewed.base` | Lists `origin: agent` notes without `reviewed` |
+| Review actions | `second-brain-companion` (BRAT) | Milestone D |
+| Squad | Obsidian Git: pull on startup, rebase (not merge), auto commit-and-sync at an interval for human edits | The plugin commits and pushes agent edits at session end; Git on mobile is unstable |
+| HTML | HTML Viewer with scripts **off** for third-party pages | |
+| draw.io / Excalidraw | Drawio Preview; Excalidraw (zsviczian) | `*.excalidraw.md` is not treated as a note |
+| Human search | Omnisearch, Smart Connections (optional) | The agent does not use them |
+| Avoid | Linter | Rewrites frontmatter on save: breaks hashes and creates ghost diffs in squad vaults |
 
 ## Limits
 

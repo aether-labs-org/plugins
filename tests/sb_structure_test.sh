@@ -18,9 +18,23 @@ jq -e '.plugins[] | select(.name=="second-brain") | .dependencies | map(.name+"@
 check "second-brain depends on document-skills and obsidian" $?
 jq -e '.allowCrossMarketplaceDependenciesOn | index("anthropic-agent-skills") and index("obsidian-skills")' "$mp" >/dev/null
 check "marketplace allows the two dependency marketplaces" $?
-[ "$(jq -r .version "$pj")" = "0.2.1" ]; check "plugin version 0.2.1" $?
+[ "$(jq -r .version "$pj")" = "0.2.2" ]; check "plugin version 0.2.2" $?
 jq -e '.hooks.PreToolUse[0].hooks[0].onFailure == "block"' "$p/hooks/hooks.json" >/dev/null
 check "guard hook is fail-closed (onFailure: block)" $?
+jq -e '.hooks.SessionStart[0] | .matcher == "startup|resume|clear|compact" and (.hooks[0].command | contains("session_start.py"))' "$p/hooks/hooks.json" >/dev/null
+check "SessionStart hook is registered" $?
+jq -e '.hooks.SessionEnd[0].hooks[0].timeout == 60' "$p/hooks/hooks.json" >/dev/null
+check "SessionEnd hook timeout is 60" $?
+for prof in personal work project squad; do
+  jq -e '.name and .sync and (.folders | length > 0)' "$p/templates/profiles/$prof.json" >/dev/null
+  check "profile $prof.json is valid" $?
+done
+jq -e '.sync == "squad"' "$p/templates/profiles/squad.json" >/dev/null; check "squad profile syncs" $?
+jq -e '.extraKnownMarketplaces | keys | sort == ["aether-labs","anthropic-agent-skills","obsidian-skills"]' "$p/templates/settings.json" >/dev/null
+check "settings template declares the three marketplaces" $?
+jq -e '.permissions.deny | length == 5' "$p/templates/settings.json" >/dev/null; check "settings template has 5 deny rules" $?
+jq -e '.behavior == "create" and .path == "_inbox"' "$p/templates/web-clipper-template.json" >/dev/null
+check "web clipper template saves to _inbox" $?
 jq -e '.userConfig.auto_commit | .type == "boolean" and .default == true' "$pj" >/dev/null
 check "userConfig.auto_commit is boolean, default true" $?
 jq -e '.hooks.UserPromptSubmit' "$p/hooks/hooks.json" >/dev/null

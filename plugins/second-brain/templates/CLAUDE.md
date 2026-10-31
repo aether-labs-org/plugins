@@ -7,9 +7,10 @@ Notes are written in **{{language}}**.
 
 ## Map
 
-- `wiki/` — curated knowledge. The human reads it. `Projects/` (active, with a deadline),
-  `Areas/` (ongoing responsibilities), `Resources/` (concepts, entities, references),
-  `Archive/` (inactive).
+- `wiki/` — curated knowledge. The human reads it. File notes by the folder descriptions in the
+  `<second-brain-vault>` block (from each folder's `_about.md`; `sb tree` prints them). `_about.md`
+  is human-edited and is not a note. In squad vaults `_index.md` and `_log.md` are local to each
+  clone.
 - `_inbox/` — raw captures. The human writes, the agent processes. Processed items go to
   `_inbox/_done/`.
 - `_raw/` — immutable source files (PDFs, articles, transcripts). The human places them here.
@@ -18,7 +19,7 @@ Notes are written in **{{language}}**.
 - `_index.md` — generated catalogue, one line per note. Never edit by hand; a hook rewrites it
   whenever a note changes (`sb index --write` does the same by hand).
 - `_log.md` — append-only event log. Use `sb log`.
-- `.second-brain.json` — vault marker and configuration (`schema_version`, language, areas).
+- `.second-brain.json` — vault marker and configuration (`schema_version`, language, profile, sync, areas).
 
 Everything outside `wiki/` is system. The `_` prefix marks paths the agent operates.
 
