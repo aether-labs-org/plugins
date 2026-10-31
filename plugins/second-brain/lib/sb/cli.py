@@ -2,6 +2,7 @@
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -259,10 +260,31 @@ def cmd_inbox_done(args, out, err):
     return EXIT_OK
 
 
+def cmd_upgrade(args, init_mod, target, out, err):
+    root = find_vault(target)
+    if root is None or root != target:
+        print("sb: %s is not a second-brain vault (%s not found)" % (target, MARKER), file=err)
+        return EXIT_USAGE
+    try:
+        result = init_mod.upgrade(root, profile=args.profile, yes=args.yes)
+    except (VaultError, ValueError, OSError, subprocess.SubprocessError) as exc:
+        print("sb: upgrade failed: %s" % exc, file=err)
+        return EXIT_USAGE
+    verb = "applied" if result["applied"] else "would apply (pass --yes to apply)"
+    lines = ["%s: %d action(s)" % (verb, len(result["actions"]))]
+    lines += ["  " + a for a in result["actions"]]
+    if result["kept"]:
+        lines.append("kept (not touched): " + ", ".join(result["kept"]))
+    _emit(args, out, result, "\n".join(lines))
+    return EXIT_OK
+
+
 def cmd_init(args, out, err):
     from . import init as init_mod
 
     target = Path(args.vault).resolve() if args.vault else Path.cwd()
+    if args.upgrade:
+        return cmd_upgrade(args, init_mod, target, out, err)
     parent = find_vault(target)
     if parent is not None and parent != target:
         print("sb: %s is inside the existing vault %s" % (target, parent), file=err)
@@ -276,7 +298,7 @@ def cmd_init(args, out, err):
         print("sb: --remote needs --git (or an existing .git in the vault)", file=err)
         return EXIT_USAGE
     areas = [a for a in args.areas.split(",") if a.strip()]
-    result = init_mod.run(target, language=args.language, profile=args.profile,
+    result = init_mod.run(target, language=args.language, profile=args.profile or "personal",
                           remote=args.remote, areas=areas, git=args.git)
     lines = ["%s: %s" % (result["status"], target)]
     if result["created"]:
@@ -357,7 +379,9 @@ def build_parser():
     p = sub.add_parser("init", parents=[common], help="create a vault in the target directory")
     p.add_argument("--language", default="en")
     p.add_argument("--profile", choices=("personal", "work", "project", "squad"),
-                   default="personal", help="folder set and sync mode (default: personal)")
+                   help="folder set and sync mode (default: personal; with --upgrade, keep)")
+    p.add_argument("--upgrade", action="store_true", help="bring an existing vault to schema 2")
+    p.add_argument("--yes", action="store_true", help="with --upgrade: apply the plan")
     p.add_argument("--remote", help="git remote URL to add as origin (needs --git)")
     p.add_argument("--areas", default="", help="comma-separated initial areas")
     p.add_argument("--git", action="store_true", help="run git init if there is no .git")

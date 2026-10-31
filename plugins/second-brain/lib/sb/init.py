@@ -133,3 +133,89 @@ def run(root, language="en", profile="personal", remote=None, git=False, areas=(
     logfile.append(root, "init", "vault created")
     return {"status": "created", "root": str(root), "created": created, "kept": kept,
             "warnings": warnings}
+
+
+def _known_folders(profile):
+    """Top-level folder specs by name; the chosen profile wins over the others."""
+    found = {}
+    for name in ([profile] if profile in PROFILES else []) + list(PROFILES):
+        for folder in load_profile(name)["folders"]:
+            found.setdefault(folder["path"], folder)
+    return found
+
+
+def _tracked(root, rel):
+    done = subprocess.run(["git", "-C", str(root), "ls-files", "--error-unmatch", rel],
+                          capture_output=True, text=True)
+    return done.returncode == 0
+
+
+def upgrade(root, profile=None, yes=False):
+    """Bring a v0.1 (or partial) vault up to schema 2. Adds missing files only; with
+    `yes=False` it only reports the plan. Returns `{"actions", "kept", "applied"}`."""
+    from .tree import flatten, load as load_tree
+    from .vault import load_config
+
+    root = Path(root)
+    if profile is not None and profile not in PROFILES:
+        raise ValueError("unknown profile %r (expected one of %s)" % (profile, ", ".join(PROFILES)))
+    config = load_config(root)
+    actions, kept = [], []
+    writes = []                                     # (path, text) applied when `yes`
+    post = []                                       # callables applied after the writes
+
+    chosen = profile or config.get("profile") or "personal"
+    known = _known_folders(chosen)
+    for _, folder in flatten(load_tree(root)):
+        rel = "wiki/%s/_about.md" % folder["path"]
+        if (root / rel).exists():
+            continue
+        spec = known.get(folder["path"]) if "/" not in folder["path"] else None
+        if spec is None:
+            spec = {"description": "(describe this folder)", "protected": False}
+            actions.append("add %s (placeholder description)" % rel)
+        else:
+            actions.append("add %s" % rel)
+        writes.append((root / rel, about_text(spec)))
+
+    for rel, source in EXTRA_FILES:
+        if (root / rel).exists():
+            kept.append(rel)
+        else:
+            actions.append("add %s" % rel)
+            writes.append((root / rel, (TEMPLATES / source).read_text(encoding="utf-8")))
+    if (root / "CLAUDE.md").exists():
+        kept.append("CLAUDE.md")
+
+    sync = load_profile(profile)["sync"] if profile else (config.get("sync") or "local")
+    lines = gitignore_lines(sync)
+    path = root / ".gitignore"
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    missing = [line for line in lines if line not in set(existing.splitlines())]
+    if missing:
+        actions.append("add to .gitignore: %s" % ", ".join(missing))
+        text = existing + ("\n" if existing and not existing.endswith("\n") else "")
+        writes.append((path, text + "".join(line + "\n" for line in missing)))
+
+    if sync == "squad" and (root / ".git").exists():
+        for rel in ("_index.md", "_log.md"):
+            if _tracked(root, rel):
+                actions.append("git rm --cached %s (stays on disk; local in squad vaults)" % rel)
+                post.append(lambda rel=rel: subprocess.run(
+                    ["git", "-C", str(root), "rm", "--cached", "-q", rel],
+                    capture_output=True, text=True, check=True))
+
+    wanted = dict(config, schema_version=SCHEMA_VERSION, profile=chosen, sync=sync)
+    if wanted != config:
+        actions.append("update %s: schema_version %s, profile %s, sync %s"
+                       % (MARKER, SCHEMA_VERSION, chosen, sync))
+
+    if yes and actions:
+        for target, text in writes:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            write_atomic(target, text)
+        for step in post:
+            step()
+        if wanted != config:
+            write_atomic(root / MARKER, json.dumps(wanted, ensure_ascii=False, indent=2) + "\n")
+    return {"actions": actions, "kept": kept, "applied": bool(yes and actions)}

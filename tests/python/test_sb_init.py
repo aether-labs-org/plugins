@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import sb_helpers  # noqa: F401
+from sb_helpers import make_vault, note
 from sb import init
 from sb.cli import main
 from sb.lint import INFO_CODES, lint
@@ -209,6 +209,103 @@ class InitTests(unittest.TestCase):
         (self.root / MARKER).write_text(json.dumps(marker), encoding="utf-8")
         found = [f for f in lint(self.root, load_config(self.root)) if f.code == "SB107"]
         self.assertEqual(found[0].message, "schema_version 1 is older than 2; run sb init --upgrade")
+
+
+def snapshot(root):
+    return {p.relative_to(root).as_posix(): p.read_bytes()
+            for p in sorted(Path(root).rglob("*")) if p.is_file() and ".git" not in p.parts}
+
+
+class UpgradeTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = make_vault(self.tmp.name, {
+            "Resources/A.md": note("A", body="[[B]] [[C]]"),
+            "Resources/B.md": note("B", body="[[A]]"),
+            "Meus Estudos/C.md": note("C", body="[[A]]"),
+        }, config={"schema_version": 1, "language": "pt-BR", "areas": []})
+        (self.root / "CLAUDE.md").write_text("my rules", encoding="utf-8")
+        (self.root / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
+
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args], capture_output=True, text=True)
+
+    def make_repo(self):
+        self.git("init", "-q")
+        self.git("config", "user.email", "t@example.com")
+        self.git("config", "user.name", "T")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "v0.1")
+
+    def test_upgrade_dry_run_changes_nothing(self):
+        before = snapshot(self.root)
+        result = init.upgrade(self.root)
+        self.assertFalse(result["applied"])
+        self.assertTrue(result["actions"])
+        self.assertEqual(snapshot(self.root), before)
+        code, out, _ = cli("init", "--upgrade", "--vault", str(self.root))
+        self.assertEqual(code, 0)
+        self.assertIn("settings.json", out)
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_upgrade_keeps_user_files(self):
+        (self.root / ".claude").mkdir()
+        (self.root / ".claude/settings.json").write_text('{"mine": true}', encoding="utf-8")
+        result = init.upgrade(self.root, yes=True)
+        self.assertTrue(result["applied"])
+        self.assertEqual((self.root / ".claude/settings.json").read_text(encoding="utf-8"),
+                         '{"mine": true}')
+        self.assertEqual((self.root / "CLAUDE.md").read_text(encoding="utf-8"), "my rules")
+        self.assertIn(".claude/settings.json", result["kept"])
+        self.assertIn("CLAUDE.md", result["kept"])
+        gitignore = (self.root / ".gitignore").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(gitignore, ["node_modules/", ".sb/", ".obsidian/workspace*", ".smart-env/"])
+
+    def test_upgrade_adds_about_files_marker_and_templates(self):
+        init.upgrade(self.root, yes=True)
+        folders = {f["path"]: f["description"] for f in load(self.root)}
+        self.assertEqual(folders["Meus Estudos"], "(describe this folder)")
+        self.assertEqual(folders["Resources"], "Concepts, entities and references reused across projects.")
+        config = load_config(self.root)
+        self.assertEqual((config["schema_version"], config["profile"], config["sync"],
+                          config["language"]), (2, "personal", "local", "pt-BR"))
+        for rel in ("_meta/web-clipper-template.json", "_views/unreviewed.base"):
+            self.assertTrue((self.root / rel).is_file(), rel)
+        self.assertEqual([f for f in lint(self.root, load_config(self.root))
+                          if f.code not in INFO_CODES], [])
+
+    @unittest.skipUnless(shutil.which("git"), "git not installed")
+    def test_upgrade_v01_vault_to_squad(self):
+        self.make_repo()
+        notes_before = {k: v for k, v in snapshot(self.root).items() if k.startswith("wiki/")}
+        self.assertIn("_index.md", self.git("ls-files").stdout.split())
+        result = init.upgrade(self.root, profile="squad", yes=True)
+        tracked = self.git("ls-files").stdout.split()
+        self.assertNotIn("_index.md", tracked)
+        self.assertNotIn("_log.md", tracked)
+        self.assertTrue((self.root / "_index.md").is_file())
+        self.assertEqual(load_config(self.root)["sync"], "squad")
+        self.assertEqual(load_config(self.root)["profile"], "squad")
+        notes_after = {k: v for k, v in snapshot(self.root).items() if k in notes_before}
+        self.assertEqual(notes_after, notes_before)
+        self.assertTrue(any("git rm --cached" in a for a in result["actions"]))
+
+    @unittest.skipUnless(shutil.which("git"), "git not installed")
+    def test_squad_dry_run_does_not_touch_the_index(self):
+        self.make_repo()
+        init.upgrade(self.root, profile="squad")
+        self.assertIn("_index.md", self.git("ls-files").stdout.split())
+
+    def test_upgrade_is_idempotent(self):
+        init.upgrade(self.root, yes=True)
+        again = init.upgrade(self.root, yes=True)
+        self.assertEqual(again["actions"], [])
+
+    def test_upgrade_needs_a_vault(self):
+        code, _, err = cli("init", "--upgrade", "--vault", str(Path(self.tmp.name) / "nothing"))
+        self.assertEqual(code, 2)
+        self.assertIn("not a second-brain vault", err)
 
 
 if __name__ == "__main__":
