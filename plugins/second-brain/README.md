@@ -83,7 +83,7 @@ first (tier T2). A folder without `_about.md` is reported as `SB111` (informatio
 still exits `0`). `sb tree [--compact] [--json]` prints the same tree.
 
 `sb init` also writes `.claude/settings.json` (plugins, marketplaces and the deny rules
-`Edit(/_raw/**)`, `git push --force`/`-f`, `git reset --hard`, `git clean`; never overwritten),
+`Edit(/_raw/**)`, `git push --force`/`-f`, `git reset --hard`, `git clean`; never overwritten, `--upgrade` only adds what is missing),
 `_meta/web-clipper-template.json`, `_views/unreviewed.base` and a `.gitignore` (`.sb/`,
 `.obsidian/workspace*`, `.smart-env/`, and in squad vaults `_index.md` and `_log.md`).
 
@@ -91,7 +91,9 @@ still exits `0`). `sb tree [--compact] [--json]` prints the same tree.
 
 `sb init --upgrade` prints what it would add (missing `_about.md`, settings, templates, `.gitignore`
 lines, `schema_version: 2`) and changes nothing; `sb init --upgrade --yes` applies it. It never
-overwrites a file you have; it lists them as kept. `--profile squad` also turns a vault into a squad
+overwrites a file you have; it lists them as kept. An existing `.claude/settings.json` is merged
+additively (missing plugins, marketplaces and deny rules are appended, nothing you have is changed
+or removed); if it is not valid JSON it is left untouched and a warning is printed. `--profile squad` also turns a vault into a squad
 vault and runs `git rm --cached` on `_index.md` and `_log.md`. Running it again reports no action.
 
 ### Squad vaults (2-5 people, one git remote)

@@ -135,6 +135,53 @@ def run(root, language="en", profile="personal", remote=None, git=False, areas=(
             "warnings": warnings}
 
 
+SETTINGS = ".claude/settings.json"
+
+
+def merge_settings(existing_text, template_text):
+    """Additive merge of the settings template into an existing `.claude/settings.json`.
+
+    Adds missing `enabledPlugins` keys, `extraKnownMarketplaces` entries and `permissions.deny`
+    rules; never changes or removes an existing value, keeps the order of existing keys and
+    appends new ones. A section of an unexpected type is left alone. Returns
+    `(new_text, added)` (`added == 0`: nothing to write), or `None` when `existing_text` is not
+    a JSON object."""
+    try:
+        data = json.loads(existing_text)
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    template = json.loads(template_text)
+    added = 0
+    for section in ("enabledPlugins", "extraKnownMarketplaces"):
+        wanted = template.get(section) or {}
+        if section not in data:
+            data[section] = dict(wanted)
+            added += len(wanted)
+        elif isinstance(data[section], dict):
+            for key, value in wanted.items():
+                if key not in data[section]:
+                    data[section][key] = value
+                    added += 1
+    wanted = (template.get("permissions") or {}).get("deny") or []
+    if "permissions" not in data:
+        data["permissions"] = {"deny": list(wanted)}
+        added += len(wanted)
+    elif isinstance(data["permissions"], dict):
+        if "deny" not in data["permissions"]:
+            data["permissions"]["deny"] = list(wanted)
+            added += len(wanted)
+        elif isinstance(data["permissions"]["deny"], list):
+            for rule in wanted:
+                if rule not in data["permissions"]["deny"]:
+                    data["permissions"]["deny"].append(rule)
+                    added += 1
+    if not added:
+        return existing_text, 0
+    return json.dumps(data, ensure_ascii=False, indent=2) + "\n", added
+
+
 def _known_folders(profile):
     """Top-level folder specs by name; the chosen profile wins over the others."""
     found = {}
@@ -160,7 +207,7 @@ def upgrade(root, profile=None, yes=False):
     if profile is not None and profile not in PROFILES:
         raise ValueError("unknown profile %r (expected one of %s)" % (profile, ", ".join(PROFILES)))
     config = load_config(root)
-    actions, kept = [], []
+    actions, kept, warnings = [], [], []
     writes = []                                     # (path, text) applied when `yes`
     post = []                                       # callables applied after the writes
 
@@ -179,7 +226,22 @@ def upgrade(root, profile=None, yes=False):
         writes.append((root / rel, about_text(spec)))
 
     for rel, source in EXTRA_FILES:
-        if (root / rel).exists():
+        if rel == SETTINGS and (root / rel).is_file():
+            template_text = (TEMPLATES / source).read_text(encoding="utf-8")
+            try:
+                merged = merge_settings((root / rel).read_text(encoding="utf-8"), template_text)
+            except (OSError, UnicodeDecodeError):
+                merged = None
+            if merged is None:
+                kept.append(rel)
+                warnings.append("%s is not a valid JSON object: left untouched; fix it by hand "
+                                "(templates/settings.json in the plugin is the reference)" % rel)
+            elif merged[1] == 0:
+                kept.append(rel)
+            else:
+                actions.append("merge %s (+%d entries)" % (rel, merged[1]))
+                writes.append((root / rel, merged[0]))
+        elif (root / rel).exists():
             kept.append(rel)
         else:
             actions.append("add %s" % rel)
@@ -218,4 +280,5 @@ def upgrade(root, profile=None, yes=False):
             step()
         if wanted != config:
             write_atomic(root / MARKER, json.dumps(wanted, ensure_ascii=False, indent=2) + "\n")
-    return {"actions": actions, "kept": kept, "applied": bool(yes and actions)}
+    return {"actions": actions, "kept": kept, "warnings": warnings,
+            "applied": bool(yes and actions)}

@@ -91,8 +91,7 @@ def check_settings(root):
     missing += ["deny " + r for r in REQUIRED_DENY if r not in deny]
     if missing:
         return _result("settings", "fail", "missing in .claude/settings.json: " + ", ".join(missing),
-                       "add the missing entries by hand (an existing settings.json is never "
-                       "overwritten); templates/settings.json in the plugin is the reference")
+                       "sb init --upgrade --yes")
     return _result("settings", "ok", ".claude/settings.json enables the plugins and has the deny rules")
 
 

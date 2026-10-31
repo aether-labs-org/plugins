@@ -14,6 +14,8 @@ from sb.lint import INFO_CODES, lint
 from sb.tree import load, render_compact
 from sb.vault import MARKER, load_config
 
+TEMPLATES = init.TEMPLATES
+
 PROFILES = {
     "personal": ["Archive", "Areas", "Projects", "Resources"],
     "work": ["Archive", "Areas", "Decisions", "Meetings", "Projects", "Resources"],
@@ -251,16 +253,95 @@ class UpgradeTests(unittest.TestCase):
 
     def test_upgrade_keeps_user_files(self):
         (self.root / ".claude").mkdir()
-        (self.root / ".claude/settings.json").write_text('{"mine": true}', encoding="utf-8")
+        (self.root / ".claude/settings.json").write_text(
+            (TEMPLATES / "settings.json").read_text(encoding="utf-8"), encoding="utf-8")
         result = init.upgrade(self.root, yes=True)
         self.assertTrue(result["applied"])
-        self.assertEqual((self.root / ".claude/settings.json").read_text(encoding="utf-8"),
-                         '{"mine": true}')
         self.assertEqual((self.root / "CLAUDE.md").read_text(encoding="utf-8"), "my rules")
         self.assertIn(".claude/settings.json", result["kept"])
         self.assertIn("CLAUDE.md", result["kept"])
+        self.assertNotIn("merge", " ".join(result["actions"]))
         gitignore = (self.root / ".gitignore").read_text(encoding="utf-8").splitlines()
         self.assertEqual(gitignore, ["node_modules/", ".sb/", ".obsidian/workspace*", ".smart-env/"])
+
+    def write_settings(self, text):
+        (self.root / ".claude").mkdir(exist_ok=True)
+        (self.root / ".claude/settings.json").write_text(text, encoding="utf-8")
+
+    def read_settings(self):
+        return json.loads((self.root / ".claude/settings.json").read_text(encoding="utf-8"))
+
+    def test_upgrade_merges_missing_settings_entries_only(self):
+        mine = {"model": "opus",
+                "enabledPlugins": {"mine@x": True, "second-brain@aether-labs": False},
+                "extraKnownMarketplaces": {"mine": {"source": {"source": "github", "repo": "a/b"}},
+                                           "obsidian-skills": {"custom": True}},
+                "permissions": {"allow": ["Bash(ls)"], "deny": ["Bash(rm -rf*)", "Edit(/_raw/**)"]},
+                "hooks": {"Stop": []}}
+        self.write_settings(json.dumps(mine))
+        result = init.upgrade(self.root, yes=True)
+        data = self.read_settings()
+        template = json.loads((TEMPLATES / "settings.json").read_text(encoding="utf-8"))
+        # existing keys, values and order are preserved
+        self.assertEqual(list(data), ["model", "enabledPlugins", "extraKnownMarketplaces",
+                                      "permissions", "hooks"])
+        self.assertEqual(data["model"], "opus")
+        self.assertEqual(data["hooks"], {"Stop": []})
+        self.assertEqual(list(data["enabledPlugins"]),
+                         ["mine@x", "second-brain@aether-labs", "document-skills@anthropic-agent-skills",
+                          "obsidian@obsidian-skills"])
+        self.assertIs(data["enabledPlugins"]["second-brain@aether-labs"], False)   # never changed
+        self.assertEqual(data["extraKnownMarketplaces"]["obsidian-skills"], {"custom": True})
+        self.assertEqual(data["extraKnownMarketplaces"]["mine"], mine["extraKnownMarketplaces"]["mine"])
+        self.assertEqual(data["extraKnownMarketplaces"]["aether-labs"],
+                         template["extraKnownMarketplaces"]["aether-labs"])
+        self.assertEqual(data["permissions"]["allow"], ["Bash(ls)"])
+        self.assertEqual(data["permissions"]["deny"], ["Bash(rm -rf*)", "Edit(/_raw/**)"] + DENY[1:])
+        self.assertIn("merge .claude/settings.json (+8 entries)", result["actions"])
+        self.assertNotIn(".claude/settings.json", result["kept"])
+
+    def test_upgrade_merge_into_an_empty_object_adds_everything(self):
+        self.write_settings("{}")
+        result = init.upgrade(self.root, yes=True)
+        self.assertEqual(self.read_settings(),
+                         json.loads((TEMPLATES / "settings.json").read_text(encoding="utf-8")))
+        self.assertIn("merge .claude/settings.json (+11 entries)", result["actions"])
+
+    def test_upgrade_settings_merge_is_idempotent(self):
+        self.write_settings('{"mine": true}')
+        init.upgrade(self.root, yes=True)
+        first = (self.root / ".claude/settings.json").read_bytes()
+        again = init.upgrade(self.root, yes=True)
+        self.assertEqual(again["actions"], [])
+        self.assertIn(".claude/settings.json", again["kept"])
+        self.assertEqual((self.root / ".claude/settings.json").read_bytes(), first)
+        self.assertIs(self.read_settings()["mine"], True)
+
+    def test_upgrade_settings_dry_run_reports_without_writing(self):
+        self.write_settings('{"mine": true}')
+        result = init.upgrade(self.root)
+        self.assertTrue(any(a.startswith("merge .claude/settings.json (+") for a in result["actions"]))
+        self.assertEqual((self.root / ".claude/settings.json").read_text(encoding="utf-8"),
+                         '{"mine": true}')
+
+    def test_upgrade_leaves_invalid_settings_untouched_with_a_warning(self):
+        for text in ("{nope", "[1, 2]", ""):
+            self.write_settings(text)
+            result = init.upgrade(self.root, yes=True)
+            self.assertEqual((self.root / ".claude/settings.json").read_text(encoding="utf-8"), text)
+            self.assertIn(".claude/settings.json", result["kept"])
+            self.assertFalse([a for a in result["actions"] if "settings.json" in a])
+            self.assertTrue(any(".claude/settings.json" in w for w in result["warnings"]), text)
+        code, out, _ = cli("init", "--upgrade", "--vault", str(self.root))
+        self.assertIn("warning: ", out)
+
+    def test_upgrade_skips_settings_sections_of_an_unexpected_type(self):
+        self.write_settings('{"enabledPlugins": [], "permissions": {"deny": "x"}}')
+        init.upgrade(self.root, yes=True)
+        data = self.read_settings()
+        self.assertEqual(data["enabledPlugins"], [])
+        self.assertEqual(data["permissions"], {"deny": "x"})
+        self.assertIn("extraKnownMarketplaces", data)
 
     def test_upgrade_adds_about_files_marker_and_templates(self):
         init.upgrade(self.root, yes=True)

@@ -79,6 +79,7 @@ class DoctorTests(unittest.TestCase):
         r = self.by_check(self.run_doctor())["settings"]
         self.assertEqual(r["status"], "fail")
         self.assertIn("obsidian@obsidian-skills", r["detail"])
+        self.assertEqual(r["fix"], "sb init --upgrade --yes")
 
     def test_settings_absent_points_to_upgrade(self):
         (self.root / ".claude/settings.json").unlink()

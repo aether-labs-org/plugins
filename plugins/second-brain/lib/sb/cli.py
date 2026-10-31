@@ -289,6 +289,7 @@ def cmd_upgrade(args, init_mod, target, out, err):
     lines += ["  " + a for a in result["actions"]]
     if result["kept"]:
         lines.append("kept (not touched): " + ", ".join(result["kept"]))
+    lines += ["warning: " + w for w in result["warnings"]]
     _emit(args, out, result, "\n".join(lines))
     return EXIT_OK
 
