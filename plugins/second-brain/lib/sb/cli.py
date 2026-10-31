@@ -4,14 +4,17 @@ import json
 import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
+from . import frontmatter
 from . import index as index_mod
 from . import logfile
 from .fsutil import write_atomic
 from .lint import INFO_CODES, check_note, lint as run_lint, render_text
 from .links import WIKILINK, extract, prose_lines, target_name
-from .vault import MARKER, VaultError, find_vault, load_config, load_note, load_notes
+from .vault import (MARKER, VaultError, find_vault, is_note_rel, load_config, load_note,
+                    load_notes)
 
 EXIT_OK, EXIT_FINDINGS, EXIT_USAGE = 0, 1, 2
 
@@ -65,6 +68,49 @@ def cmd_lint(args, out, err):
     findings = run_lint(root, config)
     _emit(args, out, [f.as_dict() for f in findings], render_text(findings, args.verbose))
     return EXIT_FINDINGS if any(f.code not in INFO_CODES for f in findings) else EXIT_OK
+
+
+def _find_note_file(root, raw):
+    """The note file named by a path (cwd- or vault-relative) or a note name, or None."""
+    wiki = root / "wiki"
+    for candidate in (Path(raw), root / raw):
+        path = candidate.resolve()
+        if path.is_file() and path.suffix == ".md":
+            try:
+                if is_note_rel(path.relative_to(wiki).as_posix()):
+                    return path
+            except ValueError:
+                pass
+    wanted = target_name(raw)
+    return next((n.path for n in load_notes(root) if n.name == wanted), None)
+
+
+def cmd_review(args, out, err):
+    from . import review
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    path = _find_note_file(root, args.note)
+    if path is None:
+        print("sb: note not found: %s" % args.note, file=err)
+        return EXIT_USAGE
+    try:
+        text = path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        print("sb: cannot read %s: %s" % (path, exc), file=err)
+        return EXIT_USAGE
+    digest, today = review.review_hash(text), date.today().isoformat()
+    try:
+        updated = frontmatter.set_keys(text, {"reviewed": today, "reviewed_hash": digest})
+    except ValueError as exc:
+        print("sb: %s: %s" % (path, exc), file=err)
+        return EXIT_USAGE
+    write_atomic(path, updated)
+    rel = path.relative_to(root).as_posix()
+    _emit(args, out, {"note": rel, "reviewed": today, "reviewed_hash": digest},
+          "reviewed %s on %s (%s)" % (rel, today, digest))
+    return EXIT_OK
 
 
 def cmd_search(args, out, err):
@@ -342,6 +388,11 @@ def build_parser():
     p = sub.add_parser("lint", parents=[common], help="run the lint rules")
     p.add_argument("--verbose", action="store_true", help="one line per finding, never grouped")
     p.set_defaults(func=cmd_lint)
+
+    p = sub.add_parser("review", parents=[common],
+                       help="record a human review: sets reviewed and reviewed_hash (run by the human)")
+    p.add_argument("note", help="note name or path")
+    p.set_defaults(func=cmd_review)
 
     p = sub.add_parser("search", parents=[common], help="ranked, accent-insensitive note search")
     p.add_argument("query")

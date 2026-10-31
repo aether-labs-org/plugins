@@ -105,7 +105,7 @@ class TreeTests(unittest.TestCase):
                            "Resources/B.md": note("B", body="[[A]]")})
         findings = lint(root, load_config(root))
         self.assertEqual([f.code for f in findings], ["SB111"])
-        self.assertEqual(INFO_CODES, {"SB111"})
+        self.assertEqual(INFO_CODES, {"SB111", "SB112"})
         out, err = io.StringIO(), io.StringIO()
         self.assertEqual(main(["lint", "--vault", str(root)], out=out, err=err), 0)
         self.assertIn("SB111", out.getvalue())

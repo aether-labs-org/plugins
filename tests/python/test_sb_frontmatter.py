@@ -1,7 +1,7 @@
 import unittest
 
 import sb_helpers  # noqa: F401  (sets sys.path)
-from sb.frontmatter import parse
+from sb.frontmatter import parse, set_keys
 
 
 class ParseTests(unittest.TestCase):
@@ -77,6 +77,42 @@ class ParseTests(unittest.TestCase):
         p = parse("---\ntitle: a\ntitle: b\n---\n")
         self.assertEqual(p.data, {"title": "a"})
         self.assertEqual([line for line, _ in p.errors], [3])
+
+
+class SetKeysTests(unittest.TestCase):
+    UPDATES = {"reviewed": "2026-11-05", "reviewed_hash": "sha256:0123456789abcdef"}
+
+    def test_set_keys_preserves_other_lines(self):
+        text = "---\ntitle: A\ntags:\n  - x\nreviewed:\n---\nBody\n"
+        self.assertEqual(set_keys(text, self.UPDATES),
+                         "---\ntitle: A\ntags:\n  - x\nreviewed: 2026-11-05\n"
+                         "reviewed_hash: sha256:0123456789abcdef\n---\nBody\n")
+
+    def test_existing_keys_are_replaced_in_place(self):
+        text = "---\nreviewed: 2026-01-01\ntitle: 'A'\nreviewed_hash: sha256:aa\n---\nBody\n"
+        self.assertEqual(set_keys(text, self.UPDATES),
+                         "---\nreviewed: 2026-11-05\ntitle: 'A'\n"
+                         "reviewed_hash: sha256:0123456789abcdef\n---\nBody\n")
+
+    def test_block_list_value_is_replaced_with_its_items(self):
+        text = "---\nreviewed:\n  - x\ntitle: A\n---\n"
+        self.assertEqual(set_keys(text, {"reviewed": "2026-11-05"}),
+                         "---\nreviewed: 2026-11-05\ntitle: A\n---\n")
+
+    def test_crlf_and_bom_are_kept(self):
+        text = "\ufeff---\r\ntitle: A\r\n---\r\nBody\r\n"
+        self.assertEqual(set_keys(text, {"reviewed": "2026-11-05"}),
+                         "\ufeff---\r\ntitle: A\r\nreviewed: 2026-11-05\r\n---\r\nBody\r\n")
+
+    def test_body_and_a_look_alike_key_are_untouched(self):
+        text = "---\nxreviewed: 1\n---\nreviewed: in the body\n---\n"
+        self.assertEqual(set_keys(text, {"reviewed": "2026-11-05"}),
+                         "---\nxreviewed: 1\nreviewed: 2026-11-05\n---\nreviewed: in the body\n---\n")
+
+    def test_without_closed_frontmatter_raises(self):
+        for text in ("Body\n", "---\ntitle: A\nBody\n"):
+            with self.assertRaises(ValueError):
+                set_keys(text, {"reviewed": "x"})
 
 
 if __name__ == "__main__":

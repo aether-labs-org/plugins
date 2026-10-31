@@ -135,8 +135,9 @@ vault and runs `git rm --cached` on `_index.md` and `_log.md`. Running it again 
 | `sb index --write` / `--check` | Rebuild `_index.md` deterministically; `--check` exits `1` on drift and prints the diff |
 | `sb search QUERY [--limit N] [--folder-boost FOLDER=W]` | Ranked, accent-insensitive search; `--json` gives `rel`, `name`, `title`, `folder`, `summary`, `score`, `matched`, `trust`; exits `1` with no result |
 | `sb eval --qrels FILE` | Recall@5, Recall@10 and MRR of `sb search` over a JSONL file of queries and expected notes |
-| `sb lint [--verbose]` | Run SB101–SB109; codes with more than 20 findings are summarised unless `--verbose` |
+| `sb lint [--verbose]` | Run SB101–SB112; codes with more than 20 findings are summarised unless `--verbose` |
 | `sb links NOTE [--suggest]` | Outgoing links, backlinks, unresolved links; `--suggest` lists unlinked exact title mentions |
+| `sb review NOTE` | Run by the human, never by the agent (the guard denies it): sets `reviewed: <today>` and `reviewed_hash` on a note, changing no other line |
 | `sb validate FILE...` | Fast frontmatter checks for notes under `wiki/` |
 | `sb source add TARGET` | Source id of a file, inbox note or URL (`sha256:<16 hex>` or `url:<canonical url>`) and the notes already made from it: `{source_id, kind, status: new\|seen, notes}` |
 | `sb source save SOURCE_ID --tool T --origin O` | Reads extracted Markdown on stdin, strips invisible characters and HTML comments, flags lines that look like instructions to a model (`suspicious`), writes `_raw/.converted/<id>.md` |
@@ -160,7 +161,9 @@ Exit codes: `0` ok, `1` findings, `2` usage error or not inside a vault.
 | SB107 | `schema_version` older than the CLI's (`run sb init --upgrade`) |
 | SB108 | Frontmatter unparseable, unknown enum, bad date or missing key |
 | SB109 | `source` path does not exist |
+| SB110 | Reviewed text changed since `reviewed_hash` was recorded (fails `sb lint`; review again) |
 | SB111 | Folder under `wiki/` has no `_about.md` (information; does not fail `sb lint`) |
+| SB112 | Note has `> [!agent]` blocks waiting for review (information; does not fail `sb lint`) |
 
 ```
 sb lint

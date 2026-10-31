@@ -84,3 +84,33 @@ def _value(value, number, errors):
             return []
         return [_unquote(item.strip()) for item in value[1:-1].split(",") if item.strip()]
     return value
+
+
+def set_keys(text, updates):
+    """Set scalar frontmatter keys without reformatting anything else.
+
+    The line of an existing key is replaced in place (with the block-list items under it, if
+    any); new keys are appended before the closing `---`; every other line stays byte-identical,
+    including line endings and a BOM. Raises ValueError when the text has no closed frontmatter."""
+    bom = text[:1] if text.startswith("﻿") else ""
+    lines = text[len(bom):].split("\n")
+    if lines[0].strip() != "---":
+        raise ValueError("no frontmatter")
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if end is None:
+        raise ValueError("frontmatter is not closed with ---")
+    eol = "\r" if lines[0].endswith("\r") else ""
+    head, front, tail = lines[:1], lines[1:end], lines[end:]
+    for key, value in updates.items():
+        new = "%s: %s%s" % (key, value, eol)
+        matches = [KEY_RE.match(line.rstrip("\r")) for line in front]
+        index = next((i for i, m in enumerate(matches) if m and m.group(1) == key), None)
+        if index is None:
+            front.append(new)
+            continue
+        stop = index + 1
+        if not (matches[index].group(2) or "").strip():
+            while stop < len(front) and ITEM_RE.match(front[stop].rstrip("\r")):
+                stop += 1
+        front[index:stop] = [new]
+    return bom + "\n".join(head + front + tail)
