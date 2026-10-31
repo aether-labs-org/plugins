@@ -16,9 +16,18 @@ it to remind Claude of relevant notes. Design:
 ## Install
 
 ```
+/plugin marketplace add anthropics/skills
+/plugin marketplace add kepano/obsidian-skills
 /plugin marketplace add aether-labs-org/plugins
 /plugin install second-brain@aether-labs
 ```
+
+Add the two dependency marketplaces first: installing fails with `Dependency "document-skills@anthropic-agent-skills" ... not found`
+while they are missing. The plugin declares two dependencies, which Claude Code installs with it:
+`document-skills` (the `pdf`, `docx`, `pptx` and `xlsx` skills) and `obsidian` (including `defuddle`
+for web pages). They ship no extraction tools: for formats other than Markdown install what
+`ingest` calls, `pdftotext` (poppler) for `.pdf`, `pandoc` for `.docx` and `markitdown` for
+`.pptx`/`.xlsx`, and Node (`npx defuddle`) for URLs.
 
 Requirements: Python 3.9+ (standard library only; SQLite with FTS5 for fast search, otherwise a slower
 fallback is used), `ripgrep` (`rg`) for the `ingest`, `link`, `update` and `lint` skills, `git` for
@@ -44,10 +53,10 @@ The vault is the directory where `claude` runs.
 | --- | --- | --- |
 | `init` (user-invoked only) | Creates the vault layout, `CLAUDE.md`, marker; idempotent | `/second-brain:init pt-BR` |
 | `capture` | Saves text verbatim into `_inbox/`, no organising | `/second-brain:capture read about interleaving` |
-| `ingest` | Turns an inbox item or `_raw/` source into one atomic note; updates instead of duplicating | `/second-brain:ingest` |
+| `ingest` | Turns one source (inbox clip, `_raw/` file, pdf, docx, pptx, xlsx, URL) into N atomic notes or `[!agent]` blocks, with provenance and no duplicates | `/second-brain:ingest` |
 | `find` | Answers from the vault with `sb search`, cites `[[Note]]`, labels unreviewed notes, admits gaps; also fires on implicit questions ("how did I do X again?") | `/second-brain:find spaced repetition` |
 | `link` | Proposes wikilinks and surfaces orphans; applies only approved ones | `/second-brain:link Zettelkasten` |
-| `update` | Applies a requested change keeping provenance (`created`, `source`, `origin`, `reviewed`) | `/second-brain:update Active Recall add an example` |
+| `update` | Applies a requested change keeping provenance and every trust field; on human or reviewed notes it offers an agent block or an approved edit | `/second-brain:update Active Recall add an example` |
 | `lint` | Runs `sb lint`, proposes fixes, applies none without approval | `/second-brain:lint` |
 
 ## The `sb` CLI
@@ -63,6 +72,9 @@ The vault is the directory where `claude` runs.
 | `sb lint [--verbose]` | Run SB101–SB109; codes with more than 20 findings are summarised unless `--verbose` |
 | `sb links NOTE [--suggest]` | Outgoing links, backlinks, unresolved links; `--suggest` lists unlinked exact title mentions |
 | `sb validate FILE...` | Fast frontmatter checks for notes under `wiki/` |
+| `sb source add TARGET` | Source id of a file, inbox note or URL (`sha256:<16 hex>` or `url:<canonical url>`) and the notes already made from it: `{source_id, kind, status: new\|seen, notes}` |
+| `sb source save SOURCE_ID --tool T --origin O` | Reads extracted Markdown on stdin, strips invisible characters and HTML comments, flags lines that look like instructions to a model (`suspicious`), writes `_raw/.converted/<id>.md` |
+| `sb inbox done FILE --title T` | Moves an item from `_inbox/` to `_inbox/_done/` without overwriting and logs `ingest`; the last step of `ingest` |
 | `sb log EVENT TITLE` | Append `## [date] EVENT \| TITLE` to `_log.md` (`init capture ingest update link lint`) |
 | `sb init [--language L] [--areas a,b] [--git]` | Scaffold a vault; writes `.second-brain.json` last; idempotent |
 
@@ -98,16 +110,47 @@ commands, prompts with fewer than three content words, outside a vault, and on a
 Turn it off with the `recall` plugin setting (`/plugin` → configure `recall`, or the
 `recall` user option set to `false`).
 
+## Ingest and trust
+
+`ingest` extracts a source with the dependency skills (or `pdftotext`, `pandoc`, `markitdown`,
+`npx defuddle`), pipes the Markdown through `sb source save`, then writes N notes or additions. A
+`source_id` on every note and `[!agent]` block means ingesting the same source twice (also the same
+URL with tracking parameters or a trailing slash) reports `seen` and creates nothing. The inbox item
+moves to `_inbox/_done/` only after the notes exist. Third-party text is data, never instructions.
+
+Who may write what is decided by the note's **trust tier**:
+
+| Tier | Which notes | Agent writes |
+| --- | --- | --- |
+| T0 | `origin: agent` and no `reviewed` | Free |
+| T1 | `origin` human or mixed (or missing), or `reviewed` set | Appending a `> [!agent]` block or adding `[[links]]` passes; anything else asks you |
+| T2 | `protected: true` or `status: evergreen` | Every change asks you |
+
+An addition to a T1 note is a callout at the end of the note, with exactly this header:
+
+```
+> [!agent] 2026-11-02 · sha256:ab12cd34ef56ab78
+> The added text, every line prefixed with "> ".
+```
+
+**The agent never sets `reviewed`.** The trust fields `reviewed`, `reviewed_hash`, `protected` and
+`origin` belong to you: the guard denies any agent write that changes them, requires `origin: agent`
+on every new note, and denies running `sb review` through Bash. Set `reviewed:` yourself in Obsidian
+Properties; until you do, `SB106` and the `unreviewed` label keep the note visible.
+
 ## Protection and auto-commit
 
 Four hooks, all no-ops in a directory without `.second-brain.json`:
 
 - **PreToolUse guard** denies writes to `_raw/**`, `.claude/**`, the top-level `CLAUDE.md` and
-  `.second-brain.json` (and `rm`/`mv`/`>` style Bash commands that target them), and asks before
-  deleting anything under `wiki/`. Edit the protected files yourself.
+  `.second-brain.json` (and `rm`/`mv`/`>` style Bash commands that target them), asks before
+  deleting anything under `wiki/`, and decides every `Write`/`Edit`/`MultiEdit` on a note by its
+  trust tier (see [Ingest and trust](#ingest-and-trust)). It is **fail-closed**: inside a vault an
+  internal error blocks the call (exit 2, hook `onFailure: "block"`); outside a vault it stays
+  silent. Edit the protected files yourself.
 - **UserPromptSubmit recall** adds candidate notes to the context (see [Recall](#recall)).
-- **PostToolUse check** runs the frontmatter checks on a note the agent just wrote and reports
-  problems back to it.
+- **PostToolUse check** runs the frontmatter checks on a note the agent just wrote, reports
+  problems back to it and rewrites `_index.md` when it drifted.
 - **SessionEnd auto-commit**: when the vault has a `.git`, `auto_commit` is on and there are
   changes, runs `git add -A` and commits `sb: session YYYY-MM-DD (N files)`. **One commit per
   session, local only, never pushed.** It is skipped during a merge or rebase. Turn it off in the
@@ -116,6 +159,8 @@ Four hooks, all no-ops in a directory without `.second-brain.json`:
 
 ## Limits
 
+- The trust tiers cover `Write`, `Edit` and `MultiEdit`. A Bash command that rewrites a note
+  (`python -c`, `perl -pi`) is outside the guard; git is the net.
 - Bash cannot be fully fenced: the guard is a best-effort pattern match and a determined command
   can write to `_raw/` in ways it will not see. Git is the real safety net.
 - Frontmatter is a restricted YAML subset (`key: value`, inline `[a, b]` and block `- item` lists);
@@ -138,7 +183,7 @@ Four hooks, all no-ops in a directory without `.second-brain.json`:
 | AC | Criterion | Covered by |
 | --- | --- | --- |
 | AC1 | `init` layout, idempotent, never overwrites `CLAUDE.md`, template < 200 lines | `tests/python/test_sb_init.py`, `tests/sb_structure_test.sh` |
-| AC2 | `ingest` yields a valid note, updates index and log, no duplicate | `evals/ingest-twice`, `tests/python/test_sb_cli.py` |
+| AC2 | `ingest` yields valid notes, updates index and log, no duplicate | `evals/ingest-twice`, `evals/ingest-1ton`, `tests/python/test_sb_source.py`, `tests/python/test_sb_cli.py` |
 | AC3 | `find` cites notes and admits gaps | `evals/find-trigger`, `evals/find-empty` |
 | AC4 | `lint` reports the planted broken link and missing summary | `tests/python/test_sb_fixtures.py`, `tests/python/test_sb_lint.py`, `evals/lint-planted` |
 | AC5 | A write to `_raw/` is blocked | `tests/python/test_sb_guard.py` |

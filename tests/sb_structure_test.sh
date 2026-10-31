@@ -18,7 +18,9 @@ jq -e '.plugins[] | select(.name=="second-brain") | .dependencies | map(.name+"@
 check "second-brain depends on document-skills and obsidian" $?
 jq -e '.allowCrossMarketplaceDependenciesOn | index("anthropic-agent-skills") and index("obsidian-skills")' "$mp" >/dev/null
 check "marketplace allows the two dependency marketplaces" $?
-[ "$(jq -r .version "$pj")" = "0.2.0" ]; check "plugin version 0.2.0" $?
+[ "$(jq -r .version "$pj")" = "0.2.1" ]; check "plugin version 0.2.1" $?
+jq -e '.hooks.PreToolUse[0].hooks[0].onFailure == "block"' "$p/hooks/hooks.json" >/dev/null
+check "guard hook is fail-closed (onFailure: block)" $?
 jq -e '.userConfig.auto_commit | .type == "boolean" and .default == true' "$pj" >/dev/null
 check "userConfig.auto_commit is boolean, default true" $?
 jq -e '.hooks.UserPromptSubmit' "$p/hooks/hooks.json" >/dev/null
