@@ -128,8 +128,10 @@ class AutoCommitTests(unittest.TestCase):
         self.addCleanup(lambda: (os.environ.clear(), os.environ.update(old)))
         self.assertTrue(autocommit.run(str(self.root), env={}).startswith("skipped: git commit failed"))
 
-    def test_source_never_pushes(self):
-        self.assertNotIn("push", inspect.getsource(autocommit))
+    def test_source_never_runs_git_push_itself(self):
+        source = inspect.getsource(autocommit)
+        self.assertNotIn('"push"', source)           # no git push argument of its own
+        self.assertNotIn("--force", source)
 
 
 class HookScriptTests(unittest.TestCase):

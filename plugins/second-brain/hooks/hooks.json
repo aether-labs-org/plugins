@@ -43,7 +43,7 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/autocommit.py\"",
-            "timeout": 30
+            "timeout": 60
           }
         ]
       }

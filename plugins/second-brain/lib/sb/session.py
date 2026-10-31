@@ -25,10 +25,21 @@ def _inbox_count(root):
         return 0
 
 
-def _sync_status(root, config):
+def _sync_status(root, config, session_id):
+    """Pull, then retry a pending push (also after a crashed SessionEnd). Returns the status."""
     if config.get("sync") != "squad":
         return "local"
-    return "local"          # squad pull/push arrives with sync.py (Task 5)
+    from . import sync
+
+    if not sync.enabled(root):
+        return "local (squad sync skipped: the vault is not its own git repository)"
+    result = sync.pull(root, session_id=session_id)
+    if result != "ok":
+        return result               # conflict: <files> or skipped: <why>; nothing to push over it
+    if sync.pending(root) or sync.ahead(root):
+        if sync.push(root).startswith("pending"):
+            return "push pending"
+    return "ok"
 
 
 def _heartbeat(root, session_id):
@@ -50,7 +61,7 @@ def start(event, cwd) -> Optional[dict]:
     except VaultError:
         config = {}
     _heartbeat(root, event.get("session_id"))
-    status = _sync_status(root, config)
+    status = _sync_status(root, config, str(event.get("session_id") or ""))
     notes = load_notes(root)
     try:
         if index_mod.drift(root, notes):
