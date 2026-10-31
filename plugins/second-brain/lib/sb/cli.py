@@ -104,6 +104,17 @@ def cmd_tree(args, out, err):
     return EXIT_OK
 
 
+def cmd_doctor(args, out, err):
+    from . import doctor
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    results = doctor.run(root)
+    _emit(args, out, results, doctor.render_text(results))
+    return EXIT_FINDINGS if any(r["status"] == "fail" for r in results) else EXIT_OK
+
+
 def cmd_eval(args, out, err):
     from . import evalrun
     from .search import SearchIndex
@@ -338,6 +349,9 @@ def build_parser():
     p = sub.add_parser("tree", parents=[common], help="folders under wiki/ and what they are for")
     p.add_argument("--compact", action="store_true", help="at most 2,000 characters")
     p.set_defaults(func=cmd_tree)
+
+    p = sub.add_parser("doctor", parents=[common], help="check the vault setup and explain fixes")
+    p.set_defaults(func=cmd_doctor)
 
     p = sub.add_parser("eval", parents=[common], help="Recall@k and MRR of sb search over qrels")
     p.add_argument("--qrels", required=True, help="JSONL file of queries with graded answers")
