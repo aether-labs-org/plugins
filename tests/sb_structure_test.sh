@@ -14,6 +14,10 @@ check "marketplace lists second-brain" $?
 jq -e '.plugins[] | select(.name == "second-brain") | has("version") | not' "$mp" >/dev/null
 check "marketplace entry has no version" $?
 [ "$(jq -r .name "$pj")" = "second-brain" ]; check "plugin name" $?
+jq -e '.plugins[] | select(.name=="second-brain") | .dependencies | map(.name+"@"+.marketplace) | sort == ["document-skills@anthropic-agent-skills","obsidian@obsidian-skills"]' "$mp" >/dev/null
+check "second-brain depends on document-skills and obsidian" $?
+jq -e '.allowCrossMarketplaceDependenciesOn | index("anthropic-agent-skills") and index("obsidian-skills")' "$mp" >/dev/null
+check "marketplace allows the two dependency marketplaces" $?
 [ "$(jq -r .version "$pj")" = "0.2.0" ]; check "plugin version 0.2.0" $?
 jq -e '.userConfig.auto_commit | .type == "boolean" and .default == true' "$pj" >/dev/null
 check "userConfig.auto_commit is boolean, default true" $?
