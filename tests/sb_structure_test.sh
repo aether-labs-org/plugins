@@ -17,6 +17,10 @@ check "marketplace entry has no version" $?
 [ "$(jq -r .version "$pj")" = "0.2.0" ]; check "plugin version 0.2.0" $?
 jq -e '.userConfig.auto_commit | .type == "boolean" and .default == true' "$pj" >/dev/null
 check "userConfig.auto_commit is boolean, default true" $?
+jq -e '.hooks.UserPromptSubmit' "$p/hooks/hooks.json" >/dev/null
+check "UserPromptSubmit recall hook is registered" $?
+jq -e '.userConfig.recall.default == true' "$pj" >/dev/null
+check "userConfig.recall defaults to true" $?
 [ ! -e "$p/.mcp.json" ]; check "no .mcp.json (AC9)" $?
 ! grep -rEqi 'sentence[_-]transformers|ollama|faiss|chromadb|onnxruntime|openai' "$p/lib" "$p/bin" "$p/hooks" 2>/dev/null
 check "no embedding/vector dependencies (AC9)" $?
