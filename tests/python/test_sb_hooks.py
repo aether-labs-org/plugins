@@ -31,6 +31,25 @@ class PostCheckTests(unittest.TestCase):
         self.assertIn("SB102", context)
         self.assertIn("wiki/Resources/Bad.md", context)
 
+    def test_postcheck_regenerates_index(self):
+        from sb import index
+        from sb.vault import load_notes
+        new = self.root / "wiki" / "Resources" / "New.md"
+        new.write_text(note("New", summary="Brand new."), encoding="utf-8")
+        self.assertNotEqual(index.drift(self.root, load_notes(self.root)), "")
+        check(self.event(str(new)), str(self.root))
+        self.assertEqual(index.drift(self.root, load_notes(self.root)), "")
+        self.assertIn("[[New]]: Brand new.", (self.root / "_index.md").read_text(encoding="utf-8"))
+
+    def test_postcheck_ignores_non_notes(self):
+        about = self.root / "wiki" / "Resources" / "_about.md"
+        about.write_text("---\ndescription: x\n---\n", encoding="utf-8")
+        (self.root / "wiki" / "Resources" / "New.md").write_text(note("New"), encoding="utf-8")
+        before = (self.root / "_index.md").read_text(encoding="utf-8")
+        self.assertIsNone(check(self.event(str(about)), str(self.root)))
+        self.assertIsNone(check(self.event("_inbox/x.md"), str(self.root)))
+        self.assertEqual((self.root / "_index.md").read_text(encoding="utf-8"), before)
+
     def test_silent_for_valid_notes_other_files_and_non_vaults(self):
         self.assertIsNone(check(self.event("wiki/Resources/A.md"), str(self.root)))
         self.assertIsNone(check(self.event("_inbox/x.md"), str(self.root)))
