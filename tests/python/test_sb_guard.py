@@ -221,6 +221,29 @@ class NoteGuardTests(unittest.TestCase):
         self.assertEqual(self.kind("Edit", "wiki/Resources/E.md", old_string="perene",
                                    new_string="[[perene]]"), "ask")
 
+    def protect_folder(self, folder="Areas"):
+        about = self.vault / "wiki" / folder / "_about.md"
+        about.parent.mkdir(parents=True, exist_ok=True)
+        about.write_text("---\ndescription: Mine.\nprotected: true\n---\n", encoding="utf-8")
+
+    def test_folder_protected_note_asks(self):
+        self.protect_folder()
+        path = self.vault / "wiki" / "Areas" / "Saude" / "G.md"
+        path.parent.mkdir(parents=True)
+        path.write_text(AGENT, encoding="utf-8")        # an unreviewed agent note: T0 elsewhere
+        out = self.kind("Write", "wiki/Areas/Saude/G.md", content=AGENT.replace("agente", "x"))
+        self.assertEqual(out, "ask")
+        self.assertIn("protected", self.reason("Write", "wiki/Areas/Saude/G.md",
+                                               content=AGENT.replace("agente", "x")))
+        self.assertEqual(self.kind("Write", "wiki/Resources/G.md",
+                                   content=AGENT.replace("agente", "x")), "allow")
+
+    def test_new_note_in_protected_folder_asks(self):
+        self.protect_folder()
+        self.assertEqual(self.kind("Write", "wiki/Areas/N.md", content=AGENT), "ask")
+        self.assertEqual(self.kind("Write", "wiki/Areas/N.md", content=note("N", origin="human")),
+                         "deny")
+
     # simulation
     def test_unsimulatable_edit_is_allowed(self):
         self.assertIsNone(self.decide("Edit", "wiki/Resources/H.md",

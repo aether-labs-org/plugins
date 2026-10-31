@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from datetime import date
 
 from . import index as index_mod
+from . import tree
 from .links import extract, is_asset, target_name
 from .vault import SCHEMA_VERSION, asset_names, load_notes
 
@@ -14,6 +15,7 @@ ENUMS = {
     "status": {"seed", "draft", "evergreen"},
     "origin": {"agent", "human", "mixed"},
 }
+INFO_CODES = {"SB111"}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -122,6 +124,10 @@ def lint(root, config):
     if index_mod.drift(root, notes):
         findings.append(Finding("SB105", "_index.md", 1,
                                 "_index.md is out of sync; run `sb index --write`"))
+    for _, folder in tree.flatten(tree.load(root)):
+        if not (root / "wiki" / folder["path"] / "_about.md").is_file():
+            findings.append(Finding("SB111", "wiki/%s" % folder["path"], 1,
+                                    "folder has no _about.md"))
     try:
         version = int(config.get("schema_version", 0))
     except (TypeError, ValueError):

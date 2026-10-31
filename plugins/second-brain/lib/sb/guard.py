@@ -14,6 +14,7 @@ import shlex
 from pathlib import Path
 
 from .frontmatter import parse
+from .tree import folder_protected
 from .trust import append_only, link_only, norm, tier, trust_key_lines, trust_fields_changed_text
 from .vault import find_vault, is_note_rel
 
@@ -122,12 +123,14 @@ def _decide_note(vault, tool, tool_input, rel):
         lines = trust_key_lines(new)
         if any(lines[f] for f in lines if f != "origin") or len(lines["origin"]) != 1:
             return _decision("deny", TRUST_REASON)
+        if folder_protected(vault, rel):
+            return _decision("ask", T2_REASON % rel)
         return None
     if trust_fields_changed_text(current, new):
         return _decision("deny", TRUST_REASON)
     if new == current:
         return None
-    level = tier(parse(current).data)
+    level = tier(parse(current).data, folder_protected(vault, rel))
     if level == "T0":
         return None
     if level == "T1":

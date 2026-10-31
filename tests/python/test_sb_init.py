@@ -7,7 +7,7 @@ from unittest import mock
 
 import sb_helpers  # noqa: F401
 from sb import init
-from sb.lint import lint
+from sb.lint import INFO_CODES, lint
 from sb.vault import MARKER, load_config
 
 
@@ -29,7 +29,7 @@ class InitTests(unittest.TestCase):
                          {"schema_version": 1, "language": "pt-BR", "areas": ["Saúde", "Finanças"]})
         self.assertIn("pt-BR", (self.root / "CLAUDE.md").read_text(encoding="utf-8"))
         self.assertIn("init | vault created", (self.root / "_log.md").read_text(encoding="utf-8"))
-        self.assertEqual(lint(self.root, load_config(self.root)), [])
+        self.assertEqual([f for f in lint(self.root, load_config(self.root)) if f.code not in INFO_CODES], [])
 
     def test_vault_claude_md_is_under_200_lines(self):
         init.run(self.root)

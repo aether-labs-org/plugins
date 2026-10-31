@@ -8,7 +8,7 @@ from pathlib import Path
 from . import index as index_mod
 from . import logfile
 from .fsutil import write_atomic
-from .lint import check_note, lint as run_lint, render_text
+from .lint import INFO_CODES, check_note, lint as run_lint, render_text
 from .links import WIKILINK, extract, prose_lines, target_name
 from .vault import MARKER, VaultError, find_vault, load_config, load_note, load_notes
 
@@ -63,7 +63,7 @@ def cmd_lint(args, out, err):
         return EXIT_USAGE
     findings = run_lint(root, config)
     _emit(args, out, [f.as_dict() for f in findings], render_text(findings, args.verbose))
-    return EXIT_FINDINGS if findings else EXIT_OK
+    return EXIT_FINDINGS if any(f.code not in INFO_CODES for f in findings) else EXIT_OK
 
 
 def cmd_search(args, out, err):
@@ -86,6 +86,21 @@ def cmd_search(args, out, err):
     text = "\n".join("%s  [%s]  %s" % (r["rel"], r["trust"], r["summary"]) for r in results)
     _emit(args, out, results, text)
     return EXIT_OK if results else EXIT_FINDINGS
+
+
+def cmd_tree(args, out, err):
+    from . import tree
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    folders = tree.load(root)
+    if args.compact:
+        text = tree.render_compact(folders)
+    else:
+        text = tree.render_compact(folders, limit=None)
+    _emit(args, out, folders, text)
+    return EXIT_OK
 
 
 def cmd_eval(args, out, err):
@@ -288,6 +303,10 @@ def build_parser():
     p.add_argument("--folder-boost", action="append", default=[], metavar="FOLDER=WEIGHT",
                    help="raise the score of notes under FOLDER by WEIGHT (repeatable)")
     p.set_defaults(func=cmd_search)
+
+    p = sub.add_parser("tree", parents=[common], help="folders under wiki/ and what they are for")
+    p.add_argument("--compact", action="store_true", help="at most 2,000 characters")
+    p.set_defaults(func=cmd_tree)
 
     p = sub.add_parser("eval", parents=[common], help="Recall@k and MRR of sb search over qrels")
     p.add_argument("--qrels", required=True, help="JSONL file of queries with graded answers")

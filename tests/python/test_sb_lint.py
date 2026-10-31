@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from sb_helpers import make_vault, note
-from sb.lint import Finding, lint, render_text
+from sb.lint import INFO_CODES, Finding, lint, render_text
 from sb.vault import load_config
 
 PAIR = {
@@ -30,7 +30,7 @@ class LintTests(unittest.TestCase):
         return [f.code for f in findings if path is None or f.path == path]
 
     def test_clean_vault_has_no_findings(self):
-        self.assertEqual(run(self.vault()), [])
+        self.assertEqual([f for f in run(self.vault()) if f.code not in INFO_CODES], [])
 
     def test_sb101_broken_link_reports_the_body_line(self):
         root = self.vault({"Resources/C.md": note("C", body="x\n[[Missing]] and [[A]]")})
