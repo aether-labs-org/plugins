@@ -1,0 +1,65 @@
+"""SessionStart: folder tree and vault status for the model, heartbeat for `sb doctor` (spec 6.2)."""
+import json
+import re
+from datetime import datetime
+from typing import Optional
+
+from . import index as index_mod
+from . import tree
+from .fsutil import write_atomic
+from .sanitize import clean_inline
+from .trust import label
+from .vault import VaultError, find_vault, load_config, load_notes
+
+TAG_RE = re.compile(r"<(/?\s*second-brain-vault)", re.IGNORECASE)
+HEADER = ("<second-brain-vault>\n"
+          "Folders under wiki/ (from _about.md; follow their conventions when filing notes):\n")
+FOOTER = "</second-brain-vault>"
+
+
+def _inbox_count(root):
+    inbox = root / "_inbox"
+    try:
+        return sum(1 for p in inbox.iterdir() if p.is_file() and not p.name.startswith((".", "_")))
+    except OSError:
+        return 0
+
+
+def _sync_status(root, config):
+    if config.get("sync") != "squad":
+        return "local"
+    return "local"          # squad pull/push arrives with sync.py (Task 5)
+
+
+def _heartbeat(root, session_id):
+    try:
+        (root / ".sb").mkdir(exist_ok=True)
+        beat = {"session_start": datetime.now().replace(microsecond=0).isoformat(),
+                "session_id": str(session_id or "")}
+        write_atomic(root / ".sb" / "heartbeat.json", json.dumps(beat) + "\n")
+    except OSError:
+        pass
+
+
+def start(event, cwd) -> Optional[dict]:
+    root = find_vault(event.get("cwd") or cwd)
+    if root is None:
+        return None
+    try:
+        config = load_config(root)
+    except VaultError:
+        config = {}
+    _heartbeat(root, event.get("session_id"))
+    status = _sync_status(root, config)
+    notes = load_notes(root)
+    try:
+        if index_mod.drift(root, notes):
+            write_atomic(root / "_index.md", index_mod.build(notes))
+    except OSError:
+        pass
+    unreviewed = sum(1 for n in notes if label(n.data, n.body) == "unreviewed")
+    compact = tree.render_compact(tree.load(root)) or "(no folders yet)"
+    compact = TAG_RE.sub(r"‹\1", compact)
+    text = "%s%s\nStatus: inbox %d · unreviewed %d · sync %s\n%s" % (
+        HEADER, compact, _inbox_count(root), unreviewed, clean_inline(status, 300), FOOTER)
+    return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}

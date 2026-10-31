@@ -186,9 +186,9 @@ class HookScriptTests(unittest.TestCase):
         done = self.run_script("autocommit.py", "{}", tempfile.gettempdir())
         self.assertEqual(done.returncode, 0)
 
-    def test_hooks_json_wires_the_four_events(self):
+    def test_hooks_json_wires_the_five_events(self):
         spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-        self.assertEqual(sorted(spec), ["PostToolUse", "PreToolUse", "SessionEnd", "UserPromptSubmit"])
+        self.assertEqual(sorted(spec), ["PostToolUse", "PreToolUse", "SessionEnd", "SessionStart", "UserPromptSubmit"])
         self.assertEqual(spec["PreToolUse"][0]["matcher"], "Write|Edit|MultiEdit|NotebookEdit|Bash")
         self.assertEqual(spec["PostToolUse"][0]["matcher"], "Write|Edit|MultiEdit")
         self.assertNotIn("matcher", spec["SessionEnd"][0])
