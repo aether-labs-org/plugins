@@ -21,5 +21,8 @@ Links are claims about how ideas relate. Propose; the human decides.
 3. Present a short table: source note, candidate target, the sentence/line, why it relates.
 4. Apply only the links the user approves, with `Edit`. Link text must use the target's exact
    name: `[[Name]]`. Never link to a note that does not exist and never create stub notes.
+   Wrap existing words in `[[ ]]` and change nothing else: such link-only edits pass the guard
+   without a prompt on human and reviewed notes; protected notes still ask. Never touch
+   `origin`, `reviewed`, `reviewed_hash` or `protected`.
 5. For an orphan, say which existing notes could link to it; do not invent a parent.
 6. Run `sb validate` on each edited note, then `sb log link "<note>"`.

@@ -25,5 +25,5 @@ allowed-tools: Read Edit Grep Glob Bash(sb *) Bash(rg *)
 5. Contradictions: after the deterministic pass, you may compare notes that share topics (use
    summaries from `_index.md`) and report conflicting claims. Label that section **suggestion, not
    verified** and quote both notes. Never edit notes to resolve a contradiction yourself.
-6. `SB106` is cleared only by the human adding `reviewed: <date>`; offer to do it when they confirm
-   they reviewed the note.
+6. `SB106` is cleared by the human setting `reviewed:` in Obsidian Properties; never write it
+   yourself (the guard blocks it).
