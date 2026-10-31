@@ -14,7 +14,7 @@ check "marketplace lists second-brain" $?
 jq -e '.plugins[] | select(.name == "second-brain") | has("version") | not' "$mp" >/dev/null
 check "marketplace entry has no version" $?
 [ "$(jq -r .name "$pj")" = "second-brain" ]; check "plugin name" $?
-[ "$(jq -r .version "$pj")" = "0.1.0" ]; check "plugin version 0.1.0" $?
+[ "$(jq -r .version "$pj")" = "0.2.0" ]; check "plugin version 0.2.0" $?
 jq -e '.userConfig.auto_commit | .type == "boolean" and .default == true' "$pj" >/dev/null
 check "userConfig.auto_commit is boolean, default true" $?
 [ ! -e "$p/.mcp.json" ]; check "no .mcp.json (AC9)" $?

@@ -131,16 +131,34 @@ class HookScriptTests(unittest.TestCase):
         done = self.run_script("validate_note.py", "garbage", tempfile.gettempdir())
         self.assertEqual((done.returncode, done.stdout), (0, ""))
 
+    def test_recall_hook_entry_point_is_silent_on_garbage(self):
+        done = self.run_script("recall.py", "not json", tempfile.gettempdir())
+        self.assertEqual((done.returncode, done.stdout), (0, ""))
+
+    def test_recall_hook_entry_point_outputs_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp, {"Resources/Quokka.md": note("Quokka", body="wombat marsupiais")})
+            event = json.dumps({"cwd": str(root), "prompt": "o que sei sobre quokka wombat?"})
+            done = self.run_script("recall.py", event, root)
+            off = self.run_script("recall.py", event, root,
+                                  env=dict(os.environ, CLAUDE_PLUGIN_OPTION_RECALL="false"))
+        self.assertEqual(done.returncode, 0)
+        out = json.loads(done.stdout)["hookSpecificOutput"]
+        self.assertEqual(out["hookEventName"], "UserPromptSubmit")
+        self.assertIn("[[Quokka]]", out["additionalContext"])
+        self.assertEqual((off.returncode, off.stdout), (0, ""))
+
     def test_autocommit_script_always_exits_zero(self):
         done = self.run_script("autocommit.py", "{}", tempfile.gettempdir())
         self.assertEqual(done.returncode, 0)
 
-    def test_hooks_json_wires_the_three_events(self):
+    def test_hooks_json_wires_the_four_events(self):
         spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-        self.assertEqual(sorted(spec), ["PostToolUse", "PreToolUse", "SessionEnd"])
+        self.assertEqual(sorted(spec), ["PostToolUse", "PreToolUse", "SessionEnd", "UserPromptSubmit"])
         self.assertEqual(spec["PreToolUse"][0]["matcher"], "Write|Edit|MultiEdit|NotebookEdit|Bash")
         self.assertEqual(spec["PostToolUse"][0]["matcher"], "Write|Edit|MultiEdit")
         self.assertNotIn("matcher", spec["SessionEnd"][0])
+        self.assertNotIn("matcher", spec["UserPromptSubmit"][0])
         for event in spec.values():
             for hook in event[0]["hooks"]:
                 self.assertIn("${CLAUDE_PLUGIN_ROOT}/hooks/", hook["command"])
