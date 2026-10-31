@@ -1,9 +1,11 @@
+import json
+import shutil
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
-from sb_helpers import PLUGIN, make_vault, note
+from sb_helpers import PLUGIN, ROOT, make_vault, note
 from sb.recall import MAX_CHARS, build, render
 
 FIXTURE_NOTES = PLUGIN / "evals" / "_fixtures" / "notes"
@@ -97,6 +99,34 @@ class RecallTests(unittest.TestCase):
         out = build({"prompt": prompt}, str(self.root), {})
         self.assertIsNotNone(out)
         self.assertLess(time.monotonic() - start, 1.0)
+
+
+class FixtureCalibrationTests(unittest.TestCase):
+    """SCORE_FLOOR is calibrated on the sb-eval fixture (spec 4.3, plan A task 7)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = self.tmp.name + "/vault"
+        shutil.copytree(str(ROOT / "tests" / "fixtures" / "sb-eval" / "vault"), self.root)
+        with open(str(ROOT / "tests" / "fixtures" / "sb-eval" / "qrels.jsonl"), encoding="utf-8") as f:
+            self.qrels = [json.loads(line) for line in f if line.strip()]
+
+    def injected(self, prompt):
+        out = build({"prompt": prompt, "cwd": self.root}, self.root, {})
+        if out is None:
+            return []
+        text = out["hookSpecificOutput"]["additionalContext"]
+        return [line[len("- [["):].split("]]")[0] for line in text.splitlines() if line.startswith("- [[")]
+
+    def test_negatives_do_not_inject(self):
+        for row in (r for r in self.qrels if r["type"] == "negative"):
+            self.assertEqual(self.injected(row["query"]), [], row["id"])
+
+    def test_implicit_queries_inject(self):
+        for row in (r for r in self.qrels if r["type"] == "implicit"):
+            wanted = {name for name, grade in row["relevant"].items() if grade == 2}
+            self.assertTrue(wanted <= set(self.injected(row["query"])), row["id"])
 
 
 if __name__ == "__main__":

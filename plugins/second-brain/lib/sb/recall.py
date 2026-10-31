@@ -12,7 +12,12 @@ from .vault import find_vault, load_note
 LIMIT = 5
 MAX_CHARS = 2000
 MIN_TOKENS = 3
-SCORE_FLOOR = 0.0       # calibrated against tests/fixtures/sb-eval in Task 7
+# Calibrated with `sb eval` on tests/fixtures/sb-eval (59 notes): the six negative queries reach a
+# top score of at most 13.28 and every one of them has matched == 1, so the matched >= 2 / phrase
+# rule already keeps them out at a floor of 0.0; the weakest note an implicit query must inject
+# scores 22.48. The smallest floor that satisfies both is therefore 0.0. Scores are absolute BM25
+# sums that grow with vault size, so a higher floor would silence small vaults.
+SCORE_FLOOR = 0.0
 PROMPT_CHARS = 20000    # the rest of a pasted wall of text is never read
 MIN_PHRASE_CHARS = 4    # a title/alias shorter than this is too ambiguous to match as a phrase
 OFF_VALUES = ("false", "0", "no", "off")

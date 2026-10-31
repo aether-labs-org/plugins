@@ -88,6 +88,23 @@ def cmd_search(args, out, err):
     return EXIT_OK if results else EXIT_FINDINGS
 
 
+def cmd_eval(args, out, err):
+    from . import evalrun
+    from .search import SearchIndex
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    try:
+        qrels = evalrun.load_qrels(args.qrels)
+    except (OSError, ValueError) as exc:
+        print("sb: %s" % exc, file=err)
+        return EXIT_USAGE
+    result = evalrun.evaluate(SearchIndex(root), qrels)
+    _emit(args, out, result, evalrun.render_table(result))
+    return EXIT_OK
+
+
 def cmd_validate(args, out, err):
     root = _vault(args, err)
     if root is None:
@@ -212,6 +229,10 @@ def build_parser():
     p.add_argument("--folder-boost", action="append", default=[], metavar="FOLDER=WEIGHT",
                    help="raise the score of notes under FOLDER by WEIGHT (repeatable)")
     p.set_defaults(func=cmd_search)
+
+    p = sub.add_parser("eval", parents=[common], help="Recall@k and MRR of sb search over qrels")
+    p.add_argument("--qrels", required=True, help="JSONL file of queries with graded answers")
+    p.set_defaults(func=cmd_eval)
 
     p = sub.add_parser("links", parents=[common], help="links and backlinks of a note")
     p.add_argument("note", help="note name or path")

@@ -1,0 +1,40 @@
+{"id": "lex-01", "type": "lexical", "query": "circuit breaker open half-open state", "relevant": {"Circuit Breaker Pattern": 2}}
+{"id": "lex-02", "type": "lexical", "query": "consistent hashing virtual nodes", "relevant": {"Consistent Hashing": 2}}
+{"id": "lex-03", "type": "lexical", "query": "terraform state lock dynamodb", "relevant": {"Terraform State Locking": 2}}
+{"id": "lex-04", "type": "lexical", "query": "pod disruption budget voluntary evictions", "relevant": {"Kubernetes Pod Disruption Budgets": 2}}
+{"id": "lex-05", "type": "lexical", "query": "bloom filter false positives", "relevant": {"Bloom Filters": 2}}
+{"id": "lex-06", "type": "lexical", "query": "raft leader election term", "relevant": {"Raft Consensus": 2}}
+{"id": "lex-07", "type": "lexical", "query": "dead letter queue poison messages", "relevant": {"Dead Letter Queues": 2}}
+{"id": "lex-08", "type": "lexical", "query": "event sourcing append-only event store replay", "relevant": {"Event Sourcing": 2, "CQRS": 1}}
+{"id": "lex-09", "type": "lexical", "query": "pomodoro 25 minutes break", "relevant": {"Pomodoro Technique": 2}}
+{"id": "lex-10", "type": "lexical", "query": "postgres btree gin index", "relevant": {"Postgres Index Types": 2}}
+{"id": "lex-11", "type": "lexical", "query": "idempotency key duplicate payment requests", "relevant": {"Idempotency Keys": 2, "Payment Gateway Integration": 1}}
+{"id": "lex-12", "type": "lexical", "query": "feynman technique explain simply", "relevant": {"Feynman Technique": 2}}
+{"id": "acc-01", "type": "accent", "query": "reserva de emergencia", "relevant": {"Reserva de Emergência": 2}}
+{"id": "acc-02", "type": "accent", "query": "inflacao selic", "relevant": {"Inflação e Taxa Selic": 2}}
+{"id": "acc-03", "type": "accent", "query": "orcamento base zero", "relevant": {"Orçamento Base Zero": 2, "Planilha de Gastos Antiga": 1}}
+{"id": "acc-04", "type": "accent", "query": "saude e sono", "relevant": {"Saúde e Sono": 2}}
+{"id": "acc-05", "type": "accent", "query": "migracao kubernetes", "relevant": {"Migração para Kubernetes": 2, "Notas de Docker Swarm": 1}}
+{"id": "acc-06", "type": "accent", "query": "metodo cornell anotacoes", "relevant": {"Método Cornell de Anotações": 2}}
+{"id": "acc-07", "type": "accent", "query": "lições sobre funções e classes", "relevant": {"Curso de Python 2019": 2}}
+{"id": "acc-08", "type": "accent", "query": "rotina de exercicios", "relevant": {"Rotina de Exercícios": 2}}
+{"id": "ali-01", "type": "alias", "query": "SRS", "relevant": {"Spaced Repetition": 2}}
+{"id": "ali-02", "type": "alias", "query": "retrieval practice", "relevant": {"Active Recall": 2}}
+{"id": "ali-03", "type": "alias", "query": "ports and adapters", "relevant": {"Hexagonal Architecture": 2}}
+{"id": "ali-04", "type": "alias", "query": "PKCE", "relevant": {"OAuth2 Public Client Flow": 2}}
+{"id": "ali-05", "type": "alias", "query": "homelab", "relevant": {"Home Lab": 2}}
+{"id": "ali-06", "type": "alias", "query": "certificação AWS", "relevant": {"Plano de Estudos AWS SAA": 2}}
+{"id": "ali-07", "type": "alias", "query": "títulos públicos", "relevant": {"Tesouro Direto": 2}}
+{"id": "ali-08", "type": "alias", "query": "curva de Ebbinghaus", "relevant": {"Curva do Esquecimento": 2}}
+{"id": "imp-01", "type": "implicit", "query": "Qual era mesmo a curva do esquecimento e quanto a gente perde depois de um dia?", "relevant": {"Curva do Esquecimento": 2, "Spaced Repetition": 1}}
+{"id": "imp-02", "type": "implicit", "query": "How did I set up retries so a failing service does not get hammered again and again?", "relevant": {"Exponential Backoff with Jitter": 2, "Circuit Breaker Pattern": 1}}
+{"id": "imp-03", "type": "implicit", "query": "Aquele método de anotar em colunas com um resumo no rodapé, como é mesmo?", "relevant": {"Método Cornell de Anotações": 2}}
+{"id": "imp-04", "type": "implicit", "query": "What was that trick where you explain a concept like to a child to find gaps in understanding?", "relevant": {"Feynman Technique": 2}}
+{"id": "imp-05", "type": "implicit", "query": "Quantos meses de gastos eu deveria guardar para imprevistos?", "relevant": {"Reserva de Emergência": 2, "Finanças Pessoais": 1}}
+{"id": "imp-06", "type": "implicit", "query": "How do we make sure two people running terraform at the same time do not corrupt the state?", "relevant": {"Terraform State Locking": 2}}
+{"id": "neg-01", "type": "negative", "query": "como configurar proxy reverso nginx com timeout", "relevant": {}}
+{"id": "neg-02", "type": "negative", "query": "previsão do tempo amanhã em Curitiba", "relevant": {}}
+{"id": "neg-03", "type": "negative", "query": "how to train a convolutional neural network for image segmentation", "relevant": {}}
+{"id": "neg-04", "type": "negative", "query": "resultado do jogo de ontem do campeonato brasileiro", "relevant": {}}
+{"id": "neg-05", "type": "negative", "query": "configure webpack code splitting for react", "relevant": {}}
+{"id": "neg-06", "type": "negative", "query": "quantas calorias tem um pão francês", "relevant": {}}
