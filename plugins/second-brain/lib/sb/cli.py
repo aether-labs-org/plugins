@@ -66,6 +66,28 @@ def cmd_lint(args, out, err):
     return EXIT_FINDINGS if findings else EXIT_OK
 
 
+def cmd_search(args, out, err):
+    from .search import SearchIndex
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    boost = {}
+    for spec in args.folder_boost:
+        folder, _, weight = spec.rpartition("=")
+        try:
+            boost[folder.strip("/")] = float(weight)
+        except ValueError:
+            folder = ""
+        if not folder:
+            print("sb: --folder-boost expects FOLDER=WEIGHT, got %r" % spec, file=err)
+            return EXIT_USAGE
+    results = SearchIndex(root).search(args.query, limit=args.limit, folder_boost=boost or None)
+    text = "\n".join("%s  [%s]  %s" % (r["rel"], r["trust"], r["summary"]) for r in results)
+    _emit(args, out, results, text)
+    return EXIT_OK if results else EXIT_FINDINGS
+
+
 def cmd_validate(args, out, err):
     root = _vault(args, err)
     if root is None:
@@ -183,6 +205,13 @@ def build_parser():
     p = sub.add_parser("lint", parents=[common], help="run the lint rules")
     p.add_argument("--verbose", action="store_true", help="one line per finding, never grouped")
     p.set_defaults(func=cmd_lint)
+
+    p = sub.add_parser("search", parents=[common], help="ranked, accent-insensitive note search")
+    p.add_argument("query")
+    p.add_argument("--limit", type=int, default=10)
+    p.add_argument("--folder-boost", action="append", default=[], metavar="FOLDER=WEIGHT",
+                   help="raise the score of notes under FOLDER by WEIGHT (repeatable)")
+    p.set_defaults(func=cmd_search)
 
     p = sub.add_parser("links", parents=[common], help="links and backlinks of a note")
     p.add_argument("note", help="note name or path")
