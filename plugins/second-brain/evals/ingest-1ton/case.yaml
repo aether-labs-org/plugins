@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: ingest-1ton
+description: One clipped inbox note with three ideas becomes two new notes; the protected note is untouched; ingesting the same source again creates nothing.
+tags: [ingest, guard]
+context:
+  scaffold_script: scaffold.sh
