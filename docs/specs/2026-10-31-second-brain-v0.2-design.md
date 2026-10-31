@@ -87,6 +87,7 @@ spec; the plans may revisit it with evidence.
 | D30 | Squad pull never uses `--autostash`: a dirty tree is first committed (`sb: local changes before sync`), then `git pull --rebase`; on any failure `git rebase --abort` and report. Nothing is left in the stash. | builder |
 | D31 | Dependency identifiers: `document-skills` in marketplace `anthropic-agent-skills` (repo `anthropics/skills`) and `obsidian` in marketplace `obsidian-skills` (repo `kepano/obsidian-skills`); unversioned, since neither repo tags releases. The companion lives at `aether-labs-org/second-brain-companion`; the user creates the GitHub repository, the plan creates the local one. Plan D covers the Python side and the TypeScript plugin. | builder |
 | D32 | A vault is always its own repository: vault root = git top-level = where `claude` runs (v0.1 D3). `sb init` refuses a target inside another git work tree; `sb doctor` fails when the git top-level differs from the vault root, and squad sync is skipped in that case. | decided |
+| D33 | Bash writes to notes under wiki/ are denied in every tier; notes are written only with Write/Edit/MultiEdit. Interpreter one-liners (python -c, node -e) remain an accepted risk until v0.3. | decided |
 
 ## 4. Milestone A — search and recall (v0.2.0)
 
@@ -220,6 +221,15 @@ and Node to be installed. `sb doctor` (milestone C) checks each and prints the i
 6. Reasons name the tier and what to do ("append a `> [!agent]` block instead").
 7. Bash: a segment whose program is `sb` (or a path ending in `/bin/sb`) with subcommand
    `review` is denied (D28).
+8. Bash (D33): a command that writes a note (`wiki/**.md` accepted by `is_note_rel`) is denied in
+   every tier, T0 included, with the reason "Notes under wiki/ are written only with the
+   Write/Edit tools, where the guard checks trust tiers. Use Edit to append a `> [!agent]` block
+   instead of shell redirection." Detected: output redirections (`>`, `>>`, `&>`, `N>`; targets
+   resolved through earlier `NAME=value` assignments, `for` loops and `cd`), `tee`, `sed -i`,
+   `perl -i`, `cp`/`install`/`rsync` destinations, `mv`/`ln` with a note as source or destination,
+   `truncate`, `touch`, `dd of=`, and globs that can match notes; `bash -c` bodies and `$(...)`
+   are inspected. Deleting under `wiki/` stays an `ask` (v0.1). Not covered: interpreter
+   one-liners (`python -c`, `node -e`), `xargs`/`find -exec` and unresolved variables.
 
 `hooks/hooks.json` sets `"onFailure": "block"` on the guard; `hooks/guard.py` exits 2 with the
 error on stderr if anything fails **inside a vault**, and 0 outside one.

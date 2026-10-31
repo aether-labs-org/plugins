@@ -196,6 +196,8 @@ def test_guard_hook_is_silent_outside_a_vault(self):
 - [ ] **Step 4: Run** the tests, then `claude plugin validate ./plugins/second-brain --strict` — Expected: PASS.
 - [ ] **Step 5: Checkpoint.**
 
+> **Addendum (2026-10-31): Bash note writes denied (D33).** A Haiku run appended to an evergreen note with `>> "$f"`, which the tier checks above never saw. The guard now denies any detectable Bash write to a note under `wiki/` in every tier (redirections, `tee`, `sed -i`, `perl -i`, `cp`/`install`/`rsync` destinations, `mv`/`ln`, `truncate`, `touch`, `dd of=`, globs; variables, `for` loops and `cd` are followed). Deletion stays `ask`. Tests: `BashNoteWriteTests` in `test_sb_guard.py`. Interpreter one-liners remain an accepted risk until v0.3.
+
 ---
 
 ### Task 4: `sb source` and `sb inbox done`

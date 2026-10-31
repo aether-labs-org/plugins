@@ -1,7 +1,6 @@
 ---
 type: regex
-pattern: '^wiki/.*\.md$'
+pattern: '^wiki/(?!Resources/(?:Active Recall|Spaced Repetition|Zettelkasten)\.md$).*\.md$'
 flags: m
 target: files
-match: "count:2"
 ---

@@ -290,6 +290,167 @@ class NoteGuardTests(unittest.TestCase):
             self.assertEqual(self.bash(command), "allow", command)
 
 
+NOTE_WRITE_REASON = ('Notes under wiki/ are written only with the Write/Edit tools, where the guard '
+                     'checks trust tiers. Use Edit to append a "> [!agent]" block instead of shell '
+                     'redirection.')
+
+
+class BashNoteWriteTests(unittest.TestCase):
+    """D33: any detectable Bash write to a note under wiki/ is denied, in every tier."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = make_vault(self.tmp.name, {
+            "Resources/A.md": note("A", origin="human"),
+            "Resources/Active Recall.md": note("Active Recall", origin="human", status="evergreen"),
+            "Resources/G.md": note("G", origin="agent"),
+            "Resources/_about.md": "folder notes\n",
+        })
+        self.vault = self.root.resolve()
+        self.sub = self.vault / "wiki" / "Resources"
+
+    def result(self, command, cwd=None):
+        out = decide({"tool_name": "Bash", "tool_input": {"command": command}},
+                     str(cwd or self.vault))
+        return out["hookSpecificOutput"] if out else None
+
+    def bash(self, command, cwd=None):
+        out = self.result(command, cwd)
+        return out["permissionDecision"] if out else "allow"
+
+    def assertDenied(self, commands, cwd=None):
+        for command in commands:
+            self.assertEqual(self.bash(command, cwd), "deny", command)
+            self.assertEqual(self.result(command, cwd)["permissionDecisionReason"],
+                             NOTE_WRITE_REASON, command)
+
+    def assertAllowed(self, commands, cwd=None):
+        for command in commands:
+            self.assertEqual(self.bash(command, cwd), "allow", command)
+
+    def test_observed_haiku_bypass_is_denied(self):
+        command = ('f="wiki/Resources/Active Recall.md" && [ -n "$(tail -c1 "$f")" ] && echo >> "$f"; '
+                   "printf '\\n> [!agent] 2026-11-02 · url:https://x.org/a\\n> Novo fato.\\n' >> \"$f\"")
+        self.assertDenied([command])
+
+    def test_reason_is_the_exact_text(self):
+        self.assertEqual(self.result("echo x >> wiki/Resources/A.md")["permissionDecisionReason"],
+                         NOTE_WRITE_REASON)
+
+    def test_output_redirections_are_denied(self):
+        self.assertDenied([
+            "echo x > wiki/Resources/A.md", "echo x >> wiki/Resources/A.md",
+            "echo x &> wiki/Resources/A.md", "echo x &>> wiki/Resources/A.md",
+            "echo x 2> wiki/Resources/A.md", "echo x 1>> wiki/Resources/A.md",
+            "echo x >| wiki/Resources/A.md", "echo x>wiki/Resources/A.md",
+            "echo x >>wiki/Resources/A.md", "echo x 2>&1 >> wiki/Resources/A.md",
+            "echo x > wiki/Resources/New.md", "echo x > 'wiki/Resources/Active Recall.md'",
+            "echo x > wiki/Resources/G.md", "echo x > ./wiki/../wiki/Resources/A.md",
+            "echo x > " + str(self.vault / "wiki/Resources/A.md"),
+            "cat <<EOF > wiki/Resources/A.md\nbody\nEOF",
+            "echo x | cat >> wiki/Resources/A.md",
+            "true && echo x >> wiki/Resources/A.md",
+            "echo x > >(tee wiki/Resources/A.md)",
+        ])
+
+    def test_tee_with_any_operand_is_denied(self):
+        self.assertDenied(["echo x | tee wiki/Resources/A.md", "echo x | tee -a wiki/Resources/A.md",
+                           "echo x | tee /tmp/o.txt wiki/Resources/A.md",
+                           "echo x | sudo tee -a wiki/Resources/A.md",
+                           "echo x | env -i tee wiki/Resources/A.md"])
+
+    def test_sed_and_perl_in_place_are_denied(self):
+        self.assertDenied(["sed -i s/a/b/ wiki/Resources/A.md",
+                           "sed -i.bak s/a/b/ wiki/Resources/A.md",
+                           "sed --in-place s/a/b/ wiki/Resources/A.md",
+                           "sed --in-place=.bak s/a/b/ wiki/Resources/A.md",
+                           "sed -ni 1p wiki/Resources/A.md",
+                           "sed -i -e 's/a/b/' wiki/Resources/A.md",
+                           "perl -i -pe 's/a/b/' wiki/Resources/A.md",
+                           "perl -pi -e 's/a/b/' wiki/Resources/A.md",
+                           "perl -pi.bak -e 's/a/b/' wiki/Resources/A.md"])
+
+    def test_copy_install_rsync_destinations_are_denied(self):
+        self.assertDenied(["cp /tmp/x.md wiki/Resources/A.md", "cp -f /tmp/x.md wiki/Resources/New.md",
+                           "install -m 644 /tmp/x.md wiki/Resources/A.md",
+                           "rsync -a /tmp/x.md wiki/Resources/A.md",
+                           "cp /tmp/x.md wiki/Resources/", "cp /tmp/x.md wiki/Resources",
+                           "cp -t wiki/Resources /tmp/x.md", "cp --target-directory=wiki/Resources /tmp/x.md",
+                           "cp wiki/Resources/A.md wiki/Resources/B.md"])
+
+    def test_move_with_a_note_as_source_or_destination_is_denied(self):
+        self.assertDenied(["mv wiki/Resources/A.md /tmp/a.md", "mv /tmp/a.md wiki/Resources/A.md",
+                           "mv /tmp/a.md wiki/Resources/", "mv wiki/Resources/A.md wiki/Resources/B.md",
+                           "mv -f wiki/Resources/A.md /tmp/"])
+
+    def test_link_truncate_touch_dd_are_denied(self):
+        self.assertDenied(["ln -s /tmp/x.md wiki/Resources/L.md", "ln wiki/Resources/A.md /tmp/h.md",
+                           "truncate -s 0 wiki/Resources/A.md", "touch wiki/Resources/A.md",
+                           "touch wiki/Resources/New.md", "dd if=/tmp/x of=wiki/Resources/A.md",
+                           "echo x | dd of=wiki/Resources/A.md conv=notrunc"])
+
+    def test_cd_changes_where_relative_paths_resolve(self):
+        self.assertDenied(["cd wiki/Resources && echo x >> A.md", "cd wiki && tee Resources/A.md",
+                           "cd wiki; cd Resources; touch A.md", "cd wiki/Resources && sed -i s/a/b/ A.md"])
+        self.assertDenied(["echo x >> A.md", "cd .. && echo x >> Resources/A.md"], cwd=self.sub)
+        self.assertDenied(["cd ../.. && echo x >> wiki/Resources/A.md"], cwd=self.sub)
+
+    def test_cd_inside_a_subshell_does_not_leak(self):
+        self.assertAllowed(["(cd wiki/Resources && ls); echo x > A.md"])
+        self.assertDenied(["(cd wiki/Resources && echo x > A.md)"])
+
+    def test_shell_variables_are_resolved(self):
+        self.assertDenied([
+            'f="wiki/Resources/A.md"; echo x >> "$f"', "f=wiki/Resources/A.md; echo x >> $f",
+            "f='wiki/Resources/A.md' && echo x >> ${f}", 'd=wiki/Resources; f="$d/A.md"; tee "$f" </dev/null',
+            'export f="wiki/Resources/A.md"; echo x >> $f', 'f="wiki/Resources/A.md"\necho x >> "$f"',
+            "FILE=wiki/Resources/A.md sed -i s/a/b/ $FILE",
+            "for f in wiki/Resources/A.md wiki/Resources/G.md; do echo x >> \"$f\"; done",
+            "for f in wiki/Resources/*.md; do echo x >> \"$f\"; done",
+        ])
+
+    def test_nested_shells_and_command_substitution_are_inspected(self):
+        self.assertDenied(["bash -c 'echo x >> wiki/Resources/A.md'",
+                           "sh -c \"cd wiki/Resources && tee A.md\"",
+                           "echo $(echo x >> wiki/Resources/A.md)", "echo `touch wiki/Resources/A.md`"])
+
+    def test_globs_that_could_match_notes_are_denied(self):
+        self.assertDenied(["tee wiki/**/*.md", "tee wiki/Resources/*.md", "sed -i s/a/b/ wiki/*/*.md",
+                           "touch wiki/Resources/A.m?", "echo x | tee wiki/Resources/[A-G]*.md",
+                           "echo x | tee wiki/Resources/{A,B}.md", "cp /tmp/x.md wiki/Resources/*.md"])
+        self.assertDenied(["tee *.md", "sed -i s/a/b/ *.md", "echo x > *.md"], cwd=self.sub)
+
+    def test_reads_and_other_paths_are_allowed(self):
+        self.assertAllowed([
+            "echo x > _inbox/x.md", "echo x >> _inbox/_done/x.md", "echo x > _index.md",
+            "cat wiki/Resources/A.md", "grep -rn foo wiki/", "grep -n foo wiki/Resources/A.md > /tmp/o.txt",
+            'sb search "x" > /tmp/out.json', "sb links --suggest wiki/Resources/A.md",
+            "ls wiki/*.md wiki/Resources/*.md", "head -5 wiki/Resources/A.md | wc -l",
+            "sed s/a/b/ wiki/Resources/A.md", "sed -n 1p wiki/Resources/A.md",
+            "cp wiki/Resources/A.md /tmp/a.md", "cp wiki/Resources/*.md /tmp/",
+            "echo 'echo x >> wiki/Resources/A.md'", 'printf "%s" "a > wiki/Resources/A.md"',
+            "echo x > wiki/Resources/_about.md", "echo x > wiki/Resources/notes.txt",
+            "echo x > wiki/Resources/d.excalidraw.md", "echo x > /tmp/wiki/Resources/A.md",
+            "tee /tmp/o.txt < wiki/Resources/A.md", "cat <<EOF > /tmp/o.txt\necho x >> wiki/Resources/A.md\nEOF",
+            "diff wiki/Resources/A.md wiki/Resources/G.md", "mkdir -p wiki/NewFolder",
+            "chmod 644 wiki/Resources/A.md", "echo 'unterminated",
+        ])
+        self.assertAllowed(["ls *.md", "tee /tmp/o.txt"], cwd=self.sub)
+
+    def test_deletion_keeps_the_v01_ask(self):
+        for command in ("rm wiki/Resources/A.md", "git rm wiki/Resources/A.md", "rm -rf wiki"):
+            self.assertEqual(self.bash(command), "ask", command)
+
+    def test_protected_paths_keep_the_v01_reason(self):
+        out = self.result("echo x >> _raw/a.md")
+        self.assertEqual(out["permissionDecision"], "deny")
+        self.assertIn("_raw/a.md is protected", out["permissionDecisionReason"])
+
+    def test_sb_review_is_still_denied(self):
+        self.assertIn("! prefix", self.result("sb review wiki/Resources/A.md")["permissionDecisionReason"])
+
+
 class GuardScriptTests(unittest.TestCase):
     script = str(PLUGIN / "hooks" / "guard.py")
 

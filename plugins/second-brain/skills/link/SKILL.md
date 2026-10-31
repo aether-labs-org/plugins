@@ -12,6 +12,8 @@ allowed-tools: Read Edit Grep Glob Bash(sb *) Bash(rg *)
 
 Links are claims about how ideas relate. Propose; the human decides.
 
+Write and change notes only with Write/Edit/MultiEdit; never with shell redirection, tee, sed -i or similar (the guard denies it).
+
 ## Procedure
 
 1. With a note: run `sb links "<note>" --suggest`. Without one: run `sb lint --json` and take the

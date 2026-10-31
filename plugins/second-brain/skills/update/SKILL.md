@@ -12,6 +12,8 @@ allowed-tools: Read Edit Grep Glob Bash(sb *) Bash(rg *) Bash(date *)
 
 The change comes from the user. Do not "improve" a note beyond what was asked.
 
+Write and change notes only with Write/Edit/MultiEdit; never with shell redirection, tee, sed -i or similar (the guard denies it).
+
 ## Procedure
 
 1. Resolve the note: `$ARGUMENTS`, then `rg --files wiki | rg "/<name>\.md$"`. If zero or
