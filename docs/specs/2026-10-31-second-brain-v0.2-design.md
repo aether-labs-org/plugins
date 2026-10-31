@@ -318,7 +318,9 @@ recommended Obsidian setup (§9).
 
 - `reviewed_hash: sha256:<16 hex>` of the **review body**: the body after the frontmatter, minus
   trailing `> [!agent]` callouts, CRLF → LF, trailing whitespace per line removed, leading and
-  trailing blank lines removed. Shared test vectors in `tests/fixtures/review-hash/*.json` are
+  trailing blank lines removed. Trailing whitespace means spaces and tabs only (`[ \t]+$`); a plain
+  `>` quote before the first trailing agent header stays in the review body; a file without
+  frontmatter is all body. Shared test vectors in `tests/fixtures/review-hash/*.json` are
   used by both implementations.
 - `sb review <note>` sets `reviewed: <today>` and `reviewed_hash` (the CLI path for humans without
   Obsidian; the guard still denies the agent writing these fields).

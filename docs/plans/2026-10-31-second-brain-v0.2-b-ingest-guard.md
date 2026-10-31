@@ -51,6 +51,8 @@
 
 ### Task 0: Spike (½ day, throw-away)
 
+> **Done 2026-10-31 (CLI 2.1.316), all four items PASS.** Item 1 passes only when the `anthropic-agent-skills` and `obsidian-skills` marketplaces are already added; otherwise install fails with `Dependency "document-skills@anthropic-agent-skills" (required by …) not found. Is the "anthropic-agent-skills" marketplace added?`. So README install = add the three marketplaces, then install (Task 8), and milestone C's `extraKnownMarketplaces` is required. Item 3: `ask` is not auto-approved in `--permission-mode auto` (`-p`, inferred from the denied write), so D29 does not apply. Skip Steps 1–5.
+
 Run each check in a scratch vault, outside the repo; write results (pass/fail + evidence) into the task report. No repo changes.
 
 - [ ] **Step 1:** Local marketplace copy with the Task 1 dependencies; `claude plugin install second-brain@<local> --scope project` in a scratch vault → `claude plugin list` shows `document-skills` and `obsidian` installed. (Spec §10 item 1.)

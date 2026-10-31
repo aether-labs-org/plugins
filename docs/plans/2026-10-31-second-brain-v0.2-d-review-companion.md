@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Hash: `reviewed_hash: sha256:<first 16 lowercase hex>` of the **review body** (spec §7.1): body after the frontmatter (exactly what `frontmatter.parse` returns as `body`, i.e. after BOM strip and CRLF → LF), minus trailing `> [!agent]` callouts, trailing whitespace removed per line, leading and trailing blank lines removed. No Unicode normalisation.
+- Hash: `reviewed_hash: sha256:<first 16 lowercase hex>` of the **review body** (spec §7.1): body after the frontmatter (exactly what `frontmatter.parse` returns as `body`, i.e. after BOM strip and CRLF → LF), minus trailing `> [!agent]` callouts, trailing spaces and tabs removed per line (`[ \t]+$`, not `str.rstrip()`), leading and trailing blank lines removed. No Unicode normalisation.
 - Lint codes: `SB110` reviewed text changed since review (warning, fails `sb lint`); `SB112` reviewed note has agent blocks pending (info).
 - Companion: repository `aether-labs-org/second-brain-companion` (the user creates it on GitHub); local path `~/Code/aether-labs/second-brain-companion`; plugin id `second-brain-companion`; `isDesktopOnly: false`; no Node APIs; license Apache-2.0 (as the Claude plugin).
 - The agent never sets trust fields: `sb review` is denied to the agent's Bash (milestone B, D28).
@@ -55,6 +55,8 @@
 **Interfaces:**
 - Produces: `review.split_trailing_agent_blocks(body: str) -> tuple` → `(kept: str, blocks: list[str])`; `review.review_body(text: str) -> str` (whole file in); `review.review_hash(text: str) -> str` → `"sha256:" + 16 hex`.
 - `vectors.json`: `[{"name": str, "file": str, "review_body": str, "hash": str}]` with at least these names: `plain`, `crlf`, `bom`, `trailing-spaces`, `leading-trailing-blank-lines`, `trailing-agent-block`, `two-trailing-agent-blocks`, `agent-block-in-middle`, `empty-body`, `nfd-vs-nfc` (two entries with different hashes, documenting no normalisation), `frontmatter-reformatted` (same body as `plain`, different frontmatter → same hash).
+
+> **Vectors already authored** by the companion work (16 entries): copy `~/Code/aether-labs/second-brain-companion/test/vectors.json` to `tests/fixtures/review-hash/vectors.json` instead of Step 1. Companion Tasks 3–5 are done there (commits `6e7d3ab`, `95c5584`, `9f5f284`; `trustState` takes an optional third `path` argument; `minAppVersion` 1.4.4).
 
 - [ ] **Step 1: Write the vectors by hand** (`file` and expected `review_body`); generate `hash` with a one-off `python3 -c` using `hashlib.sha256(review_body.encode("utf-8")).hexdigest()[:16]` — the hash is the only computed field.
 - [ ] **Step 2: Test** `test_vectors` iterates the file asserting `review_body(file) == review_body` and `review_hash(file) == hash`; `test_hash_format` asserts `re.fullmatch(r"sha256:[0-9a-f]{16}", ...)`.

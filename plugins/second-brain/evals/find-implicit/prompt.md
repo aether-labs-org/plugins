@@ -4,4 +4,4 @@ max_turns: 20
 allowed_tools: [Read, Glob, Grep, Skill, Bash]
 ---
 
-Tô estudando pra prova e esqueço tudo depois de uma semana. Como era mesmo aquele jeito de revisar que eu tinha anotado?
+I'm studying for an exam and I forget everything after a week. What was that review method I had written down?
