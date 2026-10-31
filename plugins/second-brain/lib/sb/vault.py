@@ -7,7 +7,7 @@ from pathlib import Path
 from .frontmatter import parse
 
 MARKER = ".second-brain.json"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ASSET_SKIP_DIRS = {".git", ".sb", ".obsidian", ".trash"}
 
 

@@ -1,0 +1,14 @@
+{
+	"schemaVersion": "0.1.0",
+	"name": "Second Brain inbox",
+	"behavior": "create",
+	"noteContentFormat": "{{content}}",
+	"properties": [
+		{ "name": "title", "value": "{{title}}", "type": "text" },
+		{ "name": "url", "value": "{{url}}", "type": "text" },
+		{ "name": "captured", "value": "{{date|date:\"YYYY-MM-DD\"}}", "type": "date" }
+	],
+	"triggers": [],
+	"noteNameFormat": "{{date|date:\"YYYY-MM-DD\"}}-{{title}}",
+	"path": "_inbox"
+}

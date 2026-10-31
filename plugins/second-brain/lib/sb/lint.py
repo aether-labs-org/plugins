@@ -134,7 +134,8 @@ def lint(root, config):
         version = 0
     if version < SCHEMA_VERSION:
         findings.append(Finding("SB107", ".second-brain.json", 1,
-                                "schema_version %s is older than %d" % (version, SCHEMA_VERSION)))
+                                "schema_version %s is older than %d; run sb init --upgrade"
+                                % (version, SCHEMA_VERSION)))
     return sorted(findings, key=lambda f: (f.path, f.line, f.code))
 
 

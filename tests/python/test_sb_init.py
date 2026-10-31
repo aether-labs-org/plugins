@@ -1,5 +1,7 @@
+import io
 import json
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,8 +9,24 @@ from unittest import mock
 
 import sb_helpers  # noqa: F401
 from sb import init
+from sb.cli import main
 from sb.lint import INFO_CODES, lint
+from sb.tree import load, render_compact
 from sb.vault import MARKER, load_config
+
+PROFILES = {
+    "personal": ["Archive", "Areas", "Projects", "Resources"],
+    "work": ["Archive", "Areas", "Decisions", "Meetings", "Projects", "Resources"],
+    "project": ["Archive", "Context", "Decisions", "Glossary", "Meetings", "References"],
+    "squad": ["Archive", "Context", "Decisions", "Glossary", "Meetings", "References"],
+}
+DENY = ["Edit(/_raw/**)", "Bash(git push --force*)", "Bash(git push -f*)",
+        "Bash(git reset --hard*)", "Bash(git clean*)"]
+
+
+def cli(*argv):
+    out, err = io.StringIO(), io.StringIO()
+    return main(list(argv), out=out, err=err), out.getvalue(), err.getvalue()
 
 
 class InitTests(unittest.TestCase):
@@ -26,7 +44,8 @@ class InitTests(unittest.TestCase):
         for rel in ("CLAUDE.md", "_index.md", "_log.md", ".gitignore", MARKER):
             self.assertTrue((self.root / rel).is_file(), rel)
         self.assertEqual(load_config(self.root),
-                         {"schema_version": 1, "language": "pt-BR", "areas": ["Saúde", "Finanças"]})
+                         {"schema_version": 2, "language": "pt-BR", "profile": "personal", "sync": "local",
+                          "areas": ["Saúde", "Finanças"]})
         self.assertIn("pt-BR", (self.root / "CLAUDE.md").read_text(encoding="utf-8"))
         self.assertIn("init | vault created", (self.root / "_log.md").read_text(encoding="utf-8"))
         self.assertEqual([f for f in lint(self.root, load_config(self.root)) if f.code not in INFO_CODES], [])
@@ -55,7 +74,8 @@ class InitTests(unittest.TestCase):
         (self.root / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
         init.run(self.root)
         text = (self.root / ".gitignore").read_text(encoding="utf-8")
-        self.assertEqual(text.splitlines(), ["node_modules/", ".obsidian/workspace*", ".smart-env/"])
+        self.assertEqual(text.splitlines(),
+                         ["node_modules/", ".sb/", ".obsidian/workspace*", ".smart-env/"])
 
     def test_invalid_area_names_are_skipped_with_a_warning(self):
         result = init.run(self.root, areas=["ok", "../escape", ".hidden", "a/b", "  "])
@@ -80,6 +100,115 @@ class InitTests(unittest.TestCase):
     def test_git_flag_runs_git_init(self):
         init.run(self.root, git=True)
         self.assertTrue((self.root / ".git").exists())
+
+    # --- milestone C: profiles ---------------------------------------------------------------
+    def test_each_profile_creates_a_clean_vault(self):
+        for name, folders in PROFILES.items():
+            root = Path(self.tmp.name) / name
+            init.run(root, language="pt-BR", profile=name, git=True)
+            self.assertEqual([f for f in lint(root, load_config(root)) if f.code not in INFO_CODES], [])
+            self.assertEqual([f for f in lint(root, load_config(root)) if f.code == "SB111"], [], name)
+            self.assertLessEqual(len(render_compact(load(root))), 2000)
+            self.assertEqual([f["path"] for f in load(root)], folders)
+            config = json.loads((root / ".second-brain.json").read_text(encoding="utf-8"))
+            self.assertEqual(config["sync"], "squad" if name == "squad" else "local")
+            self.assertEqual((config["schema_version"], config["profile"]), (2, name))
+            for rel in (".claude/settings.json", "_meta/web-clipper-template.json",
+                        "_views/unreviewed.base"):
+                self.assertTrue((root / rel).is_file(), (name, rel))
+
+    def test_unknown_profile_is_an_error(self):
+        with self.assertRaises(ValueError):
+            init.load_profile("nope")
+
+    def test_about_md_carries_description_and_sections(self):
+        init.run(self.root, profile="work")
+        folders = {f["path"]: f for f in load(self.root)}
+        decisions = folders["Decisions"]
+        self.assertEqual(decisions["description"],
+                         "One note per decision: context, options, choice, consequences.")
+        self.assertIn("Meeting minutes (they go in Meetings/ and link to the decision).",
+                      decisions["anti_examples"])
+        self.assertTrue(decisions["conventions"])
+        self.assertFalse(decisions["protected"])
+
+    def test_settings_json_content(self):
+        init.run(self.root)
+        s = json.loads((self.root / ".claude/settings.json").read_text(encoding="utf-8"))
+        self.assertEqual(s["permissions"]["deny"], DENY)
+        self.assertEqual(s["enabledPlugins"], {"second-brain@aether-labs": True,
+                                               "document-skills@anthropic-agent-skills": True,
+                                               "obsidian@obsidian-skills": True})
+        repos = {k: v["source"]["repo"] for k, v in s["extraKnownMarketplaces"].items()}
+        self.assertEqual(repos, {"aether-labs": "aether-labs-org/plugins",
+                                 "anthropic-agent-skills": "anthropics/skills",
+                                 "obsidian-skills": "kepano/obsidian-skills"})
+
+    def test_existing_settings_json_is_kept(self):
+        (self.root / ".claude").mkdir(parents=True)
+        (self.root / ".claude/settings.json").write_text("{}", encoding="utf-8")
+        result = init.run(self.root)
+        self.assertIn(".claude/settings.json", result["kept"])
+        self.assertEqual((self.root / ".claude/settings.json").read_text(encoding="utf-8"), "{}")
+
+    def test_web_clipper_template_and_base_formats(self):
+        init.run(self.root)
+        clip = json.loads((self.root / "_meta/web-clipper-template.json").read_text(encoding="utf-8"))
+        self.assertEqual(clip["behavior"], "create")
+        self.assertEqual(clip["path"], "_inbox")
+        self.assertEqual([p["name"] for p in clip["properties"]], ["title", "url", "captured"])
+        base = (self.root / "_views/unreviewed.base").read_text(encoding="utf-8")
+        self.assertIn('origin == "agent"', base)
+        self.assertIn("reviewed", base)
+
+    def test_gitignore_by_sync_mode(self):
+        init.run(self.root / "a", profile="personal")
+        init.run(self.root / "b", profile="squad")
+        local = (self.root / "a/.gitignore").read_text(encoding="utf-8").splitlines()
+        squad = (self.root / "b/.gitignore").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(local, [".sb/", ".obsidian/workspace*", ".smart-env/"])
+        self.assertEqual(squad, [".sb/", ".obsidian/workspace*", ".smart-env/", "_index.md", "_log.md"])
+
+    def test_areas_without_an_areas_folder_are_ignored_with_a_warning(self):
+        result = init.run(self.root, profile="project", areas=["x"])
+        self.assertFalse((self.root / "wiki/Areas").exists())
+        self.assertEqual(len(result["warnings"]), 1)
+
+    def test_refuses_inside_another_git_repo(self):
+        parent = Path(self.tmp.name) / "repo"
+        parent.mkdir()
+        subprocess.run(["git", "init", "-q", str(parent)], check=True)
+        target = parent / "brain"
+        code, _, err = cli("init", "--vault", str(target))
+        self.assertEqual(code, 2)
+        self.assertIn("inside the git repository", err)
+        self.assertFalse((target / MARKER).exists())
+        # a vault that is itself a repository is fine
+        subprocess.run(["git", "init", "-q", str(target)], check=True)
+        self.assertEqual(cli("init", "--vault", str(target))[0], 0)
+
+    def test_cli_profile_and_remote(self):
+        bare = Path(self.tmp.name) / "bare.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
+        code, _, err = cli("init", "--vault", str(self.root), "--profile", "squad", "--git",
+                           "--remote", str(bare))
+        self.assertEqual(code, 0, err)
+        url = subprocess.run(["git", "-C", str(self.root), "remote", "get-url", "origin"],
+                             capture_output=True, text=True).stdout.strip()
+        self.assertEqual(url, str(bare))
+
+    def test_remote_needs_git(self):
+        code, _, err = cli("init", "--vault", str(self.root), "--remote", "/x/y.git")
+        self.assertEqual(code, 2)
+        self.assertIn("--git", err)
+
+    def test_sb107_message_points_to_upgrade(self):
+        init.run(self.root)
+        marker = json.loads((self.root / MARKER).read_text(encoding="utf-8"))
+        marker["schema_version"] = 1
+        (self.root / MARKER).write_text(json.dumps(marker), encoding="utf-8")
+        found = [f for f in lint(self.root, load_config(self.root)) if f.code == "SB107"]
+        self.assertEqual(found[0].message, "schema_version 1 is older than 2; run sb init --upgrade")
 
 
 if __name__ == "__main__":

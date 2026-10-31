@@ -267,8 +267,17 @@ def cmd_init(args, out, err):
     if parent is not None and parent != target:
         print("sb: %s is inside the existing vault %s" % (target, parent), file=err)
         return EXIT_USAGE
+    repo = init_mod.enclosing_repo(target)
+    if repo is not None:
+        print("sb: %s is inside the git repository %s; a vault is its own repository"
+              % (target, repo), file=err)
+        return EXIT_USAGE
+    if args.remote and not (args.git or (target / ".git").exists()):
+        print("sb: --remote needs --git (or an existing .git in the vault)", file=err)
+        return EXIT_USAGE
     areas = [a for a in args.areas.split(",") if a.strip()]
-    result = init_mod.run(target, language=args.language, areas=areas, git=args.git)
+    result = init_mod.run(target, language=args.language, profile=args.profile,
+                          remote=args.remote, areas=areas, git=args.git)
     lines = ["%s: %s" % (result["status"], target)]
     if result["created"]:
         lines.append("created: " + ", ".join(result["created"]))
@@ -347,6 +356,9 @@ def build_parser():
 
     p = sub.add_parser("init", parents=[common], help="create a vault in the target directory")
     p.add_argument("--language", default="en")
+    p.add_argument("--profile", choices=("personal", "work", "project", "squad"),
+                   default="personal", help="folder set and sync mode (default: personal)")
+    p.add_argument("--remote", help="git remote URL to add as origin (needs --git)")
     p.add_argument("--areas", default="", help="comma-separated initial areas")
     p.add_argument("--git", action="store_true", help="run git init if there is no .git")
     p.set_defaults(func=cmd_init)

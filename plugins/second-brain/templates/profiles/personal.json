@@ -1,0 +1,38 @@
+{
+  "name": "personal",
+  "sync": "local",
+  "folders": [
+    {
+      "path": "Projects",
+      "description": "Active efforts with a goal and an end date.",
+      "protected": false,
+      "conventions": "One note per project; link the notes that feed it. Move it to Archive/ when it ends.",
+      "examples": "Launch the newsletter; Plan the Lisbon trip.",
+      "anti_examples": "Ongoing responsibilities with no end date (they go in Areas/)."
+    },
+    {
+      "path": "Areas",
+      "description": "Ongoing responsibilities with no end date, such as health or finances.",
+      "protected": false,
+      "conventions": "One subfolder per area; notes describe the standard to maintain, not a task list.",
+      "examples": "Health; Personal finances.",
+      "anti_examples": "A single effort with a deadline (it goes in Projects/)."
+    },
+    {
+      "path": "Resources",
+      "description": "Concepts, entities and references reused across projects.",
+      "protected": false,
+      "conventions": "Atomic notes with one idea each; the file name is the concept.",
+      "examples": "Spaced repetition; PostgreSQL.",
+      "anti_examples": "Decisions or meeting minutes."
+    },
+    {
+      "path": "Archive",
+      "description": "Inactive notes kept for reference.",
+      "protected": false,
+      "conventions": "Move notes here instead of deleting them.",
+      "examples": "A finished project.",
+      "anti_examples": "Anything still in use."
+    }
+  ]
+}

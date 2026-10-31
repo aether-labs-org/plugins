@@ -1,0 +1,17 @@
+filters:
+  and:
+    - file.inFolder("wiki")
+    - 'origin == "agent"'
+    - '!file.hasProperty("reviewed") || reviewed.isEmpty()'
+properties:
+  file.name:
+    displayName: Note
+  summary:
+    displayName: Summary
+views:
+  - type: table
+    name: Unreviewed agent notes
+    order:
+      - file.name
+      - summary
+      - created
