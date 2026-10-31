@@ -29,7 +29,9 @@ Everything outside `wiki/` is system. The `_` prefix marks paths the agent opera
 3. `_raw/` is read-only. Never delete anything without asking first.
 4. The human owns the interpretation. The agent does the clerical work: formatting, links,
    index. Notes the agent writes carry `origin: agent`; the human sets `reviewed:` after checking.
-5. Search `wiki/` first (`_index.md`, then `rg "^summary:"`). Open `_raw/` only to verify a source.
+5. Search before answering from memory: `sb search "<terms>"`. A `<second-brain-recall>` block
+   lists candidate notes; open them before answering. Mark unreviewed notes in answers. Open
+   `_raw/` only to verify a source.
 6. Link only to notes that exist. Note names are unique, so `[[Name]]` survives folder moves.
 7. `CLAUDE.md`, `.claude/` and `.second-brain.json` are edited by the human, not the agent.
 
@@ -52,21 +54,23 @@ created: 2026-01-31   # ISO date
 source: _raw/x.pdf    # path under _raw/ or _inbox/, or [[Note]]
 reviewed:             # optional ISO date, set by the human
 tags: [a, b]          # optional, few, lowercase
+aliases: [Other name] # optional list of alternative names; search uses them
 ---
 ```
 
-Frontmatter is a restricted subset: `key: value` scalars and inline `[a, b]` lists only.
+Frontmatter is a restricted subset: `key: value` scalars, inline `[a, b]` lists and block lists
+(`- item`).
 Notes are atomic. Prefer links and frontmatter to tag taxonomies.
 
 ## Workflow
 
 - `/second-brain:capture` — drop raw text into `_inbox/`.
 - `/second-brain:ingest` — turn an inbox item into an atomic note, update index and log.
-- `/second-brain:find` — answer from the vault, citing notes.
+- `/second-brain:find` — answer from the vault with `sb search`, citing notes.
 - `/second-brain:link` — propose links between notes.
 - `/second-brain:update` — revise an existing note.
 - `/second-brain:lint` — check the vault; proposes fixes, applies none without approval.
-- `sb lint`, `sb index --check`, `sb links <note> --suggest` run directly in a terminal.
+- `sb search`, `sb lint`, `sb index --check`, `sb links <note> --suggest` run directly in a terminal.
 
 Changes are committed locally by the plugin when this directory has a `.git` (setting
 `auto_commit`). Review with `git diff`; revert with `git`.
