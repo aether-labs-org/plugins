@@ -28,9 +28,36 @@ class ParseTests(unittest.TestCase):
         p = parse("---\nkey:\n  nested: 1\n---\n")
         self.assertEqual([line for line, _ in p.errors], [3])
 
-    def test_block_list_is_rejected(self):
-        p = parse("---\ntags:\n- a\n---\n")
-        self.assertEqual([line for line, _ in p.errors], [3])
+    def test_block_list(self):
+        p = parse("---\ntags:\n  - estudo\n  - memória\n---\n")
+        self.assertEqual(p.errors, [])
+        self.assertEqual(p.data, {"tags": ["estudo", "memória"]})
+
+    def test_block_list_without_indent_and_quoted_items(self):
+        p = parse("---\naliases:\n- \"Repetição espaçada\"\n- 'SRS'\ntitle: X\n---\n")
+        self.assertEqual(p.errors, [])
+        self.assertEqual(p.data, {"aliases": ["Repetição espaçada", "SRS"], "title": "X"})
+
+    def test_empty_key_without_items_stays_empty_string(self):
+        self.assertEqual(parse("---\nreviewed:\ntitle: X\n---\n").data,
+                         {"reviewed": "", "title": "X"})
+
+    def test_stray_list_item_is_rejected(self):
+        p = parse("---\n- a\ntitle: X\n---\n")
+        self.assertEqual([line for line, _ in p.errors], [2])
+
+    def test_obsidian_properties_sample(self):
+        text = ("---\ntitle: Repetição\nsummary: Revisar em intervalos.\ntags:\n  - estudo\n"
+                "aliases:\n  - SRS\ncssclasses:\ntype: conceito\nstatus: draft\norigin: human\n"
+                "created: 2026-10-01\n---\nCorpo\n")
+        p = parse(text)
+        self.assertEqual(p.errors, [])
+        self.assertEqual(p.data["aliases"], ["SRS"])
+        self.assertEqual(p.data["cssclasses"], "")
+        self.assertEqual(p.body_line, 14)
+
+    def test_block_list_item_comment_is_stripped(self):
+        self.assertEqual(parse("---\ntags:\n  - a # c\n---\n").data, {"tags": ["a"]})
 
     def test_block_scalar_is_rejected(self):
         p = parse("---\nsummary: |\n  x\n---\n")
