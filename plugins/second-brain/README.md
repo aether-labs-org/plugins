@@ -208,8 +208,34 @@ An addition to a T1 note is a callout at the end of the note, with exactly this 
 
 **The agent never sets `reviewed`.** The trust fields `reviewed`, `reviewed_hash`, `protected` and
 `origin` belong to you: the guard denies any agent write that changes them, requires `origin: agent`
-on every new note, and denies running `sb review` through Bash. Set `reviewed:` yourself in Obsidian
-Properties; until you do, `SB106` and the `unreviewed` label keep the note visible.
+on every new note, and denies running `sb review` through Bash. The same holds for the `protected`
+key of a folder's `_about.md`; any other edit of an `_about.md` asks you, and Bash may not write one.
+Mark a note reviewed yourself (see [Reviewing](#reviewing)); until you do, `SB106` and the
+`unreviewed` label keep the note visible.
+
+## Reviewing
+
+A review is verifiable. `reviewed_hash` pins the text you reviewed: `sha256:` plus the first 16 hex
+digits of the SHA-256 of the **review body**, which is the note body after the frontmatter, without
+trailing `> [!agent]` blocks, with trailing spaces and tabs removed from each line, CRLF read as LF
+and leading and trailing blank lines dropped. Reformatting the frontmatter (Obsidian does this), a
+phone editor adding CRLF, or an agent block appended later does not change it; editing the reviewed
+text does, and then `sb lint` reports `SB110` (it fails the lint) until you review again. A note
+with trailing agent blocks waiting for you gets `SB112` (information).
+
+1. Open `_views/unreviewed.base` in Obsidian (Bases) to see the queue.
+2. Open a note, read it, and run **Mark as reviewed** (writes `reviewed` and `reviewed_hash`) or, if
+   it has agent blocks you accept, **Accept agent blocks** (turns them into plain text, then marks
+   the note reviewed). **Toggle protected** flips `protected: true`.
+3. Without Obsidian, run `sb review <note>` yourself in a terminal (or with the `!` prefix inside
+   Claude Code). The agent cannot run it.
+
+The commands and a status-bar badge (`reviewed`, `unreviewed`, `changed since review`,
+`agent blocks pending`) come from the **second-brain-companion** Obsidian plugin, which works on
+desktop and mobile. Install it with [BRAT](https://github.com/TfTHacker/obsidian42-brat): add the
+repository `aether-labs-org/second-brain-companion`. That repository is **not published yet**, so
+BRAT cannot install it today; until it is, use `sb review`. Python and the plugin share one set of
+hash test vectors (`tests/fixtures/review-hash/vectors.json`), so they always agree.
 
 ## Protection and auto-commit
 
@@ -243,7 +269,7 @@ Five hooks, all no-ops in a directory without `.second-brain.json`:
 | Agent inside Obsidian | *Terminal* (polyipseity) | Runs the real `claude`, so the hooks apply. This is the only supported path; Claudian and Agent Client are not |
 | Web capture | Obsidian Web Clipper + `_meta/web-clipper-template.json` | Saves to `_inbox/` with `title`, `url`, `captured`. Import it under Web Clipper settings, Templates, Import |
 | Review queue | Bases (core, Obsidian 1.9+) + `_views/unreviewed.base` | Lists `origin: agent` notes without `reviewed` |
-| Review actions | `second-brain-companion` (BRAT) | Milestone D |
+| Review actions | `second-brain-companion` (BRAT: `aether-labs-org/second-brain-companion`, not published yet) | Mark as reviewed, Accept agent blocks, Toggle protected, status badge; `sb review` meanwhile |
 | Squad | Obsidian Git: pull on startup, rebase (not merge), auto commit-and-sync at an interval for human edits | The plugin commits and pushes agent edits at session end; Git on mobile is unstable |
 | HTML | HTML Viewer with scripts **off** for third-party pages | |
 | draw.io / Excalidraw | Drawio Preview; Excalidraw (zsviczian) | `*.excalidraw.md` is not treated as a note |

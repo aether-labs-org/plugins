@@ -30,7 +30,7 @@ OBSIDIAN_SETUP = """Recommended Obsidian setup
 | Agent inside Obsidian | Terminal (polyipseity) | runs the real `claude`; hooks apply. Claudian / Agent Client unsupported |
 | Web capture | Obsidian Web Clipper + `_meta/web-clipper-template.json` | saves to `_inbox/` |
 | Review queue | Bases (core) + `_views/unreviewed.base` | |
-| Review actions | `second-brain-companion` (BRAT) | milestone D |
+| Review actions | `second-brain-companion` (BRAT: `aether-labs-org/second-brain-companion`, not published yet) | Mark as reviewed, Accept agent blocks, Toggle protected; `sb review` meanwhile |
 | Squad | Obsidian Git: pull on startup, rebase, auto commit-and-sync for human edits | mobile Git is unstable |
 | HTML | HTML Viewer with scripts off for third-party pages | |
 | draw.io / Excalidraw | Drawio Preview; Excalidraw (zsviczian) | `*.excalidraw.md` is excluded from notes |

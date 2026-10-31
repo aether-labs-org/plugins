@@ -32,7 +32,8 @@ Everything outside `wiki/` is system. The `_` prefix marks paths the agent opera
 3. `_raw/` is read-only. Never delete anything without asking first.
 4. The human owns the interpretation. The agent does the clerical work: formatting, links,
    index. Trust fields (`reviewed`, `reviewed_hash`, `protected`, `origin`) are set by the human
-   only; the agent never writes them on an existing note. Notes the agent creates carry
+   only, through the second-brain-companion plugin in Obsidian or `sb review`; the agent never
+   writes them and never runs `sb review`. Notes the agent creates carry
    `origin: agent`. Additions to human or reviewed notes go in blocks at the end of the note:
    `> [!agent] <YYYY-MM-DD> · <source_id>`, every line prefixed `> `.
 5. Search before answering from memory: `sb search "<terms>"`. A `<second-brain-recall>` block
@@ -61,6 +62,7 @@ source: _raw/x.pdf    # path under _raw/ or _inbox/, a URL, or [[Note]]
 source_id: sha256:0123456789abcdef   # set by ingest; or url:<canonical url>
 protected: true       # optional, human only: every agent change asks first
 reviewed:             # optional ISO date, set by the human
+reviewed_hash: sha256:0123456789abcdef   # set with `reviewed`; `sb lint` reports SB110 if the text changes
 tags: [a, b]          # optional, few, lowercase
 aliases: [Other name] # optional list of alternative names; search uses them
 ---
