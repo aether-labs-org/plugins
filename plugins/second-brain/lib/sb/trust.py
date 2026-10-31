@@ -24,7 +24,7 @@ TRUST_FIELDS = ("reviewed", "reviewed_hash", "protected", "origin")
 WIKILINK_RE = re.compile(r"\[\[([^\[\]\n]*)\]\]")
 
 
-def _norm(value):
+def norm(value):
     if isinstance(value, (list, tuple)):
         return ",".join(str(v).strip() for v in value)
     return str(value if value is not None else "").strip()
@@ -32,18 +32,18 @@ def _norm(value):
 
 def tier(data, folder_protected=False):
     """`T0` agent note not yet reviewed, `T1` human or reviewed, `T2` protected (D11)."""
-    protected = _norm(data.get("protected")).lower() in ("true", "yes", "1")
-    if folder_protected or protected or _norm(data.get("status")).lower() == "evergreen":
+    protected = norm(data.get("protected")).lower() in ("true", "yes", "1")
+    if folder_protected or protected or norm(data.get("status")).lower() == "evergreen":
         return "T2"
-    origin = _norm(data.get("origin")).lower()
-    if origin != "agent" or _norm(data.get("reviewed")):
+    origin = norm(data.get("origin")).lower()
+    if origin != "agent" or norm(data.get("reviewed")):
         return "T1"
     return "T0"
 
 
 def trust_fields_changed(old, new):
     """Names of trust fields whose normalised value differs (missing equals empty)."""
-    return [f for f in TRUST_FIELDS if _norm(old.get(f)) != _norm(new.get(f))]
+    return [f for f in TRUST_FIELDS if norm(old.get(f)) != norm(new.get(f))]
 
 
 def _frontmatter_lines(text):
@@ -66,6 +66,12 @@ def trust_fields_changed_text(old_text, new_text):
                 [l.strip() for l in new_lines if l.strip().startswith(prefix)]:
             changed.add(field)
     return [f for f in TRUST_FIELDS if f in changed]
+
+
+def trust_key_lines(text):
+    """Raw frontmatter lines of each trust field, stripped, in file order."""
+    lines = [l.strip() for l in _frontmatter_lines(text)]
+    return {f: [l for l in lines if l.startswith(f + ":")] for f in TRUST_FIELDS}
 
 
 def _same_frontmatter(old_text, new_text, ignore_updated=True):
