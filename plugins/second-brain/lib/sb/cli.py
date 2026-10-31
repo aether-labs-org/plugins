@@ -8,7 +8,7 @@ from pathlib import Path
 from . import index as index_mod
 from . import logfile
 from .fsutil import write_atomic
-from .lint import check_note, lint as run_lint
+from .lint import check_note, lint as run_lint, render_text
 from .links import WIKILINK, extract, prose_lines, target_name
 from .vault import MARKER, VaultError, find_vault, load_config, load_note, load_notes
 
@@ -62,7 +62,7 @@ def cmd_lint(args, out, err):
         print("sb: %s" % exc, file=err)
         return EXIT_USAGE
     findings = run_lint(root, config)
-    _emit(args, out, [f.as_dict() for f in findings], "\n".join(str(f) for f in findings))
+    _emit(args, out, [f.as_dict() for f in findings], render_text(findings, args.verbose))
     return EXIT_FINDINGS if findings else EXIT_OK
 
 
@@ -181,6 +181,7 @@ def build_parser():
     p.set_defaults(func=cmd_index)
 
     p = sub.add_parser("lint", parents=[common], help="run the lint rules")
+    p.add_argument("--verbose", action="store_true", help="one line per finding, never grouped")
     p.set_defaults(func=cmd_lint)
 
     p = sub.add_parser("links", parents=[common], help="links and backlinks of a note")

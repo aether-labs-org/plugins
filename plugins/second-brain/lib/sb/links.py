@@ -3,12 +3,22 @@ import re
 
 WIKILINK = re.compile(r"\[\[([^\[\]|#\n]+)(?:#[^\[\]|\n]*)?(?:\|[^\[\]\n]*)?\]\]")
 INLINE_CODE = re.compile(r"`[^`\n]*`")
+EXTENSION = re.compile(r"^\.[A-Za-z0-9]{1,8}$")
 
 
 def target_name(raw):
     """`wiki/Resources/Foo.md` / `Foo.md` / `Foo` -> `Foo`."""
     name = raw.strip().rsplit("/", 1)[-1]
     return name[:-3] if name.endswith(".md") else name
+
+
+def is_asset(target):
+    """True when a wikilink target ends in a file extension other than `.md` (`![[img.png]]`)."""
+    dot = target.rfind(".")
+    if dot <= 0:
+        return False
+    suffix = target[dot:]
+    return suffix != ".md" and EXTENSION.match(suffix) is not None
 
 
 def prose_lines(body, first_line=1):

@@ -5,8 +5,8 @@ from dataclasses import asdict, dataclass
 from datetime import date
 
 from . import index as index_mod
-from .links import extract, target_name
-from .vault import SCHEMA_VERSION, load_notes
+from .links import extract, is_asset, target_name
+from .vault import SCHEMA_VERSION, asset_names, load_notes
 
 REQUIRED = ("title", "summary", "type", "status", "origin", "created")
 ENUMS = {
@@ -88,12 +88,16 @@ def lint(root, config):
         if title:
             by_title[title.casefold()].append(note)
     known = set(by_name)
+    assets = asset_names(root)
     inbound = defaultdict(set)
 
     for note in notes:
         findings += check_note(note)
         for line, target in extract(note.body, note.body_line):
-            if target not in known:
+            if target not in known and is_asset(target):
+                if target not in assets:
+                    findings.append(Finding("SB101", note.rel, line, "broken link: [[%s]]" % target))
+            elif target not in known:
                 findings.append(Finding("SB101", note.rel, line, "broken link: [[%s]]" % target))
             elif target != note.name:
                 inbound[target].add(note.name)
@@ -126,3 +130,28 @@ def lint(root, config):
         findings.append(Finding("SB107", ".second-brain.json", 1,
                                 "schema_version %s is older than %d" % (version, SCHEMA_VERSION)))
     return sorted(findings, key=lambda f: (f.path, f.line, f.code))
+
+
+AGGREGATE_OVER = 20
+
+
+def render_text(findings, verbose=False):
+    """One line per finding; codes with more than AGGREGATE_OVER findings collapse to one line."""
+    groups = defaultdict(list)
+    for finding in findings:
+        groups[finding.code].append(finding)
+    lines, summaries = [], []
+    for code in sorted(groups):
+        group = groups[code]
+        if verbose or len(group) <= AGGREGATE_OVER:
+            continue
+        messages = {f.message for f in group}
+        if len(messages) == 1:
+            summaries.append("%s %s: %d notes (run with --verbose)" % (code, group[0].message, len(group)))
+        else:
+            summaries.append("%s %s: %d findings (run with --verbose)"
+                             % (code, group[0].message.split(":")[0], len(group)))
+    for finding in findings:
+        if verbose or len(groups[finding.code]) <= AGGREGATE_OVER:
+            lines.append(str(finding))
+    return "\n".join(lines + summaries)
