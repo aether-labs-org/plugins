@@ -280,7 +280,6 @@ class NoteGuardTests(unittest.TestCase):
 
     # paths
     def test_non_note_paths_keep_v01_rules(self):
-        self.assertEqual(self.kind("Write", "wiki/Resources/_about.md", content="x"), "allow")
         self.assertEqual(self.kind("Write", "wiki/Resources/_assets/x.md", content="x"), "allow")
         self.assertEqual(self.kind("Write", "_inbox/x.md", content="x"), "allow")
         self.assertEqual(self.kind("Write", "_index.md", content="x"), "allow")
@@ -453,7 +452,7 @@ class BashNoteWriteTests(unittest.TestCase):
             "sed s/a/b/ wiki/Resources/A.md", "sed -n 1p wiki/Resources/A.md",
             "cp wiki/Resources/A.md /tmp/a.md", "cp wiki/Resources/*.md /tmp/",
             "echo 'echo x >> wiki/Resources/A.md'", 'printf "%s" "a > wiki/Resources/A.md"',
-            "echo x > wiki/Resources/_about.md", "echo x > wiki/Resources/notes.txt",
+            "echo x > wiki/Resources/notes.txt",
             "echo x > wiki/Resources/d.excalidraw.md", "echo x > /tmp/wiki/Resources/A.md",
             "tee /tmp/o.txt < wiki/Resources/A.md", "cat <<EOF > /tmp/o.txt\necho x >> wiki/Resources/A.md\nEOF",
             "diff wiki/Resources/A.md wiki/Resources/G.md", "mkdir -p wiki/NewFolder",
@@ -472,6 +471,106 @@ class BashNoteWriteTests(unittest.TestCase):
 
     def test_sb_review_is_still_denied(self):
         self.assertIn("! prefix", self.result("sb review wiki/Resources/A.md")["permissionDecisionReason"])
+
+
+ABOUT = "---\ndescription: Notes.\nprotected: false\n---\n## Conventions\nKeep short.\n"
+ABOUT_PROTECTED = ABOUT.replace("protected: false", "protected: true")
+ABOUT_REASON_ASK = ("_about.md describes a folder and is edited by the human; confirm this change "
+                    "with the user.")
+
+
+class AboutGuardTests(unittest.TestCase):
+    """D34: _about.md is guarded; its `protected` key is human-only."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = make_vault(self.tmp.name, {"Resources/A.md": note("A"),
+                                               "Resources/_about.md": ABOUT})
+        self.vault = self.root.resolve()
+
+    def result(self, tool, path, **tool_input):
+        tool_input["file_path"] = path
+        out = decide({"tool_name": tool, "tool_input": tool_input}, str(self.vault))
+        return out["hookSpecificOutput"] if out else None
+
+    def kind(self, tool, path, **tool_input):
+        out = self.result(tool, path, **tool_input)
+        return out["permissionDecision"] if out else "allow"
+
+    def test_changing_protected_is_denied(self):
+        path = "wiki/Resources/_about.md"
+        cases = [("Write", dict(content=ABOUT_PROTECTED)),
+                 ("Edit", dict(old_string="protected: false", new_string="protected: true")),
+                 ("MultiEdit", dict(edits=[{"old_string": "protected: false",
+                                            "new_string": "protected: true"}])),
+                 ("Edit", dict(old_string="protected: false\n", new_string="")),
+                 ("Write", dict(content=ABOUT_PROTECTED.replace("protected: true",
+                                                               "protected: true\nprotected: false")))]
+        for tool, args in cases:
+            self.assertEqual(self.kind(tool, path, **args), "deny", (tool, args))
+            self.assertTrue(self.result(tool, path, **args)["permissionDecisionReason"].startswith(
+                "Only the human sets trust fields (reviewed, reviewed_hash, protected, origin)."))
+
+    def test_removing_protection_is_denied(self):
+        (self.vault / "wiki/Resources/_about.md").write_text(ABOUT_PROTECTED, encoding="utf-8")
+        self.assertEqual(self.kind("Write", "wiki/Resources/_about.md", content=ABOUT), "deny")
+
+    def test_other_changes_to_an_existing_about_ask(self):
+        path = "wiki/Resources/_about.md"
+        for tool, args in (("Write", dict(content=ABOUT.replace("Keep short.", "Anything."))),
+                           ("Edit", dict(old_string="Notes.", new_string="Other.")),
+                           ("MultiEdit", dict(edits=[{"old_string": "Keep", "new_string": "Stay"}]))):
+            self.assertEqual(self.kind(tool, path, **args), "ask", (tool, args))
+            self.assertEqual(self.result(tool, path, **args)["permissionDecisionReason"],
+                             ABOUT_REASON_ASK)
+
+    def test_unchanged_content_is_allowed(self):
+        self.assertEqual(self.kind("Write", "wiki/Resources/_about.md", content=ABOUT), "allow")
+
+    def test_new_about_without_protected_is_allowed(self):
+        self.assertEqual(self.kind("Write", "wiki/Archive/_about.md",
+                                   content="---\ndescription: Old.\n---\n"), "allow")
+        self.assertEqual(self.kind("Write", "wiki/Archive/_about.md", content="no frontmatter\n"),
+                         "allow")
+
+    def test_new_about_with_protected_true_is_denied(self):
+        for value in ("true", "yes", "True"):
+            content = "---\ndescription: Old.\nprotected: %s\n---\n" % value
+            self.assertEqual(self.kind("Write", "wiki/Archive/_about.md", content=content), "deny")
+            self.assertTrue(self.result("Write", "wiki/Archive/_about.md", content=content)[
+                "permissionDecisionReason"].startswith("Only the human sets trust fields"))
+
+    def test_new_about_with_protected_false_is_allowed(self):
+        self.assertEqual(self.kind("Write", "wiki/Archive/_about.md", content=ABOUT), "allow")
+
+    def test_root_about_is_guarded_too(self):
+        (self.vault / "wiki/_about.md").write_text(ABOUT, encoding="utf-8")
+        self.assertEqual(self.kind("Write", "wiki/_about.md", content=ABOUT_PROTECTED), "deny")
+
+    def test_edit_of_a_missing_about_is_allowed(self):
+        self.assertEqual(self.kind("Edit", "wiki/Archive/_about.md", old_string="a", new_string="b"),
+                         "allow")
+
+    def test_bash_writes_to_about_are_denied(self):
+        for command in ("echo x > wiki/Resources/_about.md", "echo x >> wiki/Resources/_about.md",
+                        "sed -i s/false/true/ wiki/Resources/_about.md",
+                        "tee wiki/Resources/_about.md", "cp /tmp/x wiki/Resources/_about.md",
+                        "cp /tmp/x wiki/Resources/", "mv /tmp/_about.md wiki/Resources/",
+                        "printf 'protected: true' >> wiki/Resources/_about.md"):
+            out = decide({"tool_name": "Bash", "tool_input": {"command": command}}, str(self.vault))
+            if command == "cp /tmp/x wiki/Resources/":
+                self.assertIsNone(out, command)      # copies /tmp/x, not an _about.md
+                continue
+            self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny", command)
+            self.assertEqual(out["hookSpecificOutput"]["permissionDecisionReason"],
+                             NOTE_WRITE_REASON, command)
+
+    def test_bash_reads_of_about_are_allowed(self):
+        for command in ("cat wiki/Resources/_about.md", "grep protected wiki/Resources/_about.md",
+                        "cp wiki/Resources/_about.md /tmp/a.md", "sb tree"):
+            self.assertIsNone(decide({"tool_name": "Bash", "tool_input": {"command": command}},
+                                     str(self.vault)), command)
 
 
 class GuardScriptTests(unittest.TestCase):

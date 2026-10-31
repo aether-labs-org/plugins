@@ -2,8 +2,9 @@
 
 Deny writes to _raw/**, .claude/**, top-level CLAUDE.md and .second-brain.json.
 Ask before deleting anything under wiki/. Decide Write/Edit/MultiEdit on notes by trust tier
-(trust.py). Bash may not write a note under wiki/ at all (D33): notes change only through the
-tools where the guard simulates the result. Bash matching is best effort (interpreter one-liners
+(trust.py). A folder's _about.md is guarded too (D34): `protected` is human-only, other edits
+ask. Bash may not write a note or an _about.md under wiki/ at all (D33, D34): they change only
+through the tools where the guard simulates the result. Bash matching is best effort (interpreter one-liners
 such as python -c are not parsed): git is the real net.
 """
 import glob
@@ -14,7 +15,7 @@ import shlex
 from pathlib import Path
 
 from .frontmatter import parse
-from .tree import folder_protected
+from .tree import _is_true, folder_protected
 from .trust import append_only, link_only, norm, tier, trust_key_lines, trust_fields_changed_text
 from .vault import find_vault, is_note_rel
 
@@ -51,6 +52,8 @@ SHELLS = {"bash", "sh", "zsh", "dash"}
 NOTE_WRITE_REASON = ("Notes under wiki/ are written only with the Write/Edit tools, where the guard "
                      "checks trust tiers. Use Edit to append a \"> [!agent]\" block instead of "
                      "shell redirection.")
+ABOUT_ASK_REASON = ("_about.md describes a folder and is edited by the human; confirm this change "
+                    "with the user.")
 ASK_REASON = ("%s is curated knowledge. Confirm the deletion with the user first; git can "
               "restore it.")
 
@@ -98,6 +101,10 @@ def _is_note(rel):
         and is_note_rel(rel[len("wiki/"):])
 
 
+def _is_about(rel):
+    return rel is not None and rel.startswith("wiki/") and rel.endswith("/_about.md")
+
+
 def _read(path):
     """Current text (LF) of an existing file, or None when it does not exist."""
     try:
@@ -138,6 +145,29 @@ def _decide_note(vault, tool, tool_input, rel):
             return None
         return _decision("ask", T1_REASON % rel)
     return _decision("ask", T2_REASON % rel)
+
+
+def _decide_about(vault, tool, tool_input, rel):
+    """D34: the agent never changes `protected` in a folder's _about.md; other edits ask."""
+    try:
+        current = _read(vault / rel)
+    except (OSError, UnicodeDecodeError):
+        return None
+    new = simulate(tool, tool_input, current)
+    if new is None:
+        return None
+    new = new.replace("\r\n", "\n")
+    if current is None:
+        lines = trust_key_lines(new)["protected"]
+        if _is_true(parse(new).data.get("protected")) or any(
+                _is_true(line.split(":", 1)[1]) for line in lines):
+            return _decision("deny", TRUST_REASON)
+        return None
+    if "protected" in trust_fields_changed_text(current, new):
+        return _decision("deny", TRUST_REASON)
+    if new == current:
+        return None
+    return _decision("ask", ABOUT_ASK_REASON)
 
 
 def _is_protected(rel):
@@ -479,14 +509,14 @@ def _target_verdict(vault, cwd, word, dir_sources=()):
     for rel in _candidates(vault, cwd, word):
         if _is_protected(rel):
             return ("deny", DENY_REASON % rel)
-        if _is_note(rel):
+        if _is_note(rel) or _is_about(rel):
             return ("deny", NOTE_WRITE_REASON)
         if dir_sources and (str(word).endswith("/") or (vault / rel).is_dir()):
             for name in dir_sources:
                 inner = rel.rstrip("/") + "/" + os.path.basename(str(name).rstrip("/"))
                 if _is_protected(inner):
                     return ("deny", DENY_REASON % inner)
-                if _is_note(inner):
+                if _is_note(inner) or _is_about(inner):
                     return ("deny", NOTE_WRITE_REASON)
     return None
 
@@ -647,6 +677,8 @@ def decide(event, cwd):
             return _decision("deny", DENY_REASON % rel)
         if tool != "NotebookEdit" and _is_note(rel):
             return _decide_note(vault, tool, tool_input, rel)
+        if tool != "NotebookEdit" and _is_about(rel):
+            return _decide_about(vault, tool, tool_input, rel)
         return None
     if tool == "Bash":
         return _decide_bash(vault, cwd, tool_input.get("command", ""))
