@@ -185,6 +185,65 @@ def cmd_log(args, out, err):
     return EXIT_OK
 
 
+def cmd_source_add(args, out, err):
+    from . import source
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    try:
+        source_id, kind = source.source_id_for(root, args.target)
+    except (ValueError, OSError) as exc:
+        print("sb: %s" % exc, file=err)
+        return EXIT_USAGE
+    notes = source.notes_for(root, source_id)
+    status = "seen" if notes else "new"
+    _emit(args, out, {"source_id": source_id, "kind": kind, "status": status, "notes": notes},
+          "%s %s (%s)%s" % (status, source_id, kind, "".join("\n  " + n for n in notes)))
+    return EXIT_OK
+
+
+def _read_stdin(stream):
+    stream = stream or sys.stdin
+    data = stream.buffer.read() if hasattr(stream, "buffer") else stream.read()
+    return data.decode("utf-8", "replace") if isinstance(data, bytes) else data
+
+
+def cmd_source_save(args, out, err):
+    from . import source
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    try:
+        result = source.save(root, args.source_id, _read_stdin(getattr(args, "stdin", None)),
+                             tool=args.tool, origin=args.origin)
+    except (ValueError, OSError) as exc:
+        print("sb: %s" % exc, file=err)
+        return EXIT_USAGE
+    text = ["saved %s (removed %d characters)" % (result["path"], result["removed"])]
+    if result["suspicious"]:
+        text.append("SUSPICIOUS: %d line(s) look like instructions to a model:" % len(result["flagged"]))
+        text += ["  line %d: %s" % (f["line"], f["text"]) for f in result["flagged"]]
+    _emit(args, out, result, "\n".join(text))
+    return EXIT_OK
+
+
+def cmd_inbox_done(args, out, err):
+    from . import source
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    try:
+        rel = source.inbox_done(root, args.file, args.title)
+    except (ValueError, OSError) as exc:
+        print("sb: %s" % exc, file=err)
+        return EXIT_USAGE
+    _emit(args, out, {"moved_to": rel}, "moved to %s" % rel)
+    return EXIT_OK
+
+
 def cmd_init(args, out, err):
     from . import init as init_mod
 
@@ -248,6 +307,25 @@ def build_parser():
     p.add_argument("title")
     p.set_defaults(func=cmd_log)
 
+    p = sub.add_parser("source", help="provenance of a file or URL being ingested")
+    ssub = p.add_subparsers(dest="source_command", required=True)
+    q = ssub.add_parser("add", parents=[common], help="source id and notes already made from it")
+    q.add_argument("target", help="file path or URL")
+    q.set_defaults(func=cmd_source_add)
+    q = ssub.add_parser("save", parents=[common],
+                        help="sanitise Markdown from stdin into _raw/.converted/")
+    q.add_argument("source_id")
+    q.add_argument("--tool", required=True, help="extraction tool used (pandoc, pdftotext, ...)")
+    q.add_argument("--origin", required=True, help="original path or URL")
+    q.set_defaults(func=cmd_source_save)
+
+    p = sub.add_parser("inbox", help="inbox bookkeeping")
+    isub = p.add_subparsers(dest="inbox_command", required=True)
+    q = isub.add_parser("done", parents=[common], help="move an ingested item to _inbox/_done/")
+    q.add_argument("file")
+    q.add_argument("--title", required=True, help="title for the ingest log line")
+    q.set_defaults(func=cmd_inbox_done)
+
     p = sub.add_parser("init", parents=[common], help="create a vault in the target directory")
     p.add_argument("--language", default="en")
     p.add_argument("--areas", default="", help="comma-separated initial areas")
@@ -256,11 +334,12 @@ def build_parser():
     return parser
 
 
-def main(argv=None, out=None, err=None):
+def main(argv=None, out=None, err=None, stdin=None):
     out = out or sys.stdout
     err = err or sys.stderr
     try:
         args = build_parser().parse_args(argv)
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else EXIT_USAGE
+    args.stdin = stdin
     return args.func(args, out, err)

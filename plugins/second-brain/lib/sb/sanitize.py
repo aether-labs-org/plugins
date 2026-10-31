@@ -1,5 +1,5 @@
-"""Text sanitising for anything a hook or CLI hands to the model. Milestone B adds
-`clean_document`."""
+"""Text sanitising for anything a hook or CLI hands to the model."""
+import re
 import unicodedata
 
 ELLIPSIS = "…"
@@ -19,3 +19,37 @@ def clean_inline(text, limit):
     if len(out) > limit:
         out = out[:max(limit - 1, 0)].rstrip() + ELLIPSIS
     return out
+
+
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+INJECTION_PATTERNS = [re.compile(p, re.IGNORECASE) for p in (
+    r"ignore (all |any )?(previous|prior|above) instructions",
+    r"disregard (the )?(previous|above)",
+    r"you are now",
+    r"system prompt",
+    r"</?(system|assistant|user)>",
+    r"\"(tool|function)_?(call|use)\"",
+    r"ignore as instruções",
+    r"você agora é",
+)]
+
+
+def clean_document(text):
+    """Sanitise extracted third-party text. Returns `(clean, removed, flagged)`.
+
+    Removes control and format characters (zero-width, bidi) except newline and tab, then
+    HTML comments (multi-line). `removed` counts the characters dropped. `flagged` lists
+    `(line_number, line)` of the cleaned text that match an injection pattern; those lines
+    are reported, never removed.
+    """
+    text = str(text).replace("\r\n", "\n")
+    kept, removed = [], 0
+    for char in text:
+        if char not in "\n\t" and unicodedata.category(char) in ("Cc", "Cf"):
+            removed += 1
+        else:
+            kept.append(char)
+    clean = HTML_COMMENT_RE.sub("", "".join(kept))
+    flagged = [(number, line) for number, line in enumerate(clean.split("\n"), 1)
+               if any(pattern.search(line) for pattern in INJECTION_PATTERNS)]
+    return clean, removed, flagged
