@@ -1,0 +1,98 @@
+[
+  {
+    "name": "plain",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "crlf",
+    "file": "---\r\ntitle: Note\r\norigin: human\r\ntags: [a, b]\r\n---\r\n# Heading\r\n\r\nFirst paragraph.\r\n\r\n- item one\r\n- item two\r\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "bom",
+    "file": "\ufeff---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "trailing-spaces",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n# Heading   \n\nFirst paragraph.\t \n\n- item one  \n- item two\t\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "leading-trailing-blank-lines",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n\n\n   \n# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n\n  \n\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "trailing-agent-block",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Added fact one.\n> Second line.\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "two-trailing-agent-blocks",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Added fact one.\n> Second line.\n\n> [!agent] 2026-11-03 \u00b7 src-002\n> Added fact two.\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "agent-block-in-middle",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n# Heading\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Added fact one.\n> Second line.\n\nText after the block.\n",
+    "review_body": "# Heading\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Added fact one.\n> Second line.\n\nText after the block.",
+    "hash": "sha256:a30be18cff5cffd1"
+  },
+  {
+    "name": "empty-body",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n",
+    "review_body": "",
+    "hash": "sha256:e3b0c44298fc1c14"
+  },
+  {
+    "name": "nfd-vs-nfc-nfc",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\ncaf\u00e9\n",
+    "review_body": "caf\u00e9",
+    "hash": "sha256:850f7dc43910ff89"
+  },
+  {
+    "name": "nfd-vs-nfc-nfd",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\ncafe\u0301\n",
+    "review_body": "cafe\u0301",
+    "hash": "sha256:81ef060bcd98adc7"
+  },
+  {
+    "name": "frontmatter-reformatted",
+    "file": "---\ntags:\n  - \"a\"\n  - 'b'\norigin: \"human\"\ntitle: \"Note\"\nreviewed: 2026-11-05\nreviewed_hash: \"sha256:0123456789abcdef\"\n---\n# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "agent-block-uppercase",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n\n> [!AGENT] 2026-11-02 \u00b7 src-001\n> Added.\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "blockquote-before-agent-block",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n\n> A plain quote.\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Added fact one.\n> Second line.\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n\n> A plain quote.",
+    "hash": "sha256:7d79e0d106a90e5c"
+  },
+  {
+    "name": "agent-block-then-text-not-trailing",
+    "file": "---\ntitle: Note\norigin: human\ntags: [a, b]\n---\n> [!agent] 2026-11-02 \u00b7 src-001\n> Added fact one.\n> Second line.\nplain line right after\n",
+    "review_body": "> [!agent] 2026-11-02 \u00b7 src-001\n> Added fact one.\n> Second line.\nplain line right after",
+    "hash": "sha256:a984b2b44953ea88"
+  },
+  {
+    "name": "no-frontmatter",
+    "file": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Added fact one.\n> Second line.\n",
+    "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
+    "hash": "sha256:f964504556d44bc4"
+  }
+]
