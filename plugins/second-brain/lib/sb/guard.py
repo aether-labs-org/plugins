@@ -350,6 +350,8 @@ def _classify(scope, cwd, operands, deleting=True):
     return verdict
 
 
+STACK_INDEX = re.compile(r"^[+-]\d+$")
+HOME_ASSIGNED = re.compile(r"(?<![\w$])HOME\s*=")
 C_FLAG = re.compile(r"^-[A-Za-z]*c[A-Za-z]*$")
 
 
@@ -1502,9 +1504,13 @@ def _command(scope, cwd, tokens, depth):
         program, args = "trash", args[1:]
     if program in CD_CMDS:
         target = [t for t in args if not t.startswith("-")][:1]
-        if program == "popd" or (program == "pushd" and not target) or (
+        if program == "popd" or (program == "pushd" and (not target or any(
+                STACK_INDEX.match(str(a)) for a in args))) or (
                 program == "cd" and target == [] and "-" in args):
-            return ("cd", UnknownCwd(cwd))       # cd -, popd, a bare pushd: the old directory is lost
+            return ("cd", UnknownCwd(cwd))       # cd -, popd, pushd +N: the old directory is lost
+        if (not target or str(target[0]) == "~" or str(target[0]).startswith("~/")) \
+                and HOME_ASSIGNED.search(scope.text):
+            return ("cd", UnknownCwd(cwd))       # the command changed HOME, so ~ is not ours to read
         if not target:
             return ("cd", os.path.realpath(os.path.expanduser("~")))
         if _has_var(target[0]):

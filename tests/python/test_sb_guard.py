@@ -1196,6 +1196,19 @@ class BashUnknownCwdTests(Round2Base):
         self.kinds(["cd %s/wiki && echo x > Resources/A.md" % self.vault], "deny", NOTE_WRITE_REASON,
                    cwd=outside)
 
+    def test_pushd_stack_rotation_is_unknown(self):
+        self.kinds(["pushd +1 && echo x > wiki/Resources/A.md", "pushd -1 && echo x > wiki/Resources/A.md",
+                    "pushd +0; echo x > out.txt", "popd +1; echo x > out.txt"], "ask", UNRESOLVED)
+
+    def test_cd_home_after_a_home_assignment_is_unknown(self):
+        v = str(self.vault)
+        self.kinds(["HOME=%s; cd; echo x > wiki/Resources/A.md" % v,
+                    "export HOME=%s; cd ~ && echo x > wiki/Resources/A.md" % v,
+                    "HOME=%s; cd ~/wiki && echo x > Resources/A.md" % v,
+                    "env HOME=%s sh -c 'cd; echo x > wiki/Resources/A.md'" % v,
+                    "declare -x HOME=%s; cd; echo x > out.txt" % v], "ask", UNRESOLVED)
+        self.kinds(["HOME=%s; cd; echo x > /tmp/o.txt" % v, "HOME=/tmp ls"], "allow")
+
 
 class BashOtherWritersTests(Round2Base):
     """Item 6: awk, sed w, php, vim, emacs and symbolic links made inside the command."""
