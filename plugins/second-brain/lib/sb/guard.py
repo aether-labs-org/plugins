@@ -90,8 +90,8 @@ SIMULATE_ASK_REASON = ("The guard could not apply this edit to %s to check it (t
 
 
 class UnknownCwd(str):
-    """The working directory after `cd -`, a bare `cd`, `cd ~...`, `pushd` or `popd`: the text is the
-    last known directory, but a relative write target cannot be placed from it (D35)."""
+    """The working directory after `cd -`, `popd` or a bare `pushd`: the text is the last known
+    directory, but a relative write target cannot be placed from it (D35)."""
 
 
 class Scope:
@@ -308,8 +308,9 @@ def _strip_wrappers(tokens):
 
 
 def _unknown_cwd_ask(scope, cwd, word):
-    """('ask', reason) for a relative write target when the cwd is unknown inside a vault."""
-    if scope.strict and isinstance(cwd, UnknownCwd):
+    """('ask', reason) for a relative write target when the cwd is unknown. Fails closed: it does
+    not depend on `scope.strict`, because an unknown directory may be inside any vault (D35)."""
+    if isinstance(cwd, UnknownCwd):
         text = str(word).strip().strip("'\"")
         if text and not text.startswith(("/", "~")):
             return ("ask", UNRESOLVED_REASON)
@@ -1438,15 +1439,18 @@ def _command(scope, cwd, tokens, depth):
         program = sub if sub in ("rm", "mv") else "git"
     if program == "gio" and args[:1] == ["trash"]:
         program, args = "trash", args[1:]
-    if program in CD_CMDS or program == "popd":
+    if program in CD_CMDS:
         target = [t for t in args if not t.startswith("-")][:1]
-        if program != "cd" or not target or target[0] == "-" or str(target[0]).startswith("~"):
-            return ("cd", UnknownCwd(cwd))       # bare cd, cd -, cd ~..., pushd, popd
+        if program == "popd" or (program == "pushd" and not target) or (
+                program == "cd" and target == [] and "-" in args):
+            return ("cd", UnknownCwd(cwd))       # cd -, popd, a bare pushd: the old directory is lost
+        if not target:
+            return ("cd", os.path.realpath(os.path.expanduser("~")))
         if _has_var(target[0]):
             return ("ask", UNRESOLVED_REASON) if scope.strict else None
         moved = os.path.realpath(os.path.join(cwd, os.path.expanduser(target[0])))
         return ("cd", UnknownCwd(moved) if isinstance(cwd, UnknownCwd)
-                and not str(target[0]).startswith("/") else moved)
+                and not os.path.isabs(os.path.expanduser(str(target[0]))) else moved)
     if program.lower() in ("obsidian", "obsidian-cli"):
         return _obsidian_verdict(scope, program.lower(), args)
     if program == "find":

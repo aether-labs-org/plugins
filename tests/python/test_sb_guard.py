@@ -1148,20 +1148,20 @@ class BashDirectoryTests(Round2Base):
 
 
 class BashUnknownCwdTests(Round2Base):
-    """Item 5: after cd -, a bare cd, cd ~..., pushd or popd the cwd is unknown (D35)."""
+    """Item 5: after cd - or popd the cwd is unknown (D35); cd ~, a bare cd and pushd <path> are
+    still resolved, and the unknown-cwd check fails closed whatever the scope."""
 
     def test_relative_writes_after_an_unknown_cwd_ask(self):
-        self.kinds(["cd -; echo x > foo.txt", "cd - && rm foo", "cd; echo x > foo.txt",
-                    "cd ~; echo x > wiki/Resources/A.md", "cd ~/x; touch a", "cd ~root; touch a",
-                    "pushd wiki/Resources; echo x > A.md", "pushd /tmp; popd; echo x > wiki/Resources/A.md",
-                    "popd; rm a", "cd -; mv a b", "cd -; sed -i s/a/b/ f", "cd -; cp a wiki/",
-                    "cd -; cd wiki; echo x > Resources/A.md", "cd -; tee out", "cd -; truncate -s0 f",
-                    "cd -; find . -delete", "cd -; mv wiki/Resources x"],
+        self.kinds(["cd -; echo x > foo.txt", "cd - && rm foo", "cd - && echo x > wiki/Resources/A.md",
+                    "popd; rm a", "pushd /tmp; popd; echo x > wiki/Resources/A.md",
+                    "pushd; echo x > foo", "cd -; mv a b", "cd -; sed -i s/a/b/ f",
+                    "cd -; cp a wiki/", "cd -; cd wiki; echo x > Resources/A.md", "cd -; tee out",
+                    "cd -; truncate -s0 f", "cd -; find . -delete", "cd -; mv wiki/Resources x"],
                    "ask", UNRESOLVED)
 
     def test_absolute_writes_and_reads_after_an_unknown_cwd_are_judged_as_usual(self):
         self.kinds(["cd -; echo x > /tmp/o.txt", "cd -; cat wiki/Resources/A.md", "cd -; ls",
-                    "cd ~; echo x > /tmp/o.txt", "cd - && git status", "(cd -); echo x > out.txt",
+                    "cd - && git status", "(cd -); echo x > out.txt",
                     "cd -; grep x wiki/Resources/A.md > /dev/null"], "allow")
         self.kinds(["cd -; echo x > %s/wiki/Resources/A.md" % self.vault,
                     "cd -; rm -rf %s/_raw" % self.vault], "deny")
@@ -1171,9 +1171,30 @@ class BashUnknownCwdTests(Round2Base):
         self.kinds(["cd -; cd %s; echo x > wiki/Resources/A.md" % self.vault], "deny", NOTE_WRITE_REASON)
 
     def test_a_known_cd_is_unchanged(self):
-        self.kinds(["cd wiki; echo x > Resources/A.md", "cd wiki/Resources && echo x > A.md"],
-                   "deny", NOTE_WRITE_REASON)
+        self.kinds(["cd wiki; echo x > Resources/A.md", "cd wiki/Resources && echo x > A.md",
+                    "pushd wiki && echo x > Resources/A.md"], "deny", NOTE_WRITE_REASON)
         self.kinds(["cd wiki && cd .. && echo x > out.txt"], "allow")
+
+    def test_cd_home_and_bare_cd_are_resolved(self):
+        home = str(self.vault.parent)
+        with mock.patch.dict(os.environ, {"HOME": str(self.vault)}):
+            self.kinds(["cd ~ && echo x > wiki/Resources/A.md", "cd && echo x > wiki/Resources/A.md",
+                        "cd ~/wiki && echo x > Resources/A.md", "cd ~/wiki/Resources; echo x > A.md"],
+                       "deny", NOTE_WRITE_REASON)
+            self.kinds(["cd ~ && echo x > out.txt"], "allow")
+        with mock.patch.dict(os.environ, {"HOME": home}):
+            self.kinds(["cd ~/%s && echo x > wiki/Resources/A.md" % self.vault.name,
+                        "cd ~/%s/wiki/Resources && echo x > A.md" % self.vault.name],
+                       "deny", NOTE_WRITE_REASON)
+
+    def test_unknown_cwd_fails_closed_outside_the_vault_scope_too(self):
+        # the vault is reached by an absolute path, the cwd lies elsewhere (non-strict scope)
+        outside = tempfile.mkdtemp()
+        self.addCleanup(os.rmdir, outside)
+        self.kinds(["cd - && echo x > wiki/Resources/A.md; ls %s" % self.vault,
+                    "popd && rm foo; ls %s" % self.vault], "ask", UNRESOLVED, cwd=outside)
+        self.kinds(["cd %s/wiki && echo x > Resources/A.md" % self.vault], "deny", NOTE_WRITE_REASON,
+                   cwd=outside)
 
 
 class GuardScriptTests(unittest.TestCase):
