@@ -16,6 +16,12 @@ class TrustTests(unittest.TestCase):
                          "has-agent-blocks")
         self.assertEqual(label({"origin": "agent"}, "> [!agent] x"), "unreviewed")
 
+    def test_missing_null_empty_and_empty_list_reviewed_are_all_unreviewed(self):
+        # parity with the companion's trustState: [] , "" , null and a missing key mean not reviewed
+        for data in ({"origin": "agent"}, {"origin": "agent", "reviewed": None},
+                     {"origin": "agent", "reviewed": ""}, {"origin": "agent", "reviewed": []}):
+            self.assertEqual(label(data, "x"), "unreviewed", data)
+
     def test_agent_marker_must_start_the_line(self):
         self.assertEqual(label({"origin": "human"}, "text > [!agent] not a callout"), "reviewed")
         self.assertEqual(label({"origin": "human"}, "> [!AGENT] x"), "has-agent-blocks")

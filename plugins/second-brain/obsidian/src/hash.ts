@@ -1,4 +1,4 @@
-import { splitTrailingAgentBlocks } from "./blocks";
+import { isBlank, splitTrailingAgentBlocks } from "./blocks";
 import { bodyStartLine } from "./frontmatter";
 
 /**
@@ -23,8 +23,8 @@ export function reviewBody(text: string): string {
 	const lines = kept.split("\n").map((l) => l.replace(/[ \t]+$/, ""));
 	let start = 0;
 	let end = lines.length;
-	while (start < end && lines[start] === "") start++;
-	while (end > start && lines[end - 1] === "") end--;
+	while (start < end && isBlank(lines[start] ?? "")) start++;
+	while (end > start && isBlank(lines[end - 1] ?? "")) end--;
 	return lines.slice(start, end).join("\n");
 }
 
@@ -46,8 +46,14 @@ export function isWikiNote(path: string): boolean {
 	return parts.slice(wiki + 1).every((p) => !p.startsWith("_") && !p.startsWith("."));
 }
 
+/** Missing, null, `[]` and a blank string all mean "not set", as in lib/sb/trust.py. */
 function isEmpty(value: unknown): boolean {
-	return value === undefined || value === null || (typeof value === "string" && value.trim() === "");
+	return (
+		value === undefined ||
+		value === null ||
+		(Array.isArray(value) && value.length === 0) ||
+		(typeof value === "string" && value.trim() === "")
+	);
 }
 
 /**

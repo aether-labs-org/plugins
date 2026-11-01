@@ -21,7 +21,7 @@ REQUIRED_NAMES = {"plain", "crlf", "bom", "trailing-spaces", "leading-trailing-b
 class VectorTests(unittest.TestCase):
     def test_fixture_has_the_required_vectors(self):
         names = {v["name"] for v in VECTORS}
-        self.assertEqual(len(VECTORS), 16)
+        self.assertEqual(len(VECTORS), 20)
         self.assertLessEqual(REQUIRED_NAMES, names)
         self.assertTrue({"nfd-vs-nfc-nfc", "nfd-vs-nfc-nfd"} <= names)
 

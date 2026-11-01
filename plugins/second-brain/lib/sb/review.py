@@ -10,10 +10,11 @@ from .frontmatter import parse
 
 AGENT_HEADER_RE = re.compile(r"^> \[!agent\]", re.IGNORECASE)
 TRAILING_BLANK_RE = re.compile(r"[ \t]+$")      # spaces and tabs only, not str.rstrip()
+BLANK_RE = re.compile(r"[ \t\r]*")              # a blank line: never str.strip(), JS trim() differs
 
 
 def _blank(line):
-    return line.strip() == ""
+    return BLANK_RE.fullmatch(line) is not None
 
 
 def _first_trailing_header(lines):
@@ -55,13 +56,13 @@ def split_trailing_agent_blocks(body):
 def review_text(body):
     """The text a review covers, from a parsed body (`frontmatter.parse(...).body`): minus
     trailing agent callouts, trailing spaces and tabs removed per line, leading and trailing blank
-    lines removed. No Unicode normalisation."""
+    lines (only spaces, tabs and CR) removed. No Unicode normalisation."""
     kept, _ = split_trailing_agent_blocks(body)
     lines = [TRAILING_BLANK_RE.sub("", line) for line in kept.split("\n")]
     start, end = 0, len(lines)
-    while start < end and lines[start] == "":
+    while start < end and _blank(lines[start]):
         start += 1
-    while end > start and lines[end - 1] == "":
+    while end > start and _blank(lines[end - 1]):
         end -= 1
     return "\n".join(lines[start:end])
 

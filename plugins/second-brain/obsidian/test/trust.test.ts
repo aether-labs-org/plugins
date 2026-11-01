@@ -12,6 +12,13 @@ describe("trustState", () => {
 		expect(await trustState(note("origin: agent"), { origin: "agent", reviewed: null })).toBe("unreviewed");
 	});
 
+	it("unreviewed: missing, null, empty string and empty list are all empty", async () => {
+		for (const reviewed of [undefined, null, "", "  ", []]) {
+			const fm = { origin: "agent", reviewed };
+			expect(await trustState(note("origin: agent"), fm)).toBe("unreviewed");
+		}
+	});
+
 	it("reviewed: hash matches", async () => {
 		const hash = await reviewHash(note("origin: agent"));
 		const fm = { origin: "agent", reviewed: "2026-11-05", reviewed_hash: hash };

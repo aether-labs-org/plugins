@@ -2,8 +2,9 @@ import { bodyStartLine } from "./frontmatter";
 
 const AGENT_HEADER_RE = /^> \[!agent\]/i;
 
-function isBlank(line: string): boolean {
-	return line.trim() === "";
+/** Blank = only space, tab or CR, as in lib/sb/review.py. Not trim(): its whitespace set differs from Python's strip(). */
+export function isBlank(line: string): boolean {
+	return /^[ \t\r]*$/.test(line);
 }
 
 function dropTrailingBlank(lines: string[]): string[] {
