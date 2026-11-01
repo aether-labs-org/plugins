@@ -2,7 +2,8 @@ import unittest
 
 import sb_helpers  # noqa: F401
 from sb.sanitize import clean_inline
-from sb.trust import (TRUST_FIELDS, append_only, label, link_only, tier, trust_fields_changed,
+from sb.frontmatter import parse
+from sb.trust import (TRUST_FIELDS, _frontmatter_lines, append_only, label, link_only, tier, trust_fields_changed,
                       trust_fields_changed_text)
 
 
@@ -99,3 +100,16 @@ class SanitizeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FenceParityTests(unittest.TestCase):
+    def test_frontmatter_lines_use_the_parser_fence(self):
+        for ch in ("\x1c", "\x1f", "\x85", "\xa0", "\x0b", "\x0c", "\u3000", "\u2003"):
+            text = "---\norigin: agent\n%s---\nreviewed: 1\n---\nbody" % ch
+            self.assertEqual(parse(text).data.get("reviewed"), "1", repr(ch))
+            self.assertIn("reviewed: 1", _frontmatter_lines(text), repr(ch))
+
+    def test_wide_scan_reaches_the_column_zero_fence(self):
+        text = "---\norigin: agent\n ---\nreviewed: 1\n---\nbody"
+        self.assertNotIn("reviewed: 1", _frontmatter_lines(text))
+        self.assertIn("reviewed: 1", _frontmatter_lines(text, wide=True))

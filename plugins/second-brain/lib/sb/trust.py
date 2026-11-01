@@ -2,7 +2,7 @@
 import re
 from collections import Counter
 
-from .frontmatter import KEY_RE, parse
+from .frontmatter import BLANK_RE, FENCE_RE, KEY_RE, parse
 
 AGENT_BLOCK_RE = re.compile(r"^>[ \t]*\[!agent\]", re.IGNORECASE | re.MULTILINE)
 
@@ -45,23 +45,30 @@ def trust_fields_changed(old, new):
     return [f for f in TRUST_FIELDS if norm(old.get(f)) != norm(new.get(f))]
 
 
-def _frontmatter_lines(text):
-    """Raw frontmatter lines (CRLF and BOM normalised, trailing blanks trimmed)."""
-    lines = text.lstrip("﻿").replace("\r\n", "\n").split("\n")
-    if not lines or lines[0].strip() != "---":
+# A reader that takes only a column-0 `---` for a fence (Obsidian does not skip leading blanks) can
+# end the frontmatter later than `FENCE_RE` does; `wide` scans up to that later fence.
+STRICT_FENCE_RE = re.compile(r"---[ \t\r]*")
+
+
+def _frontmatter_lines(text, wide=False):
+    """Raw frontmatter lines (CRLF and BOM normalised, trailing blanks trimmed). Fences are found
+    with `frontmatter.FENCE_RE`, exactly as `parse` does; never with str.strip()."""
+    lines = text.lstrip("\ufeff").replace("\r\n", "\n").split("\n")
+    if not FENCE_RE.fullmatch(lines[0]):
         return []
-    end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), len(lines))
+    closing = STRICT_FENCE_RE if wide else FENCE_RE
+    end = next((i for i in range(1, len(lines)) if closing.fullmatch(lines[i])), len(lines))
     return [line.rstrip() for line in lines[1:end]]
 
 
-def hidden_trust_lines(text):
+def hidden_trust_lines(text, wide=True):
     """`(field, line)` for each frontmatter line that a YAML reader may take for a trust key
     but that is not a plain `key: value` line the restricted parser reads: a quoted, spaced,
     case-varied or escaped key, and any flow mapping (`field` is `*` for those)."""
     found = []
-    for raw in _frontmatter_lines(text):
+    for raw in _frontmatter_lines(text, wide):
         line = raw.strip()
-        if not line or line.startswith("#"):
+        if BLANK_RE.fullmatch(raw) or line.startswith("#"):
             continue
         if line.startswith("{"):
             found.append(("*", line))
@@ -84,7 +91,7 @@ def trust_fields_changed_text(old_text, new_text):
     old_hidden, new_hidden = Counter(hidden_trust_lines(old_text)), Counter(hidden_trust_lines(new_text))
     for field, _line in list((old_hidden - new_hidden) + (new_hidden - old_hidden)):
         changed.update(TRUST_FIELDS if field == "*" else (field,))
-    old_lines, new_lines = _frontmatter_lines(old_text), _frontmatter_lines(new_text)
+    old_lines, new_lines = _frontmatter_lines(old_text, True), _frontmatter_lines(new_text, True)
     for field in TRUST_FIELDS:
         prefix = field + ":"
         if [l.strip() for l in old_lines if l.strip().startswith(prefix)] != \
@@ -94,8 +101,8 @@ def trust_fields_changed_text(old_text, new_text):
 
 
 def trust_key_lines(text):
-    """Raw frontmatter lines of each trust field, stripped, in file order."""
-    lines = [l.strip() for l in _frontmatter_lines(text)]
+    """Raw frontmatter lines of each trust field, stripped, in file order (wide scan)."""
+    lines = [l.strip() for l in _frontmatter_lines(text, True)]
     return {f: [l for l in lines if l.startswith(f + ":")] for f in TRUST_FIELDS}
 
 

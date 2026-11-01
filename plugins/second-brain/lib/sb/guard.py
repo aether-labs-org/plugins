@@ -236,7 +236,8 @@ def _decide_note(vault, tool, tool_input, rel):
             return _decision("deny", NEW_ORIGIN_REASON)
         lines = trust_key_lines(new)
         if any(lines[f] for f in lines if f != "origin") or len(lines["origin"]) != 1 \
-                or hidden_trust_lines(new):
+                or hidden_trust_lines(new) or any(
+                norm(data.get(f)) for f in ("reviewed", "reviewed_hash", "protected")):
             return _decision("deny", TRUST_REASON)
         if folder_protected(vault, rel):
             return _decision("ask", T2_REASON % rel)

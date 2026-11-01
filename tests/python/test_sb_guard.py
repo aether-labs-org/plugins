@@ -138,6 +138,43 @@ class NoteGuardTests(unittest.TestCase):
             self.assertTrue(self.reason("Write", "wiki/Resources/N.md", content=content)
                             .startswith(REASON_TRUST))
 
+    FENCE_VARIANTS = ("\x1c", "\x1f", "\x85", "\xa0", "\x0b", "\x0c", " ", "\u3000", "\t", "\u2003")
+
+    def test_new_note_fence_lookalikes_cannot_hide_trust_fields(self):
+        # a line the guard's old str.strip() took for a fence, but the parser did not (or the reverse)
+        for ch in self.FENCE_VARIANTS:
+            content = ("---\norigin: agent\ntitle: x\n%s---\nreviewed: 2026-01-01\n"
+                       "reviewed_hash: sha256:00\n---\nbody" % ch)
+            self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "deny", repr(ch))
+            self.assertTrue(self.reason("Write", "wiki/Resources/N.md", content=content)
+                            .startswith(REASON_TRUST), repr(ch))
+
+    def test_new_note_trust_key_in_parsed_data_is_denied(self):
+        # the parser reads `reviewed` here; whatever the line scan thinks the frontmatter is
+        content = "---\norigin: agent\n\x1c---\nprotected: true\n---\nbody"
+        self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "deny")
+
+    def test_t1_edit_with_fence_lookalike_never_allows(self):
+        for ch in self.FENCE_VARIANTS:
+            new = "title: G\n%s---\ntags: [x]\nstatus: evergreen\n---\n" % ch
+            self.assertNotEqual(self.kind("Edit", "wiki/Resources/H.md", old_string="title: H\n",
+                                          new_string=new), "allow", repr(ch))
+            content = "---\ntitle: H\n%s---\n---\nREWRITTEN\n" % ch
+            self.assertNotEqual(self.kind("Write", "wiki/Resources/H.md", content=content),
+                                "allow", repr(ch))
+
+    def test_t0_edit_adding_lookalike_fence_and_reviewed_is_denied(self):
+        for ch in self.FENCE_VARIANTS:
+            self.assertEqual(self.kind("Edit", "wiki/Resources/G.md", old_string="origin: agent",
+                                       new_string="origin: agent\n%s---\nreviewed: 2026-01-01" % ch),
+                             "deny", repr(ch))
+
+    def test_new_note_regular_forms_stay_allowed(self):
+        for content in ("---\r\norigin: agent\r\n---\r\nbody\r\n",
+                        "---\norigin: \"agent\"\nupdated: 2026-10-31\naliases:\n  - Foo\n---\nbody\n",
+                        "---\norigin: agent\n---\nbody\n\n---\n\nmore\n"):
+            self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "allow", content)
+
     def test_new_note_with_duplicate_origin_key_is_denied(self):
         content = AGENT.replace("origin: agent", "origin: agent\norigin: human")
         self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "deny")
