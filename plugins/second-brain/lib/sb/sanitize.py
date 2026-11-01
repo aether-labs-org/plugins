@@ -21,6 +21,15 @@ def clean_inline(text, limit):
     return out
 
 
+TAG_RE = re.compile(r"<(/?\s*second-brain-)", re.IGNORECASE)
+
+
+def escape_tags(text):
+    """Break any `<second-brain-...>` or `</second-brain-...>` tag so vault text cannot open or
+    close the blocks the hooks wrap around it."""
+    return TAG_RE.sub(r"‹\1", str(text))
+
+
 HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 INJECTION_PATTERNS = [re.compile(p, re.IGNORECASE) for p in (
     r"ignore (all |any )?(previous|prior|above) instructions",

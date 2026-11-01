@@ -26,7 +26,7 @@ PROTECTED_DIRS = {"_raw", ".claude"}
 PROTECTED_FILES = {"CLAUDE.md", ".second-brain.json"}
 SEGMENT_SPLIT = re.compile(r"&&|\|\||;|\||\n")
 ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-WRAPPERS = {"sudo", "command", "time", "nohup", "exec", "builtin", "!", "{", "}", "then",
+WRAPPERS = {"command", "time", "nohup", "exec", "builtin", "!", "{", "}", "then",
             "do", "else", "elif", "if", "while", "until"}
 DELETE_CMDS = {"rmdir", "rm", "unlink", "shred"}
 ALL_OPERANDS_WRITE = {"mv", "touch", "tee", "sponge", "truncate", "ln", "chmod", "chown", "mkdir"}
@@ -35,6 +35,20 @@ NOTE_ALL_OPERANDS = {"mv", "touch", "tee", "sponge", "truncate", "ln"}  # chmod 
 CD_CMDS = {"cd", "pushd"}
 MAX_DEPTH = 5
 MAX_VARIANTS = 50
+MAX_FOUND = 400
+MAX_ABSOLUTE = 6
+# wrappers whose own options (and, for the value-taking ones, their values) precede the command
+PEELERS = {"sudo": {"-u", "-g", "-C", "-h", "-p", "-r", "-t", "-T", "-U", "--user", "--group"},
+           "doas": {"-u", "-C"}, "env": {"-u", "-C"}, "timeout": {"-s", "-k", "--signal", "--kill-after"},
+           "nice": {"-n", "--adjustment"}, "stdbuf": {"-i", "-o", "-e"},
+           "ionice": {"-c", "-n", "-p"}, "setsid": set(), "chrt": set()}
+FIND_EXEC = {"-exec", "-execdir", "-ok", "-okdir"}
+XARGS_VALUE_OPTIONS = {"-d", "-E", "-L", "-n", "-P", "-s", "-e", "-l", "--delimiter", "--max-args",
+                       "--max-lines", "--max-procs", "--max-chars", "--eof"}
+EDITORS = {"ex", "ed", "red"}
+VIMS = {"vim", "vi", "nvim", "view", "vimdiff"}
+INTERPRETER_RE = re.compile(r"^(?:python[0-9.]*|node(?:js)?|perl|ruby|deno|bun)$")
+MENTION = re.compile(r"wiki/|_raw|\.claude|\.md\b|\.second-brain", re.IGNORECASE)
 
 DENY_REASON = ("%s is protected in a second-brain vault: _raw/ is immutable, and CLAUDE.md, "
                ".claude/ and .second-brain.json are edited by the human. Ask the human to "
@@ -57,6 +71,27 @@ ABOUT_ASK_REASON = ("_about.md describes a folder and is edited by the human; co
                     "with the user.")
 ASK_REASON = ("%s is curated knowledge. Confirm the deletion with the user first; git can "
               "restore it.")
+UNRESOLVED_REASON = "second-brain cannot resolve this write target; confirm with the user."
+INTERPRETER_REASON = ("This interpreter command may modify notes; notes are written only with "
+                      "Write/Edit. Confirm with the user.")
+DIR_ASK_REASON = ("%s is inside wiki/ and this command may write notes there; confirm with the "
+                  "user. Notes are written only with Write/Edit.")
+SIMULATE_ASK_REASON = ("The guard could not apply this edit to %s to check it (the text to "
+                       "replace was not found). Confirm with the user.")
+
+
+class Scope:
+    """The vault a Bash command is checked against. `strict` is true when the cwd lies in that
+    vault, so an expansion the guard cannot resolve may name a path inside it (D35)."""
+
+    def __init__(self, vault, strict, text):
+        self.vault, self.strict, self.text = vault, strict, text
+
+    def rel(self, cwd, raw):
+        return _rel(self.vault, cwd, raw)
+
+    def strict_copy(self):
+        return Scope(self.vault, True, self.text)
 
 
 def _decision(kind, reason):
@@ -72,6 +107,27 @@ def _rel(vault, cwd, raw):
         return Path(path).relative_to(vault).as_posix()
     except ValueError:
         return None
+
+
+QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'",
+                        "\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"'})
+
+
+def _apply_edit(text, old, new, replace_all):
+    """`text` with `old` replaced; a match that fails is retried with curly and straight quotes
+    treated as the same character. None when `old` is not found either way."""
+    if old in text:
+        return text.replace(old, new) if replace_all else text.replace(old, new, 1)
+    flat, flat_old = text.translate(QUOTES), old.translate(QUOTES)
+    start = flat.find(flat_old)
+    if start < 0:
+        return None
+    out, last = [], 0
+    while start >= 0:
+        out += [text[last:start], new]
+        last = start + len(old)
+        start = flat.find(flat_old, last) if replace_all else -1
+    return "".join(out) + text[last:]
 
 
 def simulate(tool, tool_input, current):
@@ -95,9 +151,11 @@ def simulate(tool, tool_input, current):
                 return None
             text = new
             continue
-        if text is None or old not in text:
+        if text is None:
             return None
-        text = text.replace(old, new) if edit.get("replace_all") else text.replace(old, new, 1)
+        text = _apply_edit(text, old, new, bool(edit.get("replace_all")))
+        if text is None:
+            return None
     return text
 
 
@@ -122,11 +180,13 @@ def _decide_note(vault, tool, tool_input, rel):
     path = vault / rel
     try:
         current = _read(path)
-    except (OSError, UnicodeDecodeError):
+    except UnicodeDecodeError:
+        return _decision("ask", SIMULATE_ASK_REASON % rel)
+    except OSError:
         return None                      # the tool itself will fail on an unreadable file
     new = simulate(tool, tool_input, current)
     if new is None:
-        return None
+        return None if current is None else _decision("ask", SIMULATE_ASK_REASON % rel)
     new = new.replace("\r\n", "\n")
     if current is None or not current.strip():
         data = parse(new).data
@@ -157,11 +217,13 @@ def _decide_about(vault, tool, tool_input, rel):
     """D34: the agent never changes `protected` in a folder's _about.md; other edits ask."""
     try:
         current = _read(vault / rel)
-    except (OSError, UnicodeDecodeError):
+    except UnicodeDecodeError:
+        return _decision("ask", SIMULATE_ASK_REASON % rel)
+    except OSError:
         return None
     new = simulate(tool, tool_input, current)
     if new is None:
-        return None
+        return None if current is None else _decision("ask", SIMULATE_ASK_REASON % rel)
     new = new.replace("\r\n", "\n")
     if current is None:
         lines = trust_key_lines(new)["protected"]
@@ -188,19 +250,21 @@ def _strip_wrappers(tokens):
     return tokens[i:]
 
 
-def _classify(vault, cwd, operands, deleting):
-    ask = None
+def _classify(scope, cwd, operands, deleting=True):
+    """Verdict for deleting `operands`: protected paths deny, curated notes ask."""
+    verdict = None
     for raw in operands:
-        rel = _rel(vault, cwd, raw)
-        if rel is None:
-            continue
-        if _is_protected(rel) or (deleting and rel == "."):
-            return ("deny", rel)
-        if deleting and (rel == "wiki" or rel.startswith("wiki/")):
-            ask = ("ask", rel)
-        elif deleting and "/" not in rel and any(c in rel for c in "*?["):
-            ask = ("ask", rel)
-    return ask
+        rel = scope.rel(cwd, raw)
+        if rel is not None:
+            if _is_protected(rel) or (deleting and rel == "."):
+                return ("deny", DENY_REASON % rel)
+            if deleting and (rel == "wiki" or rel.startswith("wiki/")):
+                verdict = _merge(verdict, ("ask", ASK_REASON % rel))
+            elif deleting and "/" not in rel and any(c in rel for c in "*?["):
+                verdict = _merge(verdict, ("ask", ASK_REASON % rel))
+        if scope.strict and _has_var(raw):
+            verdict = _merge(verdict, ("ask", UNRESOLVED_REASON))
+    return verdict
 
 
 C_FLAG = re.compile(r"^-[A-Za-z]*c[A-Za-z]*$")
@@ -262,6 +326,7 @@ def _has_sb_review(command, depth=0):
 class Word(str):
     """A shell word with quotes removed; `glob` is True when it holds an unquoted * ? [."""
     glob = False
+    var = False
 
 
 class Segment:
@@ -298,7 +363,7 @@ def _match_paren(text, i):
 def _lex(command):
     """Items in order: Segment, "(" , ")" or ("sub", text) for `$(...)` and backtick bodies."""
     items, words, redirects = [], [], []
-    cur, state = [], {"has": False, "glob": False, "pending": None}
+    cur, state = [], {"has": False, "glob": False, "var": False, "pending": None}
     heredocs, new_heredocs = [], []
     i, n = 0, len(command)
 
@@ -307,8 +372,9 @@ def _lex(command):
             return
         word = Word("".join(cur))
         word.glob = state["glob"]
+        word.var = state["var"]
         del cur[:]
-        state["has"], state["glob"] = False, False
+        state["has"], state["glob"], state["var"] = False, False, False
         mode, state["pending"] = state["pending"], None
         if mode is None:
             words.append(word)
@@ -330,6 +396,7 @@ def _lex(command):
         del new_heredocs[:], words[:], redirects[:]
 
     def sub(body):
+        state["var"] = True
         items.append(("sub", body))
 
     while i < n:
@@ -360,6 +427,8 @@ def _lex(command):
                     cur.append(command[i:j + 1])
                     i = j + 1
                 else:
+                    if command[i] == "$":
+                        state["var"] = True
                     cur.append(command[i])
                     i += 1
             i += 1
@@ -458,6 +527,8 @@ def _lex(command):
             state["has"] = True
             if c in "*?[":
                 state["glob"] = True
+            elif c == "$":
+                state["var"] = True
             i += 1
     end()
     return items
@@ -474,9 +545,10 @@ def _substitute(text, env):
     return VAR_REF.sub(lambda m: env.get(m.group(1) or m.group(2), m.group(0)), text)
 
 
-def _expand_vars(command):
-    """Replace $NAME / ${NAME} by the value of a simple NAME=value assignment seen earlier."""
-    env, out, pos = {}, [], 0
+def _expand_vars(command, base=None):
+    """Replace $NAME / ${NAME} by the value of a simple NAME=value assignment seen earlier (or
+    by `base`, the values known up front such as PWD and HOME)."""
+    env, out, pos = dict(base or {}), [], 0
     for m in ASSIGNMENT.finditer(command):
         if m.start() < pos:
             continue
@@ -522,35 +594,72 @@ def _inside(vault, cwd, raw):
     return path if path == str(vault) or path.startswith(str(vault) + os.sep) else None
 
 
-def _candidates(vault, cwd, word):
+def _w(text, like=None):
+    """A Word with the text of `text` that keeps the variable flag of `like`."""
+    word = Word(text)
+    word.var = _has_var(like) if like is not None else False
+    return word
+
+
+def _has_var(word):
+    """True when the word holds an unquoted or double-quoted `$` / backtick expansion."""
+    flag = getattr(word, "var", None)
+    return ("$" in word or "`" in word) if flag is None else flag
+
+
+def _candidates(scope, cwd, word):
     """Vault-relative paths a word can name: brace alternatives and, for globs, existing matches."""
     rels = []
     for alternative in _braces(str(word)):
-        rels.append(_rel(vault, cwd, alternative))
-        if word.glob:
-            path = _inside(vault, cwd, alternative)
+        rels.append(scope.rel(cwd, alternative))
+        if getattr(word, "glob", False):
+            path = _inside(scope.vault, cwd, alternative)
             if path:
                 for found in itertools.islice(glob.iglob(path, recursive=True), 200):
-                    rels.append(_rel(vault, cwd, found))
+                    rels.append(scope.rel(cwd, found))
     return [r for r in rels if r is not None]
 
 
-def _target_verdict(vault, cwd, word, dir_sources=()):
-    """('deny', reason) when writing `word` hits a protected path or a note. `dir_sources` are
-    the names being placed when `word` is a directory (cp/mv/ln into it)."""
-    for rel in _candidates(vault, cwd, word):
+def _target_verdict(scope, cwd, word, dir_sources=()):
+    """('deny', reason) when writing `word` hits a protected path or a note; ('ask', reason) when
+    the target holds an expansion that cannot be resolved. `dir_sources` are the names being
+    placed when `word` is a directory (cp/mv/ln into it)."""
+    for rel in _candidates(scope, cwd, word):
         if _is_protected(rel):
             return ("deny", DENY_REASON % rel)
         if _is_note(rel) or _is_about(rel):
             return ("deny", NOTE_WRITE_REASON)
-        if dir_sources and (str(word).endswith("/") or (vault / rel).is_dir()):
+        if dir_sources and (str(word).endswith("/") or (scope.vault / rel).is_dir()):
             for name in dir_sources:
                 inner = rel.rstrip("/") + "/" + os.path.basename(str(name).rstrip("/"))
                 if _is_protected(inner):
                     return ("deny", DENY_REASON % inner)
                 if _is_note(inner) or _is_about(inner):
                     return ("deny", NOTE_WRITE_REASON)
+    if scope.strict and _has_var(word):
+        return ("ask", UNRESOLVED_REASON)
     return None
+
+
+def _dir_verdict(scope, cwd, word):
+    """Verdict for a directory that files are extracted or downloaded into."""
+    for rel in _candidates(scope, cwd, word):
+        if _is_protected(rel):
+            return ("deny", DENY_REASON % rel)
+        if rel == "wiki" or rel.startswith("wiki/"):
+            return ("ask", DIR_ASK_REASON % rel)
+    if scope.strict and _has_var(word):
+        return ("ask", UNRESOLVED_REASON)
+    return None
+
+
+def _merge(current, verdict):
+    """Combine verdicts: a deny wins, otherwise the first ask stays."""
+    if verdict is None:
+        return current
+    if verdict[0] == "deny" or current is None:
+        return verdict
+    return current
 
 
 def _split_options(args):
@@ -564,9 +673,9 @@ def _split_options(args):
         elif arg == "--":
             plain = True
         elif arg == "-t" and index + 1 < len(args):
-            directory, skip = Word(args[index + 1]), True
+            directory, skip = _w(args[index + 1], args[index + 1]), True
         elif arg.startswith("--target-directory="):
-            directory = Word(arg.split("=", 1)[1])
+            directory = _w(arg.split("=", 1)[1], arg)
     return operands, directory
 
 
@@ -581,7 +690,7 @@ def _segment_targets(program, args):
     """(word, dir_sources, is_note_write) for each path a segment writes besides redirections.
     `dir_sources` are the names placed when the word is a directory."""
     if program == "dd":
-        return [(Word(a[3:]), (), True) for a in args if a.startswith("of=")]
+        return [(_w(a[3:], a), (), True) for a in args if a.startswith("of=")]
     operands, directory = _split_options(args)
     if _in_place(program, args):
         return [(a, (), True) for a in operands]
@@ -598,28 +707,383 @@ def _segment_targets(program, args):
     return []
 
 
-def _segment_verdict(vault, cwd, tokens):
-    program = os.path.basename(tokens[0])
-    args = tokens[1:]
+def _is_writer(program, args):
+    return (program in DELETE_CMDS or program in ALL_OPERANDS_WRITE
+            or program in LAST_OPERAND_WRITES or _in_place(program, args))
+
+
+def _segment_verdict(scope, cwd, program, args):
     operands = [a for a in args if not a.startswith("-")]
-    if program == "git" and operands and operands[0] == "rm":
-        program, operands = "rm", operands[1:]
     if program in DELETE_CMDS:
-        verdict = _classify(vault, cwd, operands, deleting=True)
-        return ("deny", DENY_REASON % verdict[1]) if verdict and verdict[0] == "deny" else verdict
+        return _classify(scope, cwd, operands, deleting=True)
+    verdict = None
     for word, sources, notes in _segment_targets(program, args):
-        verdict = _target_verdict(vault, cwd, word, sources)
-        if verdict and (notes or verdict[1] != NOTE_WRITE_REASON):
+        found = _target_verdict(scope, cwd, word, sources)
+        if found and found[0] == "deny" and not notes and found[1] == NOTE_WRITE_REASON:
+            continue
+        verdict = _merge(verdict, found)
+        if verdict and verdict[0] == "deny":
             return verdict
+    return verdict
+
+
+def _peel(tokens):
+    """The command behind env assignments and wrappers such as sudo -u x, timeout 5, nice -n 3."""
+    while True:
+        tokens = _strip_wrappers(tokens)
+        if not tokens or os.path.basename(tokens[0]) not in PEELERS:
+            return tokens
+        program = os.path.basename(tokens[0])
+        takes = PEELERS[program]
+        i = 1
+        while i < len(tokens):
+            token = tokens[i]
+            if token == "--":
+                i += 1
+                break
+            if token in takes:
+                i += 2
+            elif token.startswith("-") and len(token) > 1:
+                i += 1
+            elif program == "env" and ENV_ASSIGNMENT.match(token):
+                i += 1
+            else:
+                break
+        if program == "timeout" and i < len(tokens):
+            i += 1                                # the duration
+        tokens = tokens[i:]
+
+
+def _git_parts(args, cwd):
+    """(subcommand, its arguments, cwd) of a git command line, after the global options."""
+    i = 0
+    while i < len(args) and args[i].startswith("-"):
+        option = args[i]
+        if option == "-C" and i + 1 < len(args):
+            cwd = os.path.realpath(os.path.join(cwd, os.path.expanduser(args[i + 1])))
+            i += 2
+        elif option in ("-c", "--git-dir", "--work-tree", "--namespace", "--exec-path") \
+                and i + 1 < len(args):
+            i += 2
+        else:
+            i += 1
+    if i >= len(args):
+        return "", [], cwd
+    return args[i], list(args[i + 1:]), cwd
+
+
+def _mentions(scope):
+    return bool(MENTION.search(scope.text))
+
+
+def _patch_verdict(scope, cwd, program, args):
+    if any(a in ("--check", "--stat", "--numstat", "--summary", "--dry-run") for a in args):
+        return None
+    verdict = None
+    if program == "patch":
+        for operand in [a for a in args if not a.startswith("-")][:1]:
+            verdict = _merge(verdict, _target_verdict(scope, cwd, operand))
+    if verdict is None and scope.strict:
+        verdict = ("ask", UNRESOLVED_REASON)
+    return verdict
+
+
+def _option_values(args, short, long_, attached_short=True):
+    """Values of `-o VALUE`, `-oVALUE`, `--out VALUE`, `--out=VALUE` among args; `short` is a
+    set of option letters, `long_` a set of long names."""
+    found, i = [], 0
+    while i < len(args):
+        arg = args[i]
+        if arg.startswith("--"):
+            name, eq, value = arg.partition("=")
+            if name in long_:
+                if eq:
+                    found.append(_w(value, arg))
+                elif i + 1 < len(args):
+                    found.append(args[i + 1])
+                    i += 1
+        elif arg.startswith("-") and len(arg) > 1:
+            letters = arg[1:]
+            for k, letter in enumerate(letters):
+                if letter in short:
+                    if k + 1 < len(letters):
+                        if attached_short:
+                            found.append(_w(letters[k + 1:], arg))
+                    elif i + 1 < len(args):
+                        found.append(args[i + 1])
+                        i += 1
+                    break
+        i += 1
+    return found
+
+
+def _download_verdict(scope, cwd, program, args):
+    verdict = None
+    if program == "curl":
+        files = _option_values(args, {"o"}, {"--output"})
+        dirs = _option_values(args, set(), {"--output-dir"})
+    else:
+        files = _option_values(args, {"O"}, {"--output-document"})
+        dirs = _option_values(args, {"P"}, {"--directory-prefix"})
+    for word in files:
+        if str(word) != "-":
+            verdict = _merge(verdict, _target_verdict(scope, cwd, word))
+    for word in dirs:
+        verdict = _merge(verdict, _dir_verdict(scope, cwd, word))
+    return verdict
+
+
+def _extract_verdict(scope, cwd, program, args):
+    if program == "tar":
+        first = args[0] if args else ""
+        extracting = any(a in ("--extract", "--get") or re.match(r"^-[A-Za-z]*x", a)
+                         for a in args) or bool(re.match(r"^[A-Za-z]*x[A-Za-z]*$", first))
+        dirs = _option_values(args, {"C"}, {"--directory"})
+    else:
+        if any(re.match(r"^-[A-Za-z]*[lvtpcZ]", a) for a in args):
+            return None                           # listing, testing or piping, not extracting
+        extracting = True
+        dirs = _option_values(args, {"d"}, set())
+    if not extracting:
+        return None
+    verdict = None
+    for word in dirs or [cwd]:
+        verdict = _merge(verdict, _dir_verdict(scope, cwd, word))
+    return verdict
+
+
+def _editor_verdict(scope, cwd, program, args):
+    """ex, ed and vim -es edit files named in a script; the file operands are the targets."""
+    if program in VIMS and not (any(a in ("-es", "-Es", "-s", "--headless") for a in args)):
+        return None
+    verdict = None
+    for operand in [a for a in args if not a.startswith("-")]:
+        verdict = _merge(verdict, _target_verdict(scope, cwd, operand))
+        if verdict and verdict[0] == "deny":
+            return verdict
+    if verdict is None and _mentions(scope):
+        verdict = ("ask", UNRESOLVED_REASON)
+    return verdict
+
+
+def _inline_code(program, args):
+    """True when an interpreter runs code from -c / -e or stdin instead of a script file."""
+    if program.startswith("python"):
+        flags = any(re.match(r"^-[A-Za-z]*c$", a) for a in args)
+    elif program in ("perl", "ruby"):
+        flags = any(re.match(r"^-[A-Za-z]*[eE]$", a) for a in args)
+    elif program in ("node", "nodejs"):
+        flags = any(a in ("-e", "-p", "--eval", "--print", "-pe") for a in args)
+    elif program == "deno":
+        flags = args[:1] == ["eval"]
+    else:
+        flags = any(a in ("-e", "--eval") for a in args)
+    if flags:
+        return True
+    if "-m" in args:
+        return False
+    return not args or all(a.startswith("-") for a in args) or "-" in args
+
+
+def _interpreter_verdict(scope, program, args):
+    if _inline_code(program, args) and _mentions(scope):
+        return ("ask", INTERPRETER_REASON)
     return None
 
 
-def _scan(vault, cwd, command, depth=0):
-    """('deny', reason), ('ask', rel) or None for a command string; `cwd` follows `cd`."""
+def _found_paths(scope, cwd, roots):
+    """(paths under the find roots that lie in the vault, whether the list was cut)."""
+    paths, cut = [], False
+    for root in roots:
+        real = os.path.realpath(os.path.join(cwd, os.path.expanduser(str(root))))
+        if scope.rel(cwd, root) is None:
+            continue
+        paths.append(real)
+        if os.path.isdir(real):
+            for dirpath, dirs, files in os.walk(real):
+                dirs[:] = [d for d in dirs if d != ".git"]
+                for name in dirs + files:
+                    if len(paths) >= MAX_FOUND:
+                        return paths, True
+                    paths.append(os.path.join(dirpath, name))
+    return paths, cut
+
+
+def _find_verdict(scope, cwd, args, depth):
+    roots, i = [], 0
+    while i < len(args) and not args[i].startswith("-") and args[i] not in ("(", ")", "!"):
+        roots.append(args[i])
+        i += 1
+    roots = roots or [Word(".")]
+    expr = list(args[i:])
+    verdict = None
+    index = 0
+    while index < len(expr):
+        token = str(expr[index])
+        if token == "-delete":
+            for root in roots:
+                for rel in _candidates(scope, cwd, root):
+                    if _is_protected(rel):
+                        return ("deny", DENY_REASON % rel)
+                    if rel in (".", "wiki") or rel.startswith("wiki/"):
+                        verdict = _merge(verdict, ("ask", ASK_REASON % rel))
+                if scope.strict and _has_var(root):
+                    verdict = _merge(verdict, ("ask", UNRESOLVED_REASON))
+        elif token in ("-fprint", "-fprint0", "-fls", "-fprintf") and index + 1 < len(expr):
+            verdict = _merge(verdict, _target_verdict(scope, cwd, expr[index + 1]))
+        elif token in FIND_EXEC:
+            end = index + 1
+            while end < len(expr) and str(expr[end]) not in (";", "+"):
+                end += 1
+            sub = list(expr[index + 1:end])
+            index = end
+            verdict = _merge(verdict, _find_exec(scope, cwd, roots, sub, depth))
+        if verdict and verdict[0] == "deny":
+            return verdict
+        index += 1
+    return verdict
+
+
+def _find_exec(scope, cwd, roots, sub, depth):
+    """Scan an -exec command with {} replaced by the paths found under the roots."""
+    if not sub:
+        return None
+    if not any("{}" in str(t) for t in sub):
+        return _run(scope, cwd, sub, depth)
+    paths, cut = _found_paths(scope, cwd, roots)
+    peeled = _peel(sub)
+    per_path = bool(peeled) and (os.path.basename(peeled[0]) in LAST_OPERAND_WRITES
+                                 or os.path.basename(peeled[0]) in ("mv", "ln"))
+    batches = [[p] for p in paths] if per_path else [paths]
+    verdict = None
+    for batch in batches:
+        words = []
+        for token in sub:
+            if "{}" in str(token):
+                if str(token) == "{}":
+                    words.extend(_w(p) for p in batch)
+                else:
+                    words.extend(_w(str(token).replace("{}", p), token) for p in batch)
+            else:
+                words.append(token)
+        verdict = _merge(verdict, _run(scope, cwd, words, depth))
+        if verdict and verdict[0] == "deny":
+            return verdict
+    if cut and verdict is None and _is_writer_tokens(peeled):
+        verdict = ("ask", UNRESOLVED_REASON)
+    return verdict
+
+
+def _is_writer_tokens(tokens):
+    return bool(tokens) and _is_writer(os.path.basename(tokens[0]), tokens[1:])
+
+
+def _xargs_verdict(scope, cwd, args, depth):
+    i, placeholder, arg_file = 0, None, None
+    while i < len(args) and args[i].startswith("-") and args[i] != "--":
+        arg = args[i]
+        if arg in ("-a", "--arg-file") and i + 1 < len(args):
+            arg_file, i = args[i + 1], i + 2
+        elif arg == "-I" and i + 1 < len(args):
+            placeholder, i = str(args[i + 1]), i + 2
+        elif arg.startswith("-I") and len(arg) > 2:
+            placeholder, i = str(arg[2:]), i + 1
+        elif arg.startswith("--replace"):
+            placeholder, i = (arg.partition("=")[2] or "{}"), i + 1
+        elif arg.startswith("-i"):
+            placeholder, i = (arg[2:] or "{}"), i + 1
+        elif arg in XARGS_VALUE_OPTIONS and i + 1 < len(args):
+            i += 2
+        else:
+            i += 1
+    if i < len(args) and args[i] == "--":
+        i += 1
+    inner = list(args[i:])
+    if not inner:
+        return None
+    listed = []
+    if arg_file:
+        try:
+            with open(os.path.join(cwd, os.path.expanduser(str(arg_file))), encoding="utf-8",
+                      errors="replace") as handle:
+                listed = [line.strip() for line in handle.read(65536).replace("\0", "\n").split("\n")
+                          if line.strip()][:MAX_FOUND]
+        except OSError:
+            listed = []
+    stdin = [_w(line) for line in listed] if arg_file and listed else [_w("$XARGS_INPUT", "$")]
+    if placeholder:
+        words = []
+        for token in inner:
+            text = str(token)
+            if placeholder not in text:
+                words.append(token)
+            elif text == placeholder:
+                words.extend(stdin)
+            else:
+                words.extend(_w(text.replace(placeholder, str(s)), s) for s in stdin)
+    else:
+        words = inner + stdin
+    verdict = _run(scope.strict_copy(), cwd, words, depth)
+    if verdict and verdict[0] == "ask" and verdict[1] == UNRESOLVED_REASON and not _mentions(scope):
+        return None                     # the input is not known to hold notes
+    return verdict
+
+
+def _command(scope, cwd, tokens, depth):
+    """Verdict of one command (wrappers already peeled): ('deny'|'ask', why), ('cd', path) or None."""
+    program, args = os.path.basename(tokens[0]), list(tokens[1:])
+    if program == "git":
+        sub, args, cwd = _git_parts(args, cwd)
+        if sub == "apply":
+            return _patch_verdict(scope, cwd, "apply", args)
+        program = sub if sub in ("rm", "mv") else "git"
+    if program in CD_CMDS:
+        target = [t for t in args if not t.startswith("-")][:1]
+        if not target:
+            return ("cd", os.path.expanduser("~"))
+        if target[0] == "-" or _has_var(target[0]):
+            return ("ask", UNRESOLVED_REASON) if scope.strict else None
+        return ("cd", os.path.realpath(os.path.join(cwd, os.path.expanduser(target[0]))))
+    if program == "find":
+        return _find_verdict(scope, cwd, args, depth)
+    if program == "xargs":
+        return _xargs_verdict(scope, cwd, args, depth)
+    if program == "patch":
+        return _patch_verdict(scope, cwd, "patch", args)
+    if program in ("curl", "wget"):
+        return _download_verdict(scope, cwd, program, args)
+    if program in ("tar", "unzip"):
+        return _extract_verdict(scope, cwd, program, args)
+    if program in EDITORS or program in VIMS:
+        return _editor_verdict(scope, cwd, program, args)
+    verdict = _segment_verdict(scope, cwd, program, args)
+    if INTERPRETER_RE.match(program) and not (verdict and verdict[0] == "deny"):
+        verdict = _merge(verdict, _interpreter_verdict(scope, program, args))
+    return verdict
+
+
+def _run(scope, cwd, words, depth):
+    """Verdict of a command given as words, behind its wrappers; nested shells are scanned."""
+    verdict = None
+    for body in _nested_bodies([str(w) for w in words]):
+        verdict = _merge(verdict, _scan(scope, cwd, body, depth + 1))
+    tokens = _peel(words)
+    if tokens:
+        found = _command(scope, cwd, tokens, depth)
+        if found and found[0] != "cd":
+            verdict = _merge(verdict, found)
+    return verdict
+
+
+def _scan(scope, cwd, command, depth=0):
+    """('deny', reason), ('ask', reason) or None for a command string; `cwd` follows `cd`."""
     if depth > MAX_DEPTH:
         return None
+    base = {"HOME": os.path.expanduser("~")}
+    if not re.search(r"\b(?:cd|pushd|popd)\b", command):
+        base["PWD"] = str(cwd)
     ask, stack = None, []
-    for item in _lex(_expand_vars(command)):
+    for item in _lex(_expand_vars(command, base)):
         if item == "(":
             stack.append(cwd)
             continue
@@ -627,41 +1091,35 @@ def _scan(vault, cwd, command, depth=0):
             cwd = stack.pop() if stack else cwd
             continue
         if isinstance(item, tuple):
-            verdict = _scan(vault, cwd, item[1], depth + 1)
+            verdict = _scan(scope, cwd, item[1], depth + 1)
         else:
-            verdict = _segment(vault, cwd, item, depth)
-            if isinstance(verdict, str):      # a `cd` moved us
-                cwd, verdict = verdict, None
+            verdict = _segment(scope, cwd, item, depth)
+            if verdict and verdict[0] == "cd":
+                cwd, verdict = verdict[1], None
         if verdict and verdict[0] == "deny":
             return verdict
-        ask = verdict or ask
+        ask = _merge(ask, verdict)
     return ask
 
 
-def _segment(vault, cwd, segment, depth):
+def _segment(scope, cwd, segment, depth):
+    verdict = None
     for word in segment.redirects:
-        verdict = _target_verdict(vault, cwd, word)
-        if verdict:
-            return verdict
-    tokens = _strip_wrappers(segment.words)
-    if tokens and os.path.basename(tokens[0]) == "env":
-        tokens = _strip_wrappers([t for t in tokens[1:] if not t.startswith("-")])
-    if not tokens:
-        return None
-    program = os.path.basename(tokens[0])
-    if program in CD_CMDS:
-        target = [t for t in tokens[1:] if not t.startswith("-")][:1]
-        if target and "$" not in target[0]:
-            return os.path.realpath(os.path.join(cwd, os.path.expanduser(target[0])))
-        return None
-    if program in SHELLS and "-c" in tokens[1:]:
-        body = tokens[tokens.index("-c") + 1:][:1]
-        if body:
-            return _scan(vault, cwd, body[0], depth + 1)
-    return _segment_verdict(vault, cwd, tokens)
+        verdict = _merge(verdict, _target_verdict(scope, cwd, word))
+    words = list(segment.words)
+    for body in _nested_bodies([str(w) for w in words], segment.heredoc):
+        verdict = _merge(verdict, _scan(scope, cwd, body, depth + 1))
+    tokens = _peel(words)
+    if tokens:
+        found = _command(scope, cwd, tokens, depth)
+        if found and found[0] == "cd" and verdict is None:
+            return found
+        if found and found[0] != "cd":
+            verdict = _merge(verdict, found)
+    return verdict
 
 
-def _loop_variants(vault, cwd, command):
+def _loop_variants(scope, cwd, command):
     """The command once per word of each `for NAME in words; do` loop (globs expanded)."""
     variants = [command]
     for m in FOR_LOOP.finditer(command):
@@ -674,7 +1132,7 @@ def _loop_variants(vault, cwd, command):
         for word in words:
             found = []
             if any(c in word for c in "*?["):
-                path = _inside(vault, cwd, word)
+                path = _inside(scope.vault, cwd, word)
                 found = sorted(itertools.islice(glob.iglob(path, recursive=True), 20)) if path else []
             values.extend(found or [word])
         pattern = re.compile(r"\$(?:%s\b|\{%s\})" % (name, name))
@@ -683,28 +1141,57 @@ def _loop_variants(vault, cwd, command):
     return variants
 
 
-def _decide_bash(vault, cwd, command):
+ABSOLUTE_PATH = re.compile(r"(?:(?<=[\s='\"(<>:;|&,])|^)(~?/[^\s'\"<>|;&()`$]*)")
+
+
+def _bash_vaults(cwd, command):
+    """Vaults a command can touch: the one holding the cwd, then those named by absolute paths."""
+    own = find_vault(cwd)
+    vaults = [own] if own else []
+    seen = set()
+    for match in ABSOLUTE_PATH.finditer(command):
+        directory = os.path.realpath(os.path.expanduser(match.group(1)))
+        if directory in seen:
+            continue
+        seen.add(directory)
+        found = find_vault(directory)
+        if found and found not in vaults:
+            vaults.append(found)
+        if len(seen) >= MAX_ABSOLUTE:
+            break
+    return own, vaults
+
+
+def _decide_bash(cwd, command):
+    own, vaults = _bash_vaults(cwd, command)
+    if not vaults:
+        return None
     if _has_sb_review(command):
         return _decision("deny", REVIEW_REASON)
     ask = None
-    for variant in _loop_variants(vault, cwd, command):
-        verdict = _scan(vault, cwd, variant)
-        if verdict and verdict[0] == "deny":
-            return _decision("deny", verdict[1])
-        ask = verdict or ask
-    return _decision("ask", ASK_REASON % ask[1]) if ask else None
+    for vault in vaults:
+        scope = Scope(vault, vault == own, command)
+        for variant in _loop_variants(scope, cwd, command):
+            verdict = _scan(scope, cwd, variant)
+            if verdict and verdict[0] == "deny":
+                return _decision("deny", verdict[1])
+            ask = _merge(ask, verdict)
+    return _decision("ask", ask[1]) if ask else None
 
 
 def decide(event, cwd):
     cwd = event.get("cwd") or cwd
-    vault = find_vault(cwd)
-    if vault is None:
-        return None
     tool = event.get("tool_name", "")
     tool_input = event.get("tool_input") or {}
     if tool in WRITE_TOOLS:
         raw = tool_input.get(WRITE_TOOLS[tool])
-        rel = _rel(vault, cwd, raw) if raw else None
+        if not raw:
+            return None
+        target = os.path.realpath(os.path.join(cwd, os.path.expanduser(str(raw).strip().strip("'\""))))
+        vault = find_vault(os.path.dirname(target))
+        if vault is None:
+            return None
+        rel = _rel(vault, cwd, raw)
         if _is_protected(rel):
             return _decision("deny", DENY_REASON % rel)
         if tool != "NotebookEdit" and _is_note(rel):
@@ -713,5 +1200,5 @@ def decide(event, cwd):
             return _decide_about(vault, tool, tool_input, rel)
         return None
     if tool == "Bash":
-        return _decide_bash(vault, cwd, tool_input.get("command", ""))
+        return _decide_bash(cwd, tool_input.get("command", ""))
     return None

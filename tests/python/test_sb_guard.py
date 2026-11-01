@@ -245,9 +245,12 @@ class NoteGuardTests(unittest.TestCase):
                          "deny")
 
     # simulation
-    def test_unsimulatable_edit_is_allowed(self):
-        self.assertIsNone(self.decide("Edit", "wiki/Resources/H.md",
-                                      old_string="nao existe", new_string="x"))
+    def test_unsimulatable_edit_on_an_existing_note_asks(self):
+        for name in ("H.md", "G.md"):
+            self.assertEqual(self.kind("Edit", "wiki/Resources/" + name,
+                                       old_string="nao existe", new_string="x"), "ask", name)
+        self.assertIn("could not", self.reason("Edit", "wiki/Resources/H.md",
+                                               old_string="nao existe", new_string="x"))
 
     def test_edit_on_missing_file_is_allowed(self):
         self.assertIsNone(self.decide("Edit", "wiki/Resources/Nope.md", old_string="a", new_string="b"))
@@ -260,10 +263,34 @@ class NoteGuardTests(unittest.TestCase):
         edits = [{"old_string": "revisado", "new_string": "X"}]
         self.assertEqual(self.kind("MultiEdit", "wiki/Resources/H.md", edits=edits), "ask")
 
-    def test_multiedit_with_a_missing_old_string_is_allowed(self):
+    def test_multiedit_with_a_missing_old_string_asks(self):
         edits = [{"old_string": "revisado", "new_string": "X"},
                  {"old_string": "ausente", "new_string": "Y"}]
-        self.assertEqual(self.kind("MultiEdit", "wiki/Resources/H.md", edits=edits), "allow")
+        self.assertEqual(self.kind("MultiEdit", "wiki/Resources/H.md", edits=edits), "ask")
+
+    # M8: quote-normalised matching
+    def test_edit_matches_across_straight_and_curly_quotes(self):
+        path = self.vault / "wiki" / "Resources" / "Q.md"
+        path.write_text(HUMAN.replace("Texto revisado.", "Ele disse \u201col\u00e1\u201d e \u2018tchau\u2019."),
+                        encoding="utf-8")
+        # the straight-quote edit finds the curly text: a T1 body change asks, it is not waved through
+        self.assertEqual(self.kind("Edit", "wiki/Resources/Q.md", old_string='disse "ol\u00e1" e \'tchau\'',
+                                   new_string="x"), "ask")
+        # a link-only change through the normalised match is simulated as link-only
+        self.assertEqual(self.kind("Edit", "wiki/Resources/Q.md", old_string='"ol\u00e1"',
+                                   new_string='"[[ol\u00e1]]"'), "ask")        # quotes changed: not link-only
+        self.assertEqual(self.kind("Edit", "wiki/Resources/Q.md", old_string="tchau",
+                                   new_string="[[tchau]]"), "allow")
+        # and a trust change is still caught
+        path.write_text(AGENT.replace("Texto do agente.", "\u201cx\u201d"), encoding="utf-8")
+        self.assertEqual(self.kind("Edit", "wiki/Resources/Q.md", old_string='"x"\n',
+                                   new_string='"x"\n\n> [!agent] n\n> y\n'), "allow")
+        self.assertEqual(self.kind("MultiEdit", "wiki/Resources/Q.md", edits=[
+            {"old_string": "origin: agent", "new_string": "origin: agent\nreviewed: 2026-01-01"}]), "deny")
+
+    def test_edit_that_still_does_not_match_asks_on_t0_too(self):
+        self.assertEqual(self.kind("Edit", "wiki/Resources/G.md", old_string="nada disso",
+                                   new_string="x"), "ask")
 
     def test_edit_replace_all(self):
         path = self.vault / "wiki" / "Resources" / "H.md"
@@ -545,6 +572,206 @@ class BashNoteWriteTests(unittest.TestCase):
 
     def test_sb_review_is_still_denied(self):
         self.assertIn("! prefix", self.result("sb review wiki/Resources/A.md")["permissionDecisionReason"])
+
+
+UNRESOLVED = "second-brain cannot resolve this write target; confirm with the user."
+INTERPRETER_REASON = ("This interpreter command may modify notes; notes are written only with "
+                      "Write/Edit. Confirm with the user.")
+
+
+class BashHardeningTests(unittest.TestCase):
+    """M5, M6: unresolvable targets ask; find, xargs, git, curl, tar, editors and interpreters."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = make_vault(self.tmp.name, {
+            "Resources/A.md": note("A", origin="human"),
+            "Resources/G.md": note("G", origin="agent"),
+        })
+        self.vault = self.root.resolve()
+        (self.vault / "_raw" / "a.pdf").write_text("x", encoding="utf-8")
+        (self.vault / "wiki" / "Resources" / "pic.png").write_text("x", encoding="utf-8")
+        self.sub = self.vault / "wiki" / "Resources"
+
+    def result(self, command, cwd=None):
+        out = decide({"tool_name": "Bash", "tool_input": {"command": command}}, str(cwd or self.vault))
+        return out["hookSpecificOutput"] if out else None
+
+    def kinds(self, commands, expected, reason=None, cwd=None):
+        for command in commands:
+            out = self.result(command, cwd)
+            self.assertEqual(out["permissionDecision"] if out else "allow", expected, command)
+            if reason and out:
+                self.assertEqual(out["permissionDecisionReason"], reason, command)
+
+    # M5
+    def test_unresolved_write_targets_ask(self):
+        self.kinds(["echo x > $UNSET", 'echo x > "${F}/A.md"', "echo x > $(echo A).md",
+                    "tee `echo A`.md", "cd $D && echo x > A.md", 'rm "$f"', "cp /tmp/x $DEST",
+                    "echo x > $'wiki/Resources/A.md'", "touch $1.md", "cd `pwd`/x; echo y > A.md",
+                    "echo x >> /tmp/$$.log"], "ask", UNRESOLVED)
+
+    def test_resolvable_and_read_only_variables_do_not_ask(self):
+        self.kinds(["echo $VAR > /tmp/o.txt", "ls $HOME", "echo $(date) > /dev/null",
+                    "cat $F | wc -l", "f=/tmp/x; echo y > $f"], "allow")
+        self.assertEqual(self.result("echo x > $PWD/wiki/Resources/A.md")["permissionDecision"], "deny")
+
+    def test_deny_wins_over_ask(self):
+        self.assertEqual(self.result("echo x > $UNSET; echo y > _raw/a.pdf")["permissionDecision"], "deny")
+
+    # M6 shells and eval
+    def test_c_flags_and_eval_are_inspected(self):
+        self.kinds(["bash -lc 'echo x > wiki/Resources/A.md'", "sh -ec 'echo x > wiki/Resources/A.md'",
+                    "zsh -c 'cd wiki/Resources && tee A.md'", "eval 'echo x > wiki/Resources/A.md'",
+                    "eval echo x '>' wiki/Resources/A.md", "timeout 5 bash -c 'echo x > wiki/Resources/A.md'",
+                    "sudo -u bob sed -i s/a/b/ wiki/Resources/A.md",
+                    "nice -n 5 tee wiki/Resources/A.md", "stdbuf -oL tee wiki/Resources/A.md",
+                    "env -i X=1 tee wiki/Resources/A.md", "timeout 5 touch wiki/Resources/A.md"],
+                   "deny", NOTE_WRITE_REASON)
+
+    # find
+    def test_find_exec_is_scanned_with_the_found_paths(self):
+        self.kinds(["find wiki -name '*.md' -exec sed -i s/a/b/ {} +",
+                    "find wiki/Resources -name A.md -exec tee {} \;",
+                    "find wiki -name '*.md' -execdir sed -i s/a/b/ {} \;",
+                    "find wiki -name '*.md' -exec sh -c 'echo x > wiki/Resources/A.md' _ {} \;",
+                    "find wiki -fprint wiki/Resources/A.md"], "deny", NOTE_WRITE_REASON)
+        self.kinds(["find . -name '*.md' -exec sed -i s/a/b/ {} +"], "deny")    # the root holds wiki/ and _raw/
+        self.kinds(["find wiki -name '*.md' -exec grep foo {} +", "find wiki -name '*.md'",
+                    "find wiki -name pic.png -exec chmod 644 {} \;",
+                    "find wiki -name '*.md' -exec cp {} /tmp/ \;", "find _inbox -name x -delete",
+                    "find wiki -type f -exec wc -l {} +"], "allow")
+
+    def test_find_exec_unresolved_commands_ask(self):
+        self.kinds(["find wiki -exec sh -c 'echo x > \"$1\"' _ {} \;"], "ask", UNRESOLVED)
+
+    def test_find_delete_follows_the_deletion_rules(self):
+        self.kinds(["find _raw -delete", "find _raw -name '*.pdf' -exec rm {} \;",
+                    "find .claude -delete"], "deny")
+        self.kinds(["find wiki -delete", "find wiki/Resources -name A.md -delete", "find . -delete",
+                    "find wiki -name '*.md' -exec rm {} +"], "ask")
+
+    # xargs
+    def test_xargs_commands_are_scanned(self):
+        self.kinds(["xargs rm _raw/a.pdf"], "deny")
+        self.kinds(["xargs tee wiki/Resources/A.md"], "deny", NOTE_WRITE_REASON)
+        self.kinds(["grep -l hello wiki/Resources/*.md | xargs sed -i s/hello/bye/",
+                    "ls *.md | xargs sed -i s/a/b/", "find wiki -name '*.md' -print0 | xargs -0 rm",
+                    "echo wiki/Resources/A.md | xargs -I{} tee {}",
+                    "echo wiki/Resources/A.md | xargs -n1 touch", "echo _raw/a.pdf | xargs rm"],
+                   "ask", UNRESOLVED)
+        self.kinds(["ls | xargs sed -i s/a/b/", "echo a | xargs echo", "ls | xargs -I{} cp {} /tmp/",
+                    "grep -l hello wiki/Resources/*.md | xargs grep -c x"], "allow")
+
+    def test_xargs_arg_file_is_read(self):
+        (self.vault / "list.txt").write_text("wiki/Resources/A.md\n", encoding="utf-8")
+        self.kinds(["xargs -a list.txt sed -i s/a/b/"], "deny", NOTE_WRITE_REASON)
+
+    # git
+    def test_git_mv_rm_apply(self):
+        self.kinds(["git mv wiki/Resources/A.md wiki/Resources/B.md", "git mv _inbox/a.md wiki/Resources/N.md",
+                    "git -C wiki mv Resources/A.md Resources/B.md", "git mv _raw/a.pdf _inbox/"],
+                   "deny")
+        self.kinds(["git -C wiki rm Resources/A.md", "git -C wiki rm -r Resources",
+                    "git -c core.x=y rm wiki/Resources/A.md"], "ask")
+        self.kinds(["git -C wiki rm ../_raw/a.pdf"], "deny")
+        self.kinds(["git mv _inbox/a.md _inbox/b.md", "git -C _inbox mv a.md b.md", "git status",
+                    "git apply --check x.patch", "git diff"], "allow")
+        self.kinds(["git apply x.patch", "git apply -p1 --index x.patch", "patch -p1 < x.patch",
+                    "cat x.patch | patch -p0"], "ask", UNRESOLVED)
+        self.kinds(["patch --dry-run -p1 < x.patch"], "allow")
+        self.kinds(["patch wiki/Resources/A.md < x.patch"], "deny")
+
+    # downloads and archives
+    def test_download_and_extract_targets(self):
+        self.kinds(["curl -o wiki/Resources/A.md http://x", "curl -sL http://x --output wiki/Resources/New.md",
+                    "curl -owiki/Resources/A.md http://x", "wget -O wiki/Resources/A.md http://x",
+                    "wget --output-document=wiki/Resources/A.md http://x",
+                    "curl --output=wiki/Resources/A.md http://x"], "deny", NOTE_WRITE_REASON)
+        self.kinds(["curl -o _raw/a.pdf http://x", "tar -xf a.tar -C _raw", "unzip a.zip -d _raw"], "deny")
+        self.kinds(["wget -P wiki/Resources http://x", "tar -xf a.tar -C wiki/Resources",
+                    "tar xzf a.tgz --directory=wiki", "unzip a.zip -d wiki/Resources",
+                    "tar -C wiki/Resources -xf a.tar", "unzip -o a.zip -d wiki"], "ask")
+        self.kinds(["curl -o /tmp/x http://x", "curl -o wiki/Resources/n.png http://x",
+                    "wget -O- http://x", "tar -czf /tmp/a.tgz -C wiki/Resources .",
+                    "unzip -l a.zip", "tar -xf a.tar -C /tmp", "curl http://x | tar -xz -C /tmp"], "allow")
+
+    # editors and interpreters
+    def test_scripted_editors_are_denied_or_ask(self):
+        self.kinds(["ex -sc '%s/a/b/|x' wiki/Resources/A.md", "vim -es wiki/Resources/A.md",
+                    "ed -s wiki/Resources/A.md <<< w", "vim -Es -c 'wq' wiki/Resources/A.md"],
+                   "deny", NOTE_WRITE_REASON)
+        self.kinds(["ed -s <<'EOF'\nr wiki/Resources/A.md\nEOF", "ex -s <<< 'w wiki/Resources/B.md'"],
+                   "ask", UNRESOLVED)
+        self.kinds(["ed -s /tmp/x <<< w", "vim -es /tmp/x"], "allow")
+
+    def test_interpreters_that_mention_notes_ask(self):
+        self.kinds(["python3 -c \"open('wiki/Resources/A.md','w').write('x')\"",
+                    "python -c \"import pathlib; pathlib.Path('a.md').write_text('x')\"",
+                    "python3 - <<EOF\nopen('wiki/Resources/A.md','w')\nEOF",
+                    "node -e \"require('fs').writeFileSync('wiki/a.md','')\"",
+                    "perl -e 'open F, \">wiki/Resources/A.md\"'", "ruby -e 'File.write(\"x.md\", 1)'",
+                    "deno eval \"Deno.writeTextFileSync('wiki/a.md','')\"",
+                    "bun -e \"Bun.write('wiki/a.md','')\"",
+                    "echo \"open('wiki/a.md','w')\" | python3", "python3.11 -c \"open('wiki/a.md','w')\"",
+                    "timeout 5 python3 -c \"open('wiki/a.md','w')\""],
+                   "ask", INTERPRETER_REASON)
+        self.kinds(["python3 -c 'print(1)'", "python3 script.py", "python3 -m sb.cli lint wiki/",
+                    "python3 /p/bin/sb search x.md", "node app.js wiki/", "echo hi | python3 -c 'import sys'",
+                    "perl -ne 'print' /tmp/x.txt"], "allow")
+
+
+class BashVaultFromTargetTests(unittest.TestCase):
+    """M7: the vault comes from the target path, not only from the cwd."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        os.mkdir(self.tmp.name + "/v")
+        self.vault = make_vault(self.tmp.name + "/v", {"Resources/A.md": note("A", origin="human")}).resolve()
+        self.elsewhere = tempfile.mkdtemp()
+        self.addCleanup(os.rmdir, self.elsewhere)
+
+    def kind(self, tool, **tool_input):
+        out = decide({"tool_name": tool, "tool_input": tool_input}, self.elsewhere)
+        return out["hookSpecificOutput"]["permissionDecision"] if out else "allow"
+
+    def test_write_tools_outside_the_vault_cwd_are_guarded(self):
+        self.assertEqual(self.kind("Write", file_path=str(self.vault / "_raw" / "a.md"), content="x"), "deny")
+        self.assertEqual(self.kind("Write", file_path=str(self.vault / "CLAUDE.md"), content="x"), "deny")
+        self.assertEqual(self.kind("Write", file_path=str(self.vault / "wiki/Resources/N.md"),
+                                   content=note("N", origin="human")), "deny")
+        self.assertEqual(self.kind("Write", file_path=str(self.vault / "wiki/Resources/N.md"),
+                                   content=note("N", origin="agent")), "allow")
+        self.assertEqual(self.kind("Edit", file_path=str(self.vault / "wiki/Resources/A.md"),
+                                   old_string="A summary.", new_string="x"), "ask")
+        self.assertEqual(self.kind("NotebookEdit", notebook_path=str(self.vault / "_raw" / "n.ipynb"),
+                                   new_source="x"), "deny")
+        self.assertEqual(self.kind("Write", file_path=self.elsewhere + "/x.md", content="x"), "allow")
+
+    def test_bash_absolute_targets_outside_the_vault_cwd_are_guarded(self):
+        v = str(self.vault)
+        def bash(command):
+            return self.kind("Bash", command=command)
+        self.assertEqual(bash("echo x > %s/wiki/Resources/A.md" % v), "deny")
+        self.assertEqual(bash("rm %s/_raw/a.pdf" % v), "deny")
+        self.assertEqual(bash("rm %s/wiki/Resources/A.md" % v), "ask")
+        self.assertEqual(bash("cd %s/wiki/Resources && tee A.md" % v), "deny")
+        self.assertEqual(bash("cat %s/wiki/Resources/A.md" % v), "allow")
+        self.assertEqual(bash("echo x > $UNSET"), "allow")             # cwd is not in a vault
+        self.assertEqual(bash("echo x > /tmp/zz-not-a-vault"), "allow")
+
+    def test_hook_script_stays_closed_when_the_target_is_in_a_vault(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("sb_guard_hook", str(PLUGIN / "hooks" / "guard.py"))
+        hook = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hook)
+        event = {"tool_name": "Write", "tool_input": {"file_path": str(self.vault / "wiki" / "x.md")}}
+        self.assertTrue(any(hook.in_vault(s) for s in hook.starts(event, self.elsewhere)))
+        self.assertFalse(any(hook.in_vault(s) for s in hook.starts(
+            {"tool_name": "Write", "tool_input": {"file_path": self.elsewhere + "/x"}}, self.elsewhere)))
+
 
 
 ABOUT = "---\ndescription: Notes.\nprotected: false\n---\n## Conventions\nKeep short.\n"

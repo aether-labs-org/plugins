@@ -211,9 +211,14 @@ and Node to be installed. `sb doctor` (milestone C) checks each and prints the i
 
 1. Simulate the result: `Write` → `content`; `Edit` → replace `old_string` with `new_string`
    (first occurrence, or all with `replace_all`) in the current file; `MultiEdit` → apply `edits`
-   in order. If the simulation fails (old string absent) → allow; the tool itself will fail.
-2. New file: deny unless the new frontmatter has `origin: agent`; deny if it sets `reviewed`,
-   `reviewed_hash` or `protected`.
+   in order. An empty `old_string` on a missing or empty file creates the content (all new-note
+   rules apply). A match that fails is retried with straight and curly quotes treated as equal.
+   If the old string is still absent from an existing file, or the file is not UTF-8 → `ask`
+   (D35); on a missing file the tool itself fails, so allow.
+2. New file: deny unless the new frontmatter has `origin: agent` (exactly that, lowercase); deny if
+   it sets `reviewed`, `reviewed_hash` or `protected`, or holds a line a YAML reader may take for
+   a trust key that the restricted parser ignores (quoted, spaced, case-varied or escaped key, any
+   flow mapping `{...}`). The same lines in an existing note count as a trust-field change.
 3. Existing file: deny if any trust field differs between old and new.
 4. Tier of the **current** file (§3 D11): T0 allow. T1 allow only an append-only change — the old
    body (trailing whitespace trimmed) is a prefix of the new body, the remainder is only blank
@@ -221,8 +226,10 @@ and Node to be installed. `sb doctor` (milestone C) checks each and prints the i
    else `ask`. T2 `ask` (folder-level protection arrives with `_about.md` in C).
 5. A link-only change (D27) is allowed in T1.
 6. Reasons name the tier and what to do ("append a `> [!agent]` block instead").
-7. Bash: a segment whose program is `sb` (or a path ending in `/bin/sb`) with subcommand
-   `review` is denied (D28).
+7. Bash: a word whose basename is `sb` (or `-m sb` / `-m sb.cli`) followed by the subcommand
+   `review` is denied (D28), at any nesting level: subshells, `$(...)`, backticks, `&`, `-c` bodies
+   of bash/sh/zsh/dash (`-lc`, `-ec`...), `eval`, here-documents, and behind `timeout`, `nice`,
+   `stdbuf`, `xargs`, `sudo -u`, `env`, `command`.
 8. Bash (D33): a command that writes a note (`wiki/**.md` accepted by `is_note_rel`) is denied in
    every tier, T0 included, with the reason "Notes under wiki/ are written only with the
    Write/Edit tools, where the guard checks trust tiers. Use Edit to append a `> [!agent]` block
@@ -230,8 +237,18 @@ and Node to be installed. `sb doctor` (milestone C) checks each and prints the i
    resolved through earlier `NAME=value` assignments, `for` loops and `cd`), `tee`, `sed -i`,
    `perl -i`, `cp`/`install`/`rsync` destinations, `mv`/`ln` with a note as source or destination,
    `truncate`, `touch`, `dd of=`, and globs that can match notes; `bash -c` bodies and `$(...)`
-   are inspected. Deleting under `wiki/` stays an `ask` (v0.1). Not covered: interpreter
-   one-liners (`python -c`, `node -e`), `xargs`/`find -exec` and unresolved variables.
+   are inspected. Deleting under `wiki/` stays an `ask` (v0.1).
+9. Bash, v0.2.4 additions (D35): `-*c` shells, `eval`, `find -exec/-execdir` (`{}` = the paths found
+   under the roots) and `-delete` (protected → deny, wiki → ask), `xargs <cmd>` (unknown input →
+   ask when the command line mentions `wiki/`, `_raw`, `.claude` or `.md`), `git mv` (like `mv`), `git -C d rm`,
+   `git apply`/`patch` (ask), `curl -o`/`wget -O` into a note (deny), `tar -C`/`unzip -d`/`wget -P`
+   into `wiki/` (ask), `ex`/`ed`/`vim -es` (deny a note operand, else ask when `wiki/` is
+   mentioned), and interpreters (`python`, `node`, `perl`, `ruby`, `deno`, `bun`) running `-c`/`-e`/
+   stdin code that mentions one of those (ask). An unresolved `$VAR`, `${...}`, `$(...)` or
+   backtick in a write target or `cd` target, with the cwd inside the vault, asks (reason: "second-brain
+   cannot resolve this write target; confirm with the user.").
+10. The vault is also found from each tool target (`find_vault` of the target's folder) and from
+    absolute paths in a Bash command, so the guard runs when the cwd is outside the vault.
 
 `hooks/hooks.json` sets `"onFailure": "block"` on the guard; `hooks/guard.py` exits 2 with the
 error on stderr if anything fails **inside a vault**, and 0 outside one.
@@ -277,7 +294,8 @@ failure).
 ### 6.2 SessionStart hook
 
 Matchers `startup|resume|clear|compact`. In a vault it emits `additionalContext` with the compact
-tree and one status line (`inbox: N · unreviewed: M · push pending: yes/no`), writes
+tree (folder names and the status line pass through `clean_inline` and have any
+`<second-brain-` tag text broken) and one status line (`inbox: N · unreviewed: M · push pending: yes/no`), writes
 `.sb/heartbeat.json` (used by `sb doctor`), and in squad mode runs the pull of §6.4 first.
 
 ### 6.3 `init` profiles and upgrade
@@ -388,8 +406,11 @@ A failed item changes the matching task, not the goals.
 
 ## 11. Accepted risks
 
-- Bash can still write anywhere the v0.1 guard does not parse (`python -c`, `perl -pi`, `dd`);
-  git and `SB110` (milestone D) are the net. Full Bash hardening is v0.3.
+- Bash can still write where the guard cannot see: interpreter code that builds its paths at
+  run time (`python -c` without `wiki/` or `.md` in the text), scripts run from files, `git
+  checkout`/`restore`/`reset --hard`/`clean` over uncommitted notes, `rsync` of a directory into
+  `wiki/`. D35 turns what the guard cannot resolve into an `ask`; git and `SB110` (milestone D)
+  are the net. Full Bash hardening is v0.3.
 - No secret scanning before squad pushes.
 - Lexical search misses pure paraphrase; embeddings wait for a measured trigger (Recall@10 on
   paraphrase < 0.80 after A, and an offline prototype gaining ≥ 10 points).

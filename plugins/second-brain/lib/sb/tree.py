@@ -3,13 +3,14 @@ import re
 from pathlib import Path
 
 from .frontmatter import parse
-from .sanitize import clean_inline
+from .sanitize import clean_inline, escape_tags
 
 NO_DESCRIPTION = "(no description)"
 SECTIONS = {"conventions": "conventions", "examples": "examples", "anti-examples": "anti_examples"}
 HEADING_RE = re.compile(r"^##[ \t]+(.+?)[ \t]*$")
 TRUE_VALUES = ("true", "yes", "1")
 DESCRIPTION_CHARS = 120
+NAME_CHARS = 80
 
 
 def _skipped(name):
@@ -77,8 +78,9 @@ def flatten(folders, depth=0):
 
 def render_compact(folders, limit=2000):
     """One line per folder: `<indent><name>/ — <description>`; at most `limit` characters."""
-    lines = ["%s%s/ — %s" % ("  " * depth, folder["path"].rsplit("/", 1)[-1],
-                             clean_inline(folder["description"], DESCRIPTION_CHARS))
+    lines = ["%s%s/ — %s" % ("  " * depth,
+                             escape_tags(clean_inline(folder["path"].rsplit("/", 1)[-1], NAME_CHARS)),
+                             escape_tags(clean_inline(folder["description"], DESCRIPTION_CHARS)))
              for depth, folder in flatten(folders)]
     if limit is None or len("\n".join(lines)) <= limit:
         return "\n".join(lines)

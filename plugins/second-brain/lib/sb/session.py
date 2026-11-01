@@ -1,17 +1,15 @@
 """SessionStart: folder tree and vault status for the model, heartbeat for `sb doctor` (spec 6.2)."""
 import json
-import re
 from datetime import datetime
 from typing import Optional
 
 from . import index as index_mod
 from . import tree
 from .fsutil import write_atomic
-from .sanitize import clean_inline
+from .sanitize import clean_inline, escape_tags
 from .trust import label
 from .vault import VaultError, find_vault, load_config, load_notes
 
-TAG_RE = re.compile(r"<(/?\s*second-brain-vault)", re.IGNORECASE)
 HEADER = ("<second-brain-vault>\n"
           "Folders under wiki/ (from _about.md; follow their conventions when filing notes):\n")
 FOOTER = "</second-brain-vault>"
@@ -70,7 +68,6 @@ def start(event, cwd) -> Optional[dict]:
         pass
     unreviewed = sum(1 for n in notes if label(n.data, n.body) == "unreviewed")
     compact = tree.render_compact(tree.load(root)) or "(no folders yet)"
-    compact = TAG_RE.sub(r"‹\1", compact)
     text = "%s%s\nStatus: inbox %d · unreviewed %d · sync %s\n%s" % (
-        HEADER, compact, _inbox_count(root), unreviewed, clean_inline(status, 300), FOOTER)
+        HEADER, compact, _inbox_count(root), unreviewed, escape_tags(clean_inline(status, 300)), FOOTER)
     return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}
