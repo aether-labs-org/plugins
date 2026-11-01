@@ -77,6 +77,8 @@ Write and change notes only with Write/Edit/MultiEdit; never with shell redirect
 8. **Close.** Only after the notes exist: for an inbox item run
    `sb inbox done "<item>" --title "<Title>"` (moves it to `_inbox/_done/` and logs it); for a
    `_raw/` file or a URL run `sb log ingest "<Title>"`. Never write to `_raw/` yourself.
+   If any planned write was declined or denied, do **not** run `sb inbox done`: the item stays in
+   `_inbox/` as pending, and the next ingest of it (`seen`) offers the missing blocks again.
 9. **Report** the notes created, the blocks added, the prompts the user declined and anything
    flagged. Tell the user they can review with `git diff`.
 
