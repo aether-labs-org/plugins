@@ -59,10 +59,20 @@ check "init is user-invoked only" $?
 [ "$(wc -l < "$p/templates/CLAUDE.md")" -lt 200 ]; check "vault CLAUDE.md template < 200 lines (AC1)" $?
 [ -x "$p/bin/sb" ]; check "bin/sb is executable" $?
 
+# Obsidian companion bundle (spec 7.2): sb init copies obsidian/dist into the vault.
+dist="$p/obsidian/dist"
+for f in main.js manifest.json styles.css; do
+  [ -s "$dist/$f" ]; check "companion dist/$f exists" $?
+done
+jq -e '.id == "second-brain-companion" and .isDesktopOnly == false' "$dist/manifest.json" >/dev/null
+check "companion manifest: id second-brain-companion, isDesktopOnly false" $?
+cmp -s "$dist/manifest.json" "$p/obsidian/manifest.json"; check "companion dist manifest matches the source manifest" $?
+[ ! -e "$p/obsidian/main.js" ]; check "no main.js outside dist/ in the companion" $?
+
 # Every ${CLAUDE_PLUGIN_ROOT}/... path referenced anywhere must exist.
 while IFS= read -r ref; do
   [ -e "$p/$ref" ]; check "referenced path exists: $ref" $?
-done < <(grep -rhoE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+' "$p" --include='*.md' --include='*.json' 2>/dev/null \
+done < <(grep -rhoE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+' "$p" --exclude-dir=node_modules --include='*.md' --include='*.json' 2>/dev/null \
          | sed 's#\${CLAUDE_PLUGIN_ROOT}/##' | sort -u)
 
 exit $fail
