@@ -163,3 +163,12 @@ it("marks reviewed without touching the body", async () => {
 
 - Spec §7.1 → Tasks 1–2; §7.2 → Tasks 3–6; D28 → Task 2 regression test; D31 → Global Constraints and Task 6.
 - The vectors file in the plugins repo is the single source of truth; the companion keeps a copy (no cross-repo network access in tests).
+
+## Addendum (2026-10-31): the companion moves into this repository
+
+User decisions that supersede the separate-repository and BRAT steps above (spec D19, §7.2, §9):
+
+- **Location:** the companion source lives in `plugins/second-brain/obsidian/` (Tasks 3–6 no longer create `~/Code/aether-labs/second-brain-companion` or a GitHub repository). `npm run build` writes `dist/` (`main.js`, `manifest.json`, `styles.css`), which is committed; `tests/sb_companion_test.sh` runs `npm test`, the build and `git diff --exit-code` on `dist/`.
+- **Vectors:** one copy, `tests/fixtures/review-hash/vectors.json`; the TS tests read it from the repository root. Four vectors were added with the whitespace parity fix (blank line = `[ \t\r]` only on both sides; an empty `reviewed` list counts as not reviewed in TS as it already did in Python).
+- **Install:** `sb init` and `sb init --upgrade --yes` copy `dist/` into `<vault>/.obsidian/plugins/second-brain-companion/` (upgrade replaces only when the bundled version is newer); `sb doctor` check 6 reports missing, outdated and installed-but-not-enabled. The human enables it once; no code writes `community-plugins.json`.
+- **Release step (Task 6 Step 4)** is dropped: no tag, no GitHub release, no BRAT. The manual QA copy step is now `sb init --upgrade --yes` on the scratch vault.

@@ -52,6 +52,37 @@ class InitTests(unittest.TestCase):
         self.assertIn("init | vault created", (self.root / "_log.md").read_text(encoding="utf-8"))
         self.assertEqual([f for f in lint(self.root, load_config(self.root)) if f.code not in INFO_CODES], [])
 
+    def test_installs_the_bundled_companion_without_enabling_it(self):
+        result = init.run(self.root)
+        plugin = self.root / COMPANION
+        for name in ("main.js", "manifest.json", "styles.css"):
+            self.assertEqual((plugin / name).read_bytes(), (init.BUNDLE / name).read_bytes(), name)
+        self.assertIn(COMPANION, result["created"])
+        self.assertEqual(json.loads((plugin / "manifest.json").read_text(encoding="utf-8"))["id"],
+                         "second-brain-companion")
+        # the human enables it in Obsidian: no community-plugins.json, nothing else under .obsidian
+        self.assertFalse((self.root / ".obsidian/community-plugins.json").exists())
+        self.assertEqual({p.relative_to(self.root / ".obsidian").parts[0]
+                          for p in (self.root / ".obsidian").rglob("*") if p.is_file()}, {"plugins"})
+        self.assertFalse((plugin / "data.json").exists())
+
+    def test_run_keeps_a_companion_that_is_already_installed(self):
+        plugin = self.root / COMPANION
+        plugin.mkdir(parents=True)
+        (plugin / "manifest.json").write_text('{"version": "9.9.9"}', encoding="utf-8")
+        (plugin / "main.js").write_text("mine", encoding="utf-8")
+        result = init.run(self.root)
+        self.assertEqual((plugin / "main.js").read_text(encoding="utf-8"), "mine")
+        self.assertIn(COMPANION, result["kept"])
+        self.assertNotIn(COMPANION, result["created"])
+
+    def test_missing_bundle_warns_and_still_creates_the_vault(self):
+        with mock.patch.object(init, "BUNDLE", Path(self.tmp.name) / "nope"):
+            result = init.run(self.root)
+        self.assertEqual(result["status"], "created")
+        self.assertTrue(any("companion" in w for w in result["warnings"]), result["warnings"])
+        self.assertFalse((self.root / COMPANION).exists())
+
     def test_vault_claude_md_is_under_200_lines(self):
         init.run(self.root)
         self.assertLess(len((self.root / "CLAUDE.md").read_text(encoding="utf-8").splitlines()), 200)
@@ -211,6 +242,20 @@ class InitTests(unittest.TestCase):
         (self.root / MARKER).write_text(json.dumps(marker), encoding="utf-8")
         found = [f for f in lint(self.root, load_config(self.root)) if f.code == "SB107"]
         self.assertEqual(found[0].message, "schema_version 1 is older than 2; run sb init --upgrade")
+
+
+COMPANION = ".obsidian/plugins/second-brain-companion"
+
+
+def fake_bundle(base, version):
+    """A stand-in for plugins/second-brain/obsidian/dist with a given manifest version."""
+    dist = Path(base) / ("dist-" + version)
+    dist.mkdir(parents=True)
+    (dist / "manifest.json").write_text(
+        json.dumps({"id": "second-brain-companion", "version": version}), encoding="utf-8")
+    (dist / "main.js").write_text("// main %s\n" % version, encoding="utf-8")
+    (dist / "styles.css").write_text("/* css %s */\n" % version, encoding="utf-8")
+    return dist
 
 
 def snapshot(root):
@@ -382,6 +427,77 @@ class UpgradeTests(unittest.TestCase):
         init.upgrade(self.root, yes=True)
         again = init.upgrade(self.root, yes=True)
         self.assertEqual(again["actions"], [])
+
+    def test_upgrade_installs_a_missing_companion_only_with_yes(self):
+        plan = init.upgrade(self.root)
+        self.assertTrue(any(a.startswith("add %s" % COMPANION) for a in plan["actions"]), plan["actions"])
+        self.assertFalse((self.root / ".obsidian").exists())
+        result = init.upgrade(self.root, yes=True)
+        self.assertTrue(result["applied"])
+        for name in ("main.js", "manifest.json", "styles.css"):
+            self.assertEqual((self.root / COMPANION / name).read_bytes(),
+                             (init.BUNDLE / name).read_bytes(), name)
+        self.assertFalse((self.root / ".obsidian/community-plugins.json").exists())
+        self.assertEqual(init.upgrade(self.root, yes=True)["actions"], [])      # idempotent
+
+    def install_companion(self, version):
+        plugin = self.root / COMPANION
+        plugin.mkdir(parents=True)
+        (plugin / "manifest.json").write_text(
+            json.dumps({"id": "second-brain-companion", "version": version}), encoding="utf-8")
+        (plugin / "main.js").write_text("// installed %s" % version, encoding="utf-8")
+        return plugin
+
+    def test_upgrade_updates_an_older_companion_and_touches_nothing_else(self):
+        plugin = self.install_companion("0.0.9")
+        (plugin / "data.json").write_text('{"mine": true}', encoding="utf-8")
+        (self.root / ".obsidian/community-plugins.json").write_text('["x"]', encoding="utf-8")
+        (self.root / ".obsidian/app.json").write_text("{}", encoding="utf-8")
+        bundled = json.loads((init.BUNDLE / "manifest.json").read_text(encoding="utf-8"))["version"]
+        others = {k: v for k, v in snapshot(self.root / ".obsidian").items()
+                  if not k.startswith("plugins/second-brain-companion/")}
+        plan = init.upgrade(self.root)
+        self.assertIn("update companion 0.0.9 -> %s" % bundled, plan["actions"])
+        self.assertEqual((plugin / "main.js").read_text(encoding="utf-8"), "// installed 0.0.9")
+        init.upgrade(self.root, yes=True)
+        self.assertEqual((plugin / "main.js").read_bytes(), (init.BUNDLE / "main.js").read_bytes())
+        self.assertEqual((plugin / "data.json").read_text(encoding="utf-8"), '{"mine": true}')
+        self.assertEqual({k: v for k, v in snapshot(self.root / ".obsidian").items()
+                          if not k.startswith("plugins/second-brain-companion/")}, others)
+
+    def test_upgrade_never_downgrades_or_rewrites_an_equal_or_newer_companion(self):
+        for installed in ("99.0.0", json.loads(
+                (init.BUNDLE / "manifest.json").read_text(encoding="utf-8"))["version"]):
+            with self.subTest(installed=installed):
+                shutil.rmtree(self.root / ".obsidian", ignore_errors=True)
+                plugin = self.install_companion(installed)
+                result = init.upgrade(self.root, yes=True)
+                self.assertFalse([a for a in result["actions"] if "companion" in a], result["actions"])
+                self.assertIn(COMPANION, result["kept"])
+                self.assertEqual((plugin / "main.js").read_text(encoding="utf-8"),
+                                 "// installed %s" % installed)
+
+    def test_upgrade_compares_versions_numerically(self):
+        shutil.rmtree(self.root / ".obsidian", ignore_errors=True)
+        self.install_companion("0.9.0")
+        with mock.patch.object(init, "BUNDLE", fake_bundle(self.tmp.name, "0.10.0")):
+            result = init.upgrade(self.root, yes=True)
+        self.assertIn("update companion 0.9.0 -> 0.10.0", result["actions"])
+
+    def test_upgrade_reinstalls_a_companion_whose_manifest_is_unreadable(self):
+        plugin = self.root / COMPANION
+        plugin.mkdir(parents=True)
+        (plugin / "manifest.json").write_text("{not json", encoding="utf-8")
+        (plugin / "main.js").write_text("old", encoding="utf-8")
+        result = init.upgrade(self.root, yes=True)
+        self.assertTrue(any(a.startswith("update companion ? -> ") for a in result["actions"]), result["actions"])
+        self.assertEqual((plugin / "main.js").read_bytes(), (init.BUNDLE / "main.js").read_bytes())
+
+    def test_upgrade_with_a_missing_bundle_warns(self):
+        with mock.patch.object(init, "BUNDLE", Path(self.tmp.name) / "nope"):
+            result = init.upgrade(self.root, yes=True)
+        self.assertTrue(any("companion" in w for w in result["warnings"]), result["warnings"])
+        self.assertFalse((self.root / COMPANION).exists())
 
     def test_upgrade_needs_a_vault(self):
         code, _, err = cli("init", "--upgrade", "--vault", str(Path(self.tmp.name) / "nothing"))

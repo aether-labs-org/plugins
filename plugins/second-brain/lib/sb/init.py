@@ -1,5 +1,7 @@
 """Vault scaffolding: the backend of /second-brain:init (spec sections 6.3 and 7)."""
 import json
+import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -8,7 +10,11 @@ from . import logfile
 from .fsutil import write_atomic
 from .vault import MARKER, SCHEMA_VERSION
 
-TEMPLATES = Path(__file__).resolve().parents[2] / "templates"
+PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+TEMPLATES = PLUGIN_ROOT / "templates"
+# The built Obsidian companion (spec 7.2): copied into the vault, never enabled from here.
+BUNDLE = PLUGIN_ROOT / "obsidian" / "dist"
+COMPANION = ".obsidian/plugins/second-brain-companion"
 PROFILES = ("personal", "work", "project", "squad")
 BASE_DIRS = ("_inbox/_done", "_raw", "_meta", "_views", ".claude")
 GITIGNORE_LINES = (".sb/", ".obsidian/workspace*", ".smart-env/")
@@ -17,6 +23,38 @@ SQUAD_GITIGNORE_LINES = ("_index.md", "_log.md")
 EXTRA_FILES = ((".claude/settings.json", "settings.json"),
                ("_meta/web-clipper-template.json", "web-clipper-template.json"),
                ("_views/unreviewed.base", "unreviewed.base"))
+
+
+def _bundle_files():
+    return sorted(p for p in BUNDLE.iterdir() if p.is_file()) if BUNDLE.is_dir() else []
+
+
+def manifest_version(path):
+    """The `version` string of a plugin manifest, or None when absent, unreadable or not a string."""
+    try:
+        version = json.loads(Path(path).read_text(encoding="utf-8")).get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return version if isinstance(version, str) and version else None
+
+
+def version_key(version):
+    """Numeric sort key of a dotted version (`0.10.0` is newer than `0.9.0`)."""
+    return tuple(int(n) for n in re.findall(r"\d+", version or ""))
+
+
+def _companion_installed(root):
+    plugin = Path(root) / COMPANION
+    return (plugin / "manifest.json").is_file() and (plugin / "main.js").is_file()
+
+
+def _install_companion(root):
+    """Copy every file of the bundle into the vault's companion folder (overwriting ours,
+    never touching data.json or anything else)."""
+    target = Path(root) / COMPANION
+    target.mkdir(parents=True, exist_ok=True)
+    for source in sorted(_bundle_files(), key=lambda p: p.name == "manifest.json"):   # manifest last
+        shutil.copyfile(str(source), str(target / source.name))
 
 
 def load_profile(name):
@@ -111,6 +149,14 @@ def run(root, language="en", profile="personal", remote=None, git=False, areas=(
     for rel, source in EXTRA_FILES:
         _write_new(root, rel, (TEMPLATES / source).read_text(encoding="utf-8"), created, kept)
     _append_gitignore(root, gitignore_lines(spec["sync"]), created, kept)
+    if _companion_installed(root):
+        kept.append(COMPANION)
+    elif not _bundle_files():
+        warnings.append("companion bundle not found at %s: the Obsidian companion was not installed"
+                        % BUNDLE)
+    else:
+        _install_companion(root)
+        created.append(COMPANION)
     _write_new(root, "_index.md", index_mod.build([]), created, kept)
     _write_new(root, "_log.md", "", created, kept)
 
@@ -248,6 +294,21 @@ def upgrade(root, profile=None, yes=False):
             writes.append((root / rel, (TEMPLATES / source).read_text(encoding="utf-8")))
     if (root / "CLAUDE.md").exists():
         kept.append("CLAUDE.md")
+
+    bundled = manifest_version(BUNDLE / "manifest.json")
+    if bundled is None or not _bundle_files():
+        warnings.append("companion bundle not found at %s: the Obsidian companion was not checked"
+                        % BUNDLE)
+    elif not _companion_installed(root):
+        actions.append("add %s (companion %s)" % (COMPANION, bundled))
+        post.append(lambda: _install_companion(root))
+    else:
+        installed = manifest_version(root / COMPANION / "manifest.json")
+        if installed is None or version_key(bundled) > version_key(installed):
+            actions.append("update companion %s -> %s" % (installed or "?", bundled))
+            post.append(lambda: _install_companion(root))
+        else:
+            kept.append(COMPANION)
 
     sync = load_profile(profile)["sync"] if profile else (config.get("sync") or "local")
     lines = gitignore_lines(sync)

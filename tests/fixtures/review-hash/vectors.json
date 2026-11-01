@@ -94,5 +94,29 @@
     "file": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Added fact one.\n> Second line.\n",
     "review_body": "# Heading\n\nFirst paragraph.\n\n- item one\n- item two",
     "hash": "sha256:f964504556d44bc4"
+  },
+  {
+    "name": "trailing-bom-only-line",
+    "file": "---\ntitle: Note\norigin: agent\n---\nText\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Pending.\n\ufeff",
+    "review_body": "Text\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Pending.\n\ufeff",
+    "hash": "sha256:0c446795712984bc"
+  },
+  {
+    "name": "trailing-line-with-control-1c",
+    "file": "---\ntitle: Note\norigin: agent\n---\nText\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Pending.\n\u001c\n",
+    "review_body": "Text\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Pending.\n\u001c",
+    "hash": "sha256:6733fe1c036a6821"
+  },
+  {
+    "name": "trailing-line-with-nel-85",
+    "file": "---\ntitle: Note\norigin: agent\n---\nText\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Pending.\n\u0085\n",
+    "review_body": "Text\n\n> [!agent] 2026-11-02 \u00b7 src-001\n> Pending.\n\u0085",
+    "hash": "sha256:218b293c53f9326b"
+  },
+  {
+    "name": "lone-cr-edge-lines",
+    "file": "---\ntitle: Note\n---\n\r\r\nText\n\r\r\n",
+    "review_body": "Text",
+    "hash": "sha256:71988c4d8e0803ba"
   }
 ]
