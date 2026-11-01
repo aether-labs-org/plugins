@@ -7,6 +7,7 @@ ask. Bash may not write a note or an _about.md under wiki/ at all (D33, D34): th
 through the tools where the guard simulates the result. Bash matching is best effort (interpreter one-liners
 such as python -c are not parsed): git is the real net.
 """
+import fnmatch
 import glob
 import itertools
 import os
@@ -28,7 +29,7 @@ SEGMENT_SPLIT = re.compile(r"&&|\|\||;|\||\n")
 ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 WRAPPERS = {"command", "time", "nohup", "exec", "builtin", "!", "{", "}", "then",
             "do", "else", "elif", "if", "while", "until"}
-DELETE_CMDS = {"rmdir", "rm", "unlink", "shred"}
+DELETE_CMDS = {"rmdir", "rm", "unlink", "shred", "trash", "trash-put", "gvfs-trash"}
 ALL_OPERANDS_WRITE = {"mv", "touch", "tee", "sponge", "truncate", "ln", "chmod", "chown", "mkdir"}
 LAST_OPERAND_WRITES = {"cp", "install", "rsync"}
 NOTE_ALL_OPERANDS = {"mv", "touch", "tee", "sponge", "truncate", "ln"}  # chmod etc. keep v0.1
@@ -76,6 +77,12 @@ INTERPRETER_REASON = ("This interpreter command may modify notes; notes are writ
                       "Write/Edit. Confirm with the user.")
 DIR_ASK_REASON = ("%s is inside wiki/ and this command may write notes there; confirm with the "
                   "user. Notes are written only with Write/Edit.")
+ANCESTOR_REASON = ("%s is the vault or a folder above it; deleting or moving it would take the whole "
+                   "vault along. Ask the human to do it directly.")
+ANCESTOR_ASK_REASON = ("This in-place edit may reach every note of the vault (%s is the vault or a "
+                       "folder above it); confirm with the user.")
+MOVE_DIR_REASON = ("%s is a folder of notes; moving it moves every note in it. Confirm with the "
+                   "user.")
 SHELL_STDIN_REASON = ("A shell is fed a script the guard cannot read here; confirm with the user. "
                       "Notes are written only with Write/Edit.")
 SIMULATE_ASK_REASON = ("The guard could not apply this edit to %s to check it (the text to "
@@ -300,6 +307,15 @@ def _classify(scope, cwd, operands, deleting=True):
     verdict = None
     for raw in operands:
         rel = scope.rel(cwd, raw)
+        if deleting and (rel is None or getattr(raw, "glob", False)) \
+                and _ancestor_hit(scope, cwd, raw):
+            return ("deny", ANCESTOR_REASON % raw)
+        if rel is None and getattr(raw, "glob", False):
+            for found in _candidates(scope, cwd, raw):
+                if _is_protected(found):
+                    return ("deny", DENY_REASON % found)
+                if deleting and (found == "wiki" or found.startswith("wiki/")):
+                    verdict = _merge(verdict, ("ask", ASK_REASON % found))
         if rel is not None:
             if _is_protected(rel) or (deleting and rel == "."):
                 return ("deny", DENY_REASON % rel)
@@ -827,6 +843,54 @@ def _has_var(word):
     return ("$" in word or "`" in word) if flag is None else flag
 
 
+def _glob_reach(vault, cwd, alternative):
+    """(whether the glob can match the vault root or a folder above it, paths inside the vault it
+    can match). The pattern is matched against the vault's own path components, so a pattern that
+    runs through an ancestor (`../*/wiki/*.md`) is followed without listing the file system."""
+    path = os.path.normpath(os.path.join(cwd, os.path.expanduser(alternative.strip())))
+    vcomps = [c for c in str(vault).split(os.sep) if c]
+    pcomps = [c for c in path.split(os.sep) if c]
+    reach, rests = [False], set()
+
+    def walk(pi, vi, budget=64):
+        if budget <= 0:
+            return
+        if vi == len(vcomps):
+            rests.add(os.sep.join(pcomps[pi:]))
+        elif pi == len(pcomps):
+            reach[0] = True
+        elif pcomps[pi] == "**":
+            walk(pi + 1, vi, budget - 1)
+            walk(pi, vi + 1, budget - 1)
+        elif fnmatch.fnmatchcase(vcomps[vi], pcomps[pi]):
+            walk(pi + 1, vi + 1, budget - 1)
+
+    walk(0, 0)
+    found = []
+    for rest in sorted(rests):
+        if not rest:
+            reach[0] = True
+            continue
+        found.extend(itertools.islice(glob.iglob(os.path.join(str(vault), rest), recursive=True), 200))
+    return reach[0], found
+
+
+def _ancestor_hit(scope, cwd, word):
+    """True when `word` names the vault root or a folder above it (`..`, `~`, an absolute parent,
+    a glob that can match one of them)."""
+    vault = str(scope.vault)
+    for alternative in _braces(str(word)):
+        alternative = alternative.strip().strip("'\"")
+        if getattr(word, "glob", False) and any(c in alternative for c in "*?["):
+            if _glob_reach(scope.vault, cwd, alternative)[0]:
+                return True
+            continue
+        real = os.path.realpath(os.path.join(cwd, os.path.expanduser(alternative)))
+        if real == vault or vault.startswith(real.rstrip(os.sep) + os.sep):
+            return True
+    return False
+
+
 def _candidates(scope, cwd, word):
     """Vault-relative paths a word can name: brace alternatives and, for globs, existing matches."""
     rels = []
@@ -836,6 +900,9 @@ def _candidates(scope, cwd, word):
             path = _inside(scope.vault, cwd, alternative)
             if path:
                 for found in itertools.islice(glob.iglob(path, recursive=True), 200):
+                    rels.append(scope.rel(cwd, found))
+            else:
+                for found in _glob_reach(scope.vault, cwd, alternative)[1]:
                     rels.append(scope.rel(cwd, found))
     return [r for r in rels if r is not None]
 
@@ -932,11 +999,58 @@ def _is_writer(program, args):
             or program in LAST_OPERAND_WRITES or _in_place(program, args))
 
 
+RECURSIVE_COPY = re.compile(r"^-[A-Za-z]*[rRa]")
+
+
+def _move_verdict(scope, cwd, args):
+    """mv / git mv: the vault or a folder above it is denied; a folder of notes asks."""
+    operands, directory = _split_options(args)
+    sources = operands if directory is not None else operands[:-1]
+    verdict = None
+    for word in sources:
+        if _ancestor_hit(scope, cwd, word):
+            return ("deny", ANCESTOR_REASON % word)
+        for rel in _candidates(scope, cwd, word):
+            if (rel == "wiki" or rel.startswith("wiki/")) and (scope.vault / rel).is_dir():
+                verdict = _merge(verdict, ("ask", MOVE_DIR_REASON % rel))
+    return verdict
+
+
+def _copy_dir_verdict(scope, cwd, program, args):
+    """cp -r / -R / -a and rsync -a / -r of a folder into wiki/ ask."""
+    if not any(RECURSIVE_COPY.match(a) or a in ("--recursive", "--archive") for a in args):
+        return None
+    operands, directory = _split_options(args)
+    sources = operands if directory is not None else operands[:-1]
+    target = directory if directory is not None else (operands[-1] if operands else None)
+    if target is None:
+        return None
+    for word in sources:
+        found = [str(word)]
+        if getattr(word, "glob", False):
+            found = list(itertools.islice(glob.iglob(os.path.join(
+                cwd, os.path.expanduser(str(word)))), 20)) or found
+        for name in found:
+            if str(name).endswith("/") or os.path.isdir(os.path.join(cwd, os.path.expanduser(name))):
+                return _dir_verdict(scope, cwd, target)
+    return None
+
+
 def _segment_verdict(scope, cwd, program, args):
     operands = [a for a in args if not a.startswith("-")]
     if program in DELETE_CMDS:
         return _classify(scope, cwd, operands, deleting=True)
     verdict = None
+    if program == "mv":
+        verdict = _move_verdict(scope, cwd, args)
+        if verdict and verdict[0] == "deny":
+            return verdict
+    elif program in ("cp", "rsync"):
+        verdict = _copy_dir_verdict(scope, cwd, program, args)
+    elif _in_place(program, args):
+        for word in operands:
+            if _ancestor_hit(scope, cwd, word):
+                verdict = _merge(verdict, ("ask", ANCESTOR_ASK_REASON % word))
     for word, sources, notes in _segment_targets(program, args):
         found = _target_verdict(scope, cwd, word, sources)
         if found and found[0] == "deny" and not notes and found[1] == NOTE_WRITE_REASON:
@@ -1117,7 +1231,9 @@ def _found_paths(scope, cwd, roots):
     for root in roots:
         real = os.path.realpath(os.path.join(cwd, os.path.expanduser(str(root))))
         if scope.rel(cwd, root) is None:
-            continue
+            if not _ancestor_hit(scope, cwd, root):
+                continue
+            real = str(scope.vault)          # find from a folder above the vault reaches it
         paths.append(real)
         if os.path.isdir(real):
             for dirpath, dirs, files in os.walk(real):
@@ -1142,6 +1258,8 @@ def _find_verdict(scope, cwd, args, depth):
         token = str(expr[index])
         if token == "-delete":
             for root in roots:
+                if scope.rel(cwd, root) is None and _ancestor_hit(scope, cwd, root):
+                    return ("deny", ANCESTOR_REASON % root)
                 for rel in _candidates(scope, cwd, root):
                     if _is_protected(rel):
                         return ("deny", DENY_REASON % rel)
@@ -1191,6 +1309,10 @@ def _find_exec(scope, cwd, roots, sub, depth):
             return verdict
     if cut and verdict is None and _is_writer_tokens(peeled):
         verdict = ("ask", UNRESOLVED_REASON)
+    if verdict is None and peeled and _in_place(os.path.basename(peeled[0]), peeled[1:]):
+        for root in roots:
+            if _ancestor_hit(scope, cwd, root):
+                return ("ask", ANCESTOR_ASK_REASON % root)
     return verdict
 
 
@@ -1285,6 +1407,8 @@ def _command(scope, cwd, tokens, depth):
         if sub == "apply":
             return _patch_verdict(scope, cwd, "apply", args)
         program = sub if sub in ("rm", "mv") else "git"
+    if program == "gio" and args[:1] == ["trash"]:
+        program, args = "trash", args[1:]
     if program in CD_CMDS:
         target = [t for t in args if not t.startswith("-")][:1]
         if not target:

@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from sb_helpers import PLUGIN, make_vault, note
@@ -1074,6 +1075,76 @@ class ObsidianCliTests(Round2Base):
 
     def test_unresolved_subcommand_asks_and_eval_asks(self):
         self.kinds(["obsidian $SUB file=A", "obsidian eval code=x"], "ask")
+
+
+class BashDirectoryTests(Round2Base):
+    """Item 4: directories of notes, ancestors of the vault, trash commands, cp -r into wiki/."""
+
+    def setUp(self):
+        super().setUp()
+        self.parent = str(self.vault.parent)
+
+    def kind(self, command, cwd=None):
+        out = self.result(command, cwd)
+        return out["permissionDecision"] if out else "allow"
+
+    def test_moving_a_directory_of_notes_asks(self):
+        self.kinds(["mv wiki/Resources wiki/Other", "git mv wiki/Resources/Sub wiki/Resources/Sub2",
+                    "mv wiki /tmp/w", "mv wiki/Res* /tmp/", "mv -t /tmp wiki/Resources",
+                    "git -C %s mv wiki/Resources wiki/R2" % self.vault], "ask")
+
+    def test_moving_a_file_outside_notes_or_inbox_stays_allowed(self):
+        (self.sub / "pic.png").write_text("x", encoding="utf-8")
+        self.kinds(["mv _inbox/a.md _inbox/_done/a.md", "mv wiki/Resources/pic.png /tmp/pic.png"],
+                   "allow")
+
+    def test_deleting_or_moving_the_vault_or_an_ancestor_is_denied(self):
+        p = self.parent
+        self.kinds(["rm -rf ..", "rm -rf ../*", "rm -r %s" % p, "rm -r %s/" % p, "rm -rf /",
+                    "rm -rf %s/*" % p, "rm -rf ../%s" % self.vault.name, "rmdir ..",
+                    "rm -rf %s" % self.vault, "mv .. /tmp/x", "mv %s/* /tmp/" % p,
+                    "git mv .. /tmp/x", "find .. -delete", "find %s -name x -delete" % p,
+                    "find / -name x -delete", "find .. -name x -exec rm -rf {} +",
+                    "trash ..", "gio trash %s" % p, "trash-put %s" % self.vault, "gvfs-trash ..",
+                    "rm -rf ../*/", "cd wiki && rm -rf ../.."], "deny")
+
+    def test_home_as_an_ancestor_is_denied(self):
+        with mock.patch.dict(os.environ, {"HOME": self.parent}):
+            self.kinds(["rm -rf ~", "rm -rf ~/", "rm -rf ~/*", "find ~ -delete", "mv ~ /tmp/h"],
+                       "deny")
+
+    def test_other_deletions_are_not_mistaken_for_ancestors(self):
+        self.kinds(["rm -rf /tmp/other-dir-%d" % os.getpid(), "rm ../*.log", "rm ../zzz*",
+                    "find /var/tmp -name x -delete", "rm -rf _inbox/_done"], "allow")
+
+    def test_trash_commands_follow_the_deletion_rules(self):
+        self.kinds(["trash wiki/Resources/A.md", "trash-put wiki/Resources/A.md",
+                    "gio trash wiki/Resources/A.md", "gvfs-trash wiki/Resources/A.md",
+                    "trash wiki"], "ask")
+        self.kinds(["trash _raw/a.pdf", "gio trash CLAUDE.md", "trash-put ."], "deny")
+        self.kinds(["trash /tmp/zzz-%d" % os.getpid()], "allow")
+
+    def test_in_place_edit_of_an_ancestor_asks_or_denies(self):
+        for command in ("sed -i s/a/b/ ..", "perl -pi -e 1 %s" % self.parent,
+                        "find .. -name '*.txt' -exec sed -i s/a/b/ {} +",
+                        "find %s -exec perl -pi -e 1 {} +" % self.parent):
+            self.assertIn(self.kind(command), ("ask", "deny"), command)
+        self.kinds(["sed -i s/a/b/ .."], "ask")
+
+    def test_globs_through_an_ancestor_reach_the_notes(self):
+        p = self.parent
+        self.kinds(["sed -i s/a/b/ ../*/wiki/Resources/*.md",
+                    "sed -i s/a/b/ %s/*/wiki/Resources/A.md" % p,
+                    "echo x > ../*/wiki/Resources/A.md", "tee %s/*/wiki/Resources/A.md" % p,
+                    "echo x > %s/*/wiki/**/G.md" % p, "truncate -s0 ../*/wiki/*/*.md"],
+                   "deny", NOTE_WRITE_REASON)
+
+    def test_copying_a_directory_into_wiki_asks(self):
+        self.kinds(["cp -r _inbox wiki/", "cp -R _inbox wiki/Resources", "cp -a _inbox wiki/x/",
+                    "cp -rv _inbox wiki", "rsync -a _inbox/ wiki/Resources/",
+                    "cp -r _inbox/ wiki/Resources/"], "ask")
+        self.kinds(["cp -r _inbox /tmp/x", "cp -r wiki/Resources /tmp/", "cp -r _inbox _inbox/_done/x",
+                    "cp _inbox/x.txt wiki/Resources/x.txt"], "allow", None)
 
 
 class GuardScriptTests(unittest.TestCase):
