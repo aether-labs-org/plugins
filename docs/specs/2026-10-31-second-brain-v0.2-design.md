@@ -73,7 +73,7 @@ spec; the plans may revisit it with evidence.
 | D16 | Install scope is `project` for every profile: `.claude/settings.json` in the vault is committed. | decided |
 | D17 | No `sb apply` plan/hash transaction for ingest; the guard plus `source_id` dedupe cover it. | decided |
 | D18 | The only supported agent-in-Obsidian path is the *Terminal* community plugin (runs the real `claude`, so hooks apply). | decided |
-| D19 | A companion Obsidian plugin for review ships in v0.2 (milestone D), in its **own repository** (`second-brain-companion`), installable via BRAT. | decided |
+| D19 | A companion Obsidian plugin for review ships in v0.2 (milestone D). It lives in this repository, in `plugins/second-brain/obsidian/`; its built bundle (`dist/`) is shipped inside the second-brain plugin and `sb init` / `sb init --upgrade` install it into the vault's `.obsidian/plugins/second-brain-companion/`. The human enables it once in Obsidian; nothing writes `community-plugins.json`. No separate repository, no BRAT. | decided |
 | D20 | No secret scanning in v0.2 (accepted risk, §11). | decided |
 | D21 | Search is SQLite FTS5 (`unicode61 remove_diacritics 2`) in `.sb/search.db`, with a pure-Python fallback when FTS5 is missing. Measured: pure-Python BM25 took 0.75 s at 1,000 notes; FTS5 folding verified on SQLite 3.46.1. | builder |
 | D22 | Folder boost exists as a search parameter, default off. No A/B experiment in v0.2. | decided |
@@ -85,7 +85,7 @@ spec; the plans may revisit it with evidence.
 | D28 | Until milestone D, the human sets `reviewed:` by hand (Obsidian Properties). The guard denies the agent running `sb review` through Bash; the human runs it in a terminal or with the `!` prefix, which does not go through tool hooks. | builder |
 | D29 | If spike B0 shows a `PreToolUse` `ask` does not prompt in auto mode, every `ask` of the trust tiers becomes `deny` with a reason telling the human what to run or edit. | builder |
 | D30 | Squad pull never uses `--autostash`: a dirty tree is first committed (`sb: local changes before sync`), then `git pull --rebase`; on any failure `git rebase --abort` and report. Nothing is left in the stash. | builder |
-| D31 | Dependency identifiers: `document-skills` in marketplace `anthropic-agent-skills` (repo `anthropics/skills`) and `obsidian` in marketplace `obsidian-skills` (repo `kepano/obsidian-skills`); unversioned, since neither repo tags releases. The companion lives at `aether-labs-org/second-brain-companion`; the user creates the GitHub repository, the plan creates the local one. Plan D covers the Python side and the TypeScript plugin. | builder |
+| D31 | Dependency identifiers: `document-skills` in marketplace `anthropic-agent-skills` (repo `anthropics/skills`) and `obsidian` in marketplace `obsidian-skills` (repo `kepano/obsidian-skills`); unversioned, since neither repo tags releases. The companion lives in `plugins/second-brain/obsidian/` (D19). Plan D covers the Python side and the TypeScript plugin. | builder |
 | D32 | A vault is always its own repository: vault root = git top-level = where `claude` runs (v0.1 D3). `sb init` refuses a target inside another git work tree; `sb doctor` fails when the git top-level differs from the vault root, and squad sync is skipped in that case. | decided |
 | D33 | Bash writes to notes under wiki/ are denied in every tier; notes are written only with Write/Edit/MultiEdit. Interpreter one-liners (python -c, node -e) remain an accepted risk until v0.3. | decided |
 | D34 | _about.md is guarded: changing its protected key is denied, other edits ask, Bash writes are denied. | builder |
@@ -329,7 +329,9 @@ recommended Obsidian setup (§9).
 
 - `reviewed_hash: sha256:<16 hex>` of the **review body**: the body after the frontmatter, minus
   trailing `> [!agent]` callouts, CRLF → LF, trailing whitespace per line removed, leading and
-  trailing blank lines removed. Trailing whitespace means spaces and tabs only (`[ \t]+$`); a plain
+  trailing blank lines removed. Trailing whitespace means spaces and tabs only (`[ \t]+$`); a blank line
+  (for the trailing-callout walk and for trimming the edges) is a line of only spaces, tabs and CR
+  (`[ \t\r]*`), never `str.strip()` / `trim()`, whose whitespace sets differ (U+FEFF, U+001C, U+0085); a plain
   `>` quote before the first trailing agent header stays in the review body; a file without
   frontmatter is all body. Shared test vectors in `tests/fixtures/review-hash/*.json` are
   used by both implementations.
@@ -338,16 +340,25 @@ recommended Obsidian setup (§9).
 - Lint: `SB110` reviewed text changed since review (hash mismatch); `SB112` reviewed note has
   agent blocks waiting for review (info). `SB106` stays for agent notes never reviewed.
 
-### 7.2 `second-brain-companion` (Obsidian plugin, separate repository)
+### 7.2 `second-brain-companion` (Obsidian plugin, bundled in the plugin)
 
-- TypeScript from `obsidianmd/obsidian-sample-plugin`; id `second-brain-companion`; not
-  desktop-only (Web Crypto for SHA-256, no Node APIs).
+- TypeScript from `obsidianmd/obsidian-sample-plugin`, in `plugins/second-brain/obsidian/` (own
+  `package.json`, Vitest, esbuild); id `second-brain-companion`; not desktop-only (Web Crypto for
+  SHA-256, no Node APIs). The TS tests read the shared vectors in `tests/fixtures/review-hash/`.
 - Commands: **Mark as reviewed** (writes `reviewed`, `reviewed_hash` via
   `app.fileManager.processFrontMatter`); **Accept agent blocks** (unwraps trailing
   `[!agent]` callouts into plain text, then marks reviewed); **Toggle protected**.
 - Status-bar badge for the active note: `reviewed`, `unreviewed`, `changed since review`,
   `agent blocks pending`. CSS for the `agent` callout type.
-- Releases are BRAT-installable from the new repository; community-directory submission later.
+- Distribution: `npm run build` writes `obsidian/dist/` (`main.js`, `manifest.json`, `styles.css`),
+  which is committed and ships inside the second-brain plugin; `tests/sb_companion_test.sh` fails
+  when `dist/` is stale. `sb init` copies `dist/` into `<vault>/.obsidian/plugins/second-brain-companion/`;
+  `sb init --upgrade --yes` adds it when absent and replaces it only when the bundled
+  `manifest.json` version is newer (`update companion <old> -> <new>`). It never touches other
+  `.obsidian` files (`data.json` included) and never enables the plugin: the human turns off
+  Restricted mode and enables it once. `sb doctor` check 6 (`companion`) reports missing, outdated
+  or not enabled. In squad vaults the folder is versioned with the vault, so teammates get it; mobile
+  needs `.obsidian` synced. Community-directory submission later.
 - Exit: identical hashes in Python and TypeScript for every shared vector; desktop and mobile
   manual QA.
 
@@ -369,7 +380,7 @@ Existing cases stay; `ingest-twice` graders are updated where the index is now w
 | Agent inside Obsidian | *Terminal* (polyipseity) | runs the real `claude`; hooks apply. Claudian / Agent Client unsupported |
 | Web capture | Obsidian Web Clipper + `_meta/web-clipper-template.json` | saves to `_inbox/` |
 | Review queue | Bases (core) + `_views/unreviewed.base` | |
-| Review actions | `second-brain-companion` (BRAT) | milestone D |
+| Review actions | `second-brain-companion`, bundled and installed by `sb init`; enable it once in Community plugins | milestone D |
 | Squad | Obsidian Git: pull on startup, rebase, auto commit-and-sync for human edits | mobile Git is unstable |
 | HTML | HTML Viewer with scripts **off** for third-party pages | |
 | draw.io / Excalidraw | Drawio Preview; Excalidraw (zsviczian) | `*.excalidraw.md` is excluded from notes |
