@@ -19,6 +19,11 @@ def all_present(name):
     return "/usr/bin/" + name
 
 
+PLUGIN = ".obsidian/plugins/second-brain-companion"
+ENABLE_FIX = ('Obsidian → Settings → Community plugins → turn off Restricted mode → '
+              'enable "Second Brain Companion"')
+
+
 def statuses(results):
     return {r["check"]: r["status"] for r in results}
 
@@ -48,10 +53,21 @@ class DoctorTests(unittest.TestCase):
     def by_check(self, results):
         return {r["check"]: r for r in results}
 
+    def enable_companion(self, ids=("second-brain-companion",)):
+        (self.root / ".obsidian").mkdir(exist_ok=True)
+        (self.root / ".obsidian/community-plugins.json").write_text(json.dumps(list(ids)), encoding="utf-8")
+
+    def set_installed_version(self, version):
+        path = self.root / PLUGIN / "manifest.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["version"] = version
+        path.write_text(json.dumps(data), encoding="utf-8")
+
     def test_clean_vault_all_ok(self):
+        self.enable_companion()
         results = self.run_doctor()
         self.assertEqual([r["check"] for r in results],
-                         ["python", "settings", "extraction", "hooks", "git"])
+                         ["python", "settings", "extraction", "hooks", "git", "companion"])
         self.assertEqual(set(statuses(results).values()), {"ok"}, results)
         for r in results:
             self.assertEqual(set(r), {"check", "status", "detail", "fix"})
@@ -154,6 +170,60 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual(git["status"], "warn")
         self.assertIn("push-pending", git["detail"])
 
+    def test_companion_installed_but_not_enabled_warns_with_the_obsidian_steps(self):
+        for setup in (lambda: None, lambda: self.enable_companion(["other-plugin"])):
+            with self.subTest():
+                (self.root / ".obsidian/community-plugins.json").unlink(missing_ok=True)
+                setup()
+                companion = self.by_check(self.run_doctor())["companion"]
+                self.assertEqual(companion["status"], "warn")
+                self.assertIn("installed but not enabled", companion["detail"])
+                self.assertEqual(companion["fix"], ENABLE_FIX)
+
+    def test_companion_with_an_unreadable_community_plugins_file_counts_as_not_enabled(self):
+        (self.root / ".obsidian/community-plugins.json").write_text("{nope", encoding="utf-8")
+        companion = self.by_check(self.run_doctor())["companion"]
+        self.assertEqual(companion["status"], "warn")
+        self.assertEqual(companion["fix"], ENABLE_FIX)
+
+    def test_companion_missing_points_to_upgrade(self):
+        shutil.rmtree(self.root / PLUGIN)
+        companion = self.by_check(self.run_doctor())["companion"]
+        self.assertEqual(companion["status"], "warn")
+        self.assertIn("not installed", companion["detail"])
+        self.assertEqual(companion["fix"], "sb init --upgrade --yes")
+
+    def test_companion_older_than_the_bundle_warns_to_upgrade(self):
+        self.enable_companion()
+        self.set_installed_version("0.0.1")
+        companion = self.by_check(self.run_doctor())["companion"]
+        self.assertEqual(companion["status"], "warn")
+        self.assertIn("0.0.1", companion["detail"])
+        self.assertEqual(companion["fix"], "sb init --upgrade --yes")
+
+    def test_companion_newer_than_the_bundle_is_ok(self):
+        self.enable_companion()
+        self.set_installed_version("99.0.0")
+        self.assertEqual(self.by_check(self.run_doctor())["companion"]["status"], "ok")
+
+    def test_companion_old_and_not_enabled_reports_both_fixes(self):
+        self.set_installed_version("0.0.1")
+        companion = self.by_check(self.run_doctor())["companion"]
+        self.assertEqual(companion["status"], "warn")
+        self.assertIn("sb init --upgrade --yes", companion["fix"])
+        self.assertIn(ENABLE_FIX, companion["fix"])
+
+    def test_companion_warning_does_not_fail_the_exit_code(self):
+        out = io.StringIO()
+        with mock.patch.object(doctor, "_which", all_present):
+            code = main(["doctor", "--vault", str(self.root)], out=out, err=io.StringIO())
+        self.assertEqual(code, 0)
+        self.assertIn("warn companion", out.getvalue())
+
+    def test_obsidian_setup_table_describes_the_bundled_companion(self):
+        self.assertNotIn("BRAT", doctor.OBSIDIAN_SETUP)
+        self.assertIn("sb init", doctor.OBSIDIAN_SETUP)
+
     def test_cli_text_json_and_exit_code(self):
         out = io.StringIO()
         with mock.patch.object(doctor, "_which", all_present):
@@ -170,7 +240,7 @@ class DoctorTests(unittest.TestCase):
         data = json.loads(out.getvalue())
         self.assertEqual({r["check"]: r["status"] for r in data}["settings"], "fail")
 
-    def test_all_five_planted_failures_are_flagged(self):
+    def test_all_planted_failures_are_flagged(self):
         (self.root / ".claude/settings.json").unlink()
         self.beat(NOW - timedelta(days=30))
         outer = self.base / "outer"
@@ -182,7 +252,8 @@ class DoctorTests(unittest.TestCase):
         with mock.patch.object(doctor, "_has_fts5", return_value=False):
             results = doctor.run(nested, now=NOW, which=lambda name: None)
         self.assertEqual(statuses(results), {"python": "warn", "settings": "fail",
-                                             "extraction": "warn", "hooks": "warn", "git": "fail"})
+                                             "extraction": "warn", "hooks": "warn", "git": "fail",
+                                             "companion": "warn"})
 
 
 if __name__ == "__main__":
