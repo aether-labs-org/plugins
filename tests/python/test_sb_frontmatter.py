@@ -5,6 +5,24 @@ from sb.frontmatter import parse, set_keys
 
 
 class ParseTests(unittest.TestCase):
+    def test_fence_allows_only_spaces_tabs_and_cr_around_dashes(self):
+        for fence in ("---\x85", "---\x1c", "---\ufeff", "---\xa0", "\x1c---"):
+            p = parse("---\ntitle: Foo\n%s\nextra: kept\n---\nBody\n" % fence)
+            self.assertEqual(p.body, "Body\n", repr(fence))
+            self.assertEqual(p.data["title"], "Foo", repr(fence))
+        for fence in ("--- \t", " \t---", "---\r"):
+            p = parse("---\ntitle: Foo\n%s\nBody\n" % fence)
+            self.assertEqual(p.errors, [], repr(fence))
+            self.assertEqual(p.body, "Body\n", repr(fence))
+        self.assertEqual(parse("---\x85\ntitle: Foo\n---\n").errors[0][1], "missing frontmatter")
+        self.assertEqual(parse(" \t---\t\ntitle: Foo\n---\nBody\n").body, "Body\n")
+
+    def test_set_keys_uses_the_same_fence_rule(self):
+        text = "---\ntitle: Foo\n---\x85\n---\nBody\n"
+        self.assertEqual(set_keys(text, {"a": "1"}), "---\ntitle: Foo\n---\x85\na: 1\n---\nBody\n")
+        with self.assertRaises(ValueError):
+            set_keys("---\x1c\ntitle: Foo\n---\n", {"a": "1"})
+
     def test_scalars_lists_and_body(self):
         text = "---\ntitle: Foo\ntags: [a, \"b c\"]\nsource: [[Other]]\nreviewed:\n---\nBody\n"
         p = parse(text)

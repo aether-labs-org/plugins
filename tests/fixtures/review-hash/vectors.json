@@ -118,5 +118,29 @@
     "file": "---\ntitle: Note\n---\n\r\r\nText\n\r\r\n",
     "review_body": "Text",
     "hash": "sha256:71988c4d8e0803ba"
+  },
+  {
+    "name": "fence-nel-85-not-a-fence",
+    "file": "---\ntitle: Note\n---\u0085\nextra: kept\n---\n# Heading\n\nText.\n",
+    "review_body": "# Heading\n\nText.",
+    "hash": "sha256:4ac52ff83ccdff0f"
+  },
+  {
+    "name": "fence-bom-not-at-start-not-a-fence",
+    "file": "---\ntitle: Note\n---\ufeff\nextra: kept\n---\n# Heading\n\nText.\n",
+    "review_body": "# Heading\n\nText.",
+    "hash": "sha256:4ac52ff83ccdff0f"
+  },
+  {
+    "name": "fence-control-1c-not-a-fence",
+    "file": "---\ntitle: Note\n---\u001c\nextra: kept\n---\n# Heading\n\nText.\n",
+    "review_body": "# Heading\n\nText.",
+    "hash": "sha256:4ac52ff83ccdff0f"
+  },
+  {
+    "name": "fence-space-tab-is-a-fence",
+    "file": "---\ntitle: Note\n--- \t\n# Heading\n\nText.\n",
+    "review_body": "# Heading\n\nText.",
+    "hash": "sha256:4ac52ff83ccdff0f"
   }
 ]

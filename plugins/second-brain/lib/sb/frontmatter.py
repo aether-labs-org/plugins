@@ -11,6 +11,15 @@ KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):(?:[ \t]+(.*))?$")
 COMMENT_RE = re.compile(r"\s+#.*$")
 ITEM_RE = re.compile(r"^\s*-\s+(.*)$")
 UNSUPPORTED_START = ("|", ">", "{", "&", "*", "!")
+# A fence line is `---` with only spaces, tabs and CR around it; a blank line is only those. Never
+# str.strip(): it also strips \x1c-\x1f, \x85 and others that JS trim() treats differently
+# (the companion's src/frontmatter.ts and the review hash must agree).
+FENCE_RE = re.compile(r"[ \t\r]*---[ \t\r]*")
+BLANK_RE = re.compile(r"[ \t\r]*")
+
+
+def _fence(line):
+    return FENCE_RE.fullmatch(line) is not None
 
 
 class Parsed(NamedTuple):
@@ -23,9 +32,9 @@ class Parsed(NamedTuple):
 def parse(text):
     text = text.lstrip("﻿").replace("\r\n", "\n")
     lines = text.split("\n")
-    if lines[0].strip() != "---":
+    if not _fence(lines[0]):
         return Parsed({}, text, [(1, "missing frontmatter")], 1)
-    end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    end = next((i for i in range(1, len(lines)) if _fence(lines[i])), None)
     if end is None:
         return Parsed({}, text, [(1, "frontmatter is not closed with ---")], 1)
     data, errors = {}, []
@@ -33,7 +42,7 @@ def parse(text):
     while i < end:
         raw, number = lines[i], i + 1
         i += 1
-        if not raw.strip() or raw.lstrip().startswith("#"):
+        if BLANK_RE.fullmatch(raw) or raw.lstrip().startswith("#"):
             continue
         match = KEY_RE.match(raw)
         if not match:
@@ -94,9 +103,9 @@ def set_keys(text, updates):
     including line endings and a BOM. Raises ValueError when the text has no closed frontmatter."""
     bom = text[:1] if text.startswith("﻿") else ""
     lines = text[len(bom):].split("\n")
-    if lines[0].strip() != "---":
+    if not _fence(lines[0]):
         raise ValueError("no frontmatter")
-    end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    end = next((i for i in range(1, len(lines)) if _fence(lines[i])), None)
     if end is None:
         raise ValueError("frontmatter is not closed with ---")
     eol = "\r" if lines[0].endswith("\r") else ""
