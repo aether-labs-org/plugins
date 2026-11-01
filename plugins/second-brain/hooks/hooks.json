@@ -32,7 +32,7 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"",
-            "timeout": 30
+            "timeout": 90
           }
         ]
       }

@@ -305,6 +305,29 @@ class NoteGuardTests(unittest.TestCase):
         path.write_bytes(HUMAN.replace("\n", "\r\n").encode("utf-8"))
         self.assertEqual(self.kind("Write", "wiki/Resources/H.md", content=HUMAN + BLOCK), "allow")
 
+    # L1: a note the guard cannot decode
+    def test_undecodable_note_asks(self):
+        path = self.vault / "wiki" / "Resources" / "Bin.md"
+        path.write_bytes(b"---\ntitle: x\norigin: agent\n---\ncaf\xe9\n")        # latin-1, not UTF-8
+        self.assertEqual(self.kind("Write", "wiki/Resources/Bin.md", content=AGENT), "ask")
+        self.assertEqual(self.kind("Edit", "wiki/Resources/Bin.md", old_string="x", new_string="y"), "ask")
+        self.assertEqual(self.kind("MultiEdit", "wiki/Resources/Bin.md",
+                                   edits=[{"old_string": "x", "new_string": "y"}]), "ask")
+
+    # L2: case-insensitive file systems
+    def test_case_is_folded_on_a_case_insensitive_vault(self):
+        from unittest import mock
+        content = note("N", origin="human")
+        self.assertEqual(self.kind("Write", "WIKI/Resources/N.md", content=content), "allow")  # Linux
+        self.assertEqual(self.kind("Write", "_RAW/a.md", content="x"), "allow")
+        with mock.patch("sb.guard._case_insensitive", return_value=True):
+            self.assertEqual(self.kind("Write", "WIKI/Resources/N.md", content=content), "deny")
+            self.assertEqual(self.kind("Write", "Wiki/resources/N.md", content=AGENT), "allow")
+            for path in ("_RAW/a.md", ".Claude/settings.json", "claude.MD", ".SECOND-brain.json"):
+                self.assertEqual(self.kind("Write", path, content="x"), "deny", path)
+            self.assertEqual(self.kind("Write", "WIKI/Resources/_About.md",
+                                       content="---\nprotected: true\n---\n"), "deny")
+
     # paths
     def test_non_note_paths_keep_v01_rules(self):
         self.assertEqual(self.kind("Write", "wiki/Resources/_assets/x.md", content="x"), "allow")
@@ -617,6 +640,15 @@ class BashHardeningTests(unittest.TestCase):
                     "cat $F | wc -l", "f=/tmp/x; echo y > $f"], "allow")
         self.assertEqual(self.result("echo x > $PWD/wiki/Resources/A.md")["permissionDecision"], "deny")
 
+    def test_bash_folds_case_on_a_case_insensitive_vault(self):
+        from unittest import mock
+        self.assertEqual(self.kinds(["echo x > WIKI/Resources/A.md", "rm _RAW/a.pdf"], "allow"), None)
+        with mock.patch("sb.guard._case_insensitive", return_value=True):
+            self.kinds(["echo x > WIKI/Resources/A.md", "tee Wiki/Resources/new.md"],
+                       "deny", NOTE_WRITE_REASON)
+            self.kinds(["rm _RAW/a.pdf", "echo x > Claude.md"], "deny")
+            self.kinds(["rm Wiki/Resources/A.md"], "ask")
+
     def test_deny_wins_over_ask(self):
         self.assertEqual(self.result("echo x > $UNSET; echo y > _raw/a.pdf")["permissionDecision"], "deny")
 
@@ -860,6 +892,10 @@ class AboutGuardTests(unittest.TestCase):
                              "deny", extra)
             self.assertEqual(self.kind("Edit", "wiki/Resources/_about.md", old_string="protected: false",
                                        new_string="protected: false\n" + extra), "deny", extra)
+
+    def test_undecodable_about_asks(self):
+        (self.vault / "wiki" / "Resources" / "_about.md").write_bytes(b"---\ndescription: caf\xe9\n---\n")
+        self.assertEqual(self.kind("Write", "wiki/Resources/_about.md", content=ABOUT), "ask")
 
     def test_bash_writes_to_about_are_denied(self):
         for command in ("echo x > wiki/Resources/_about.md", "echo x >> wiki/Resources/_about.md",

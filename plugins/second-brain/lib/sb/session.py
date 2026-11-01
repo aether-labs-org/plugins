@@ -1,5 +1,6 @@
 """SessionStart: folder tree and vault status for the model, heartbeat for `sb doctor` (spec 6.2)."""
 import json
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -23,6 +24,13 @@ def _inbox_count(root):
         return 0
 
 
+SLOW_PULL_SECONDS = 40     # past this the 90 s hook budget has no room left for a push
+
+
+def _clock():
+    return time.monotonic()
+
+
 def _sync_status(root, config, session_id):
     """Pull, then retry a pending push (also after a crashed SessionEnd). Returns the status."""
     if config.get("sync") != "squad":
@@ -31,10 +39,13 @@ def _sync_status(root, config, session_id):
 
     if not sync.enabled(root):
         return "local (squad sync skipped: the vault is not its own git repository)"
+    started = _clock()
     result = sync.pull(root, session_id=session_id)
     if result != "ok":
         return result               # conflict: <files> or skipped: <why>; nothing to push over it
     if sync.pending(root) or sync.ahead(root):
+        if _clock() - started > SLOW_PULL_SECONDS:
+            return "push pending"   # no time left: the next session retries
         if sync.push(root).startswith("pending"):
             return "push pending"
     return "ok"
@@ -42,11 +53,19 @@ def _sync_status(root, config, session_id):
 
 def _heartbeat(root, session_id):
     try:
-        (root / ".sb").mkdir(exist_ok=True)
+        folder = root / ".sb"
+        folder.mkdir(exist_ok=True)
+        ignore = folder / ".gitignore"            # never committed, even in a hand-made squad vault
+        try:
+            current = ignore.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            current = ""
+        if "*" not in [line.strip() for line in current.split("\n")]:
+            write_atomic(ignore, (current.rstrip("\n") + "\n" if current.strip() else "") + "*\n")
         beat = {"session_start": datetime.now().replace(microsecond=0).isoformat(),
                 "session_id": str(session_id or "")}
-        write_atomic(root / ".sb" / "heartbeat.json", json.dumps(beat) + "\n")
-    except OSError:
+        write_atomic(folder / "heartbeat.json", json.dumps(beat) + "\n")
+    except (OSError, ValueError):
         pass
 
 

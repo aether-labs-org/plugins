@@ -162,6 +162,53 @@ class SquadSyncTests(unittest.TestCase):
         spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
         self.assertEqual(spec["SessionEnd"][0]["hooks"][0]["timeout"], 60)
 
+    def test_session_start_hook_timeout_is_90(self):
+        spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+        self.assertEqual(spec["SessionStart"][0]["hooks"][0]["timeout"], 90)
+
+    def test_rebase_left_in_progress_is_reported_and_nothing_else_runs(self):
+        gitdir = self.b / ".git"
+        (gitdir / "rebase-merge").mkdir()
+        self.write(self.b, "Resources/Dirty.md", note("Dirty"))      # must not be committed
+        before = git(self.b, "rev-parse", "HEAD")
+        self.assertEqual(sync.pull(self.b),
+                         "conflict: rebase in progress (run git rebase --abort or finish it)")
+        self.assertIn("sync conflict: rebase in progress (run git rebase --abort or finish it)",
+                      self.start(self.b))
+        self.assertEqual(git(self.b, "rev-parse", "HEAD"), before)
+        self.assertTrue((gitdir / "rebase-merge").exists())          # left for the human
+        self.assertIn("?? wiki/Resources/Dirty.md", git(self.b, "status", "--porcelain"))
+
+    def test_merge_in_progress_keeps_the_old_skip_message(self):
+        (self.b / ".git" / "MERGE_HEAD").write_text("0" * 40 + "\n", encoding="utf-8")
+        self.assertEqual(sync.pull(self.b), "skipped: merge or rebase in progress")
+
+    def test_slow_pull_skips_the_push_retry(self):
+        from unittest import mock
+        self.write(self.a, "Resources/Later.md", note("Later"))
+        moved = self.bare.with_name("remote-away.git")
+        self.bare.rename(moved)
+        self.end(self.a, "a1")                                      # push fails: push-pending
+        moved.rename(self.bare)
+        clock = iter([0.0, 41.0])
+        with mock.patch("sb.session._clock", side_effect=lambda: next(clock)), \
+                mock.patch("sb.sync.push", side_effect=AssertionError("push must not run")):
+            context = self.start(self.a, "a2")
+        self.assertIn("sync push pending", context)
+        self.assertTrue(sync.pending(self.a))                       # still pending for the next session
+
+    def test_fast_pull_still_retries_the_push(self):
+        from unittest import mock
+        self.write(self.a, "Resources/Later.md", note("Later"))
+        moved = self.bare.with_name("remote-away.git")
+        self.bare.rename(moved)
+        self.end(self.a, "a1")
+        moved.rename(self.bare)
+        clock = iter([0.0, 3.0])
+        with mock.patch("sb.session._clock", side_effect=lambda: next(clock)):
+            self.start(self.a, "a2")
+        self.assertFalse(sync.pending(self.a))
+
     def test_simulation_two_clones_twenty_sessions(self):
         started = time.time()
         clones = {"A": self.a, "B": self.b}

@@ -249,6 +249,9 @@ and Node to be installed. `sb doctor` (milestone C) checks each and prints the i
    cannot resolve this write target; confirm with the user.").
 10. The vault is also found from each tool target (`find_vault` of the target's folder) and from
     absolute paths in a Bash command, so the guard runs when the cwd is outside the vault.
+11. On a case-insensitive file system (detected once by stat-ing the vault root with swapped case)
+    the names `wiki`, `_raw`, `.claude`, `CLAUDE.md`, `.second-brain.json` and `_about.md` are
+    compared ignoring case; on Linux nothing changes.
 
 `hooks/hooks.json` sets `"onFailure": "block"` on the guard; `hooks/guard.py` exits 2 with the
 error on stderr if anything fails **inside a vault**, and 0 outside one.
@@ -296,7 +299,8 @@ failure).
 Matchers `startup|resume|clear|compact`. In a vault it emits `additionalContext` with the compact
 tree (folder names and the status line pass through `clean_inline` and have any
 `<second-brain-` tag text broken) and one status line (`inbox: N · unreviewed: M · push pending: yes/no`), writes
-`.sb/heartbeat.json` (used by `sb doctor`), and in squad mode runs the pull of §6.4 first.
+`.sb/heartbeat.json` (used by `sb doctor`; `.sb/.gitignore` holding `*` is ensured first, so the
+file is never committed), and in squad mode runs the pull of §6.4 first.
 
 ### 6.3 `init` profiles and upgrade
 
@@ -328,7 +332,9 @@ squad mode runs `git rm --cached` on `_index.md`/`_log.md` after printing the pl
 - SessionStart: if `sync == squad`, the vault has an upstream and no merge/rebase is in progress:
   commit a dirty tree first (D30), then `git pull --rebase` (20 s). On failure `git rebase --abort`
   and report the conflict in the status line; never resolve automatically. Then retry a pending
-  push.
+  push, unless the pull already took more than 40 s (the SessionStart hook has `timeout: 90`). A
+  rebase found in progress (left by a killed hook) is reported as `sync conflict: rebase in
+  progress (run git rebase --abort or finish it)` and nothing else runs.
 - SessionEnd (`timeout: 60`): commit as the git-configured operator with message
   `sb: session <date> (<n> files)` and trailers `Sb-Session: <session_id>` and `Sb-Files: <n>`;
   then `git push` (45 s). On failure write `.sb/push-pending` and report.

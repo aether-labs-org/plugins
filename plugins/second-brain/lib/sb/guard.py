@@ -18,7 +18,7 @@ from .frontmatter import parse
 from .tree import _is_true, folder_protected
 from .trust import (append_only, hidden_trust_lines, link_only, norm, tier, trust_key_lines,
                     trust_fields_changed_text)
-from .vault import find_vault, is_note_rel
+from .vault import MARKER, find_vault, is_note_rel
 
 WRITE_TOOLS = {"Write": "file_path", "Edit": "file_path", "MultiEdit": "file_path",
                "NotebookEdit": "notebook_path"}
@@ -100,13 +100,55 @@ def _decision(kind, reason):
                                    "permissionDecisionReason": reason}}
 
 
+_NOCASE = {}
+
+
+def _case_insensitive(vault):
+    """True when the vault's file system ignores case: the vault root with swapped case (or, when
+    its name has no letters, the marker with swapped case) is the same file. Checked once."""
+    key = str(vault)
+    if key not in _NOCASE:
+        vault = Path(vault)
+        try:
+            swapped = vault.name.swapcase()
+            if swapped != vault.name:
+                _NOCASE[key] = os.path.samefile(key, str(vault.parent / swapped))
+            else:
+                _NOCASE[key] = (vault / MARKER.swapcase()).exists()
+        except OSError:
+            _NOCASE[key] = False
+    return _NOCASE[key]
+
+
+def _fold(rel):
+    """Canonical case of the names the guard compares: wiki, _raw, .claude, CLAUDE.md,
+    .second-brain.json, _about.md and the .md extension."""
+    parts = rel.split("/")
+    first = parts[0].casefold()
+    if first in ("wiki", "_raw", ".claude"):
+        parts[0] = first
+    elif len(parts) == 1 and first in ("claude.md", MARKER):
+        parts[0] = "CLAUDE.md" if first == "claude.md" else MARKER
+    last = parts[-1]
+    if len(parts) > 1 and last.casefold() == "_about.md":
+        parts[-1] = "_about.md"
+    elif last.casefold().endswith(".md") and not last.endswith(".md"):
+        parts[-1] = last[:-3] + ".md"
+    return "/".join(parts)
+
+
 def _rel(vault, cwd, raw):
     raw = raw.strip().strip("'\"")
     path = os.path.realpath(os.path.join(cwd, os.path.expanduser(raw)))
     try:
-        return Path(path).relative_to(vault).as_posix()
+        rel = Path(path).relative_to(vault).as_posix()
     except ValueError:
-        return None
+        root = str(vault)
+        if not (_case_insensitive(vault) and (path + os.sep).casefold().startswith(
+                (root + os.sep).casefold())):
+            return None
+        rel = path[len(root):].strip(os.sep).replace(os.sep, "/") or "."
+    return _fold(rel) if _case_insensitive(vault) else rel
 
 
 QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'",

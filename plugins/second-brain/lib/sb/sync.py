@@ -54,22 +54,29 @@ def ahead(root):
     return int(done.stdout.strip() or 0) if done.returncode == 0 else 0
 
 
-def _in_progress(root):
+REBASE_STATES = ("rebase-merge", "rebase-apply")
+REBASE_LEFT = "conflict: rebase in progress (run git rebase --abort or finish it)"
+
+
+def _in_progress(root, names=None):
     from . import autocommit
 
     gitdir = _git(root, "rev-parse", "--absolute-git-dir")
     return gitdir.returncode == 0 and any(
-        (Path(gitdir.stdout.strip()) / name).exists() for name in autocommit.IN_PROGRESS)
+        (Path(gitdir.stdout.strip()) / name).exists() for name in names or autocommit.IN_PROGRESS)
 
 
 def pull(root, session_id="", env=None):
-    """`ok`, `skipped: <why>` or `conflict: <comma-separated files>`. Never raises."""
+    """`ok`, `skipped: <why>` or `conflict: <comma-separated files | rebase in progress>`.
+    Never raises."""
     from . import autocommit
 
     root = Path(root)
     try:
         if not enabled(root):
             return "skipped: not a squad vault"
+        if _in_progress(root, REBASE_STATES):
+            return REBASE_LEFT                # left by a killed hook: the human decides
         if _in_progress(root):
             return "skipped: merge or rebase in progress"
         if not _has_upstream(root):
