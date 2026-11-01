@@ -1045,6 +1045,37 @@ class BashShellInputTests(Round2Base):
                     "env FOO=1 ls"], "allow")
 
 
+class ObsidianCliTests(Round2Base):
+    """Item 3 (D36): the obsidian CLI's write subcommands are denied inside a vault."""
+
+    def test_write_subcommands_are_denied(self):
+        self.kinds(["obsidian create name=X content=y", "obsidian append file=A content=x",
+                    "obsidian prepend file=A content=x", "obsidian delete file=A",
+                    "obsidian move file=A to=wiki/B.md", "obsidian rename file=A name=B",
+                    "obsidian property:set name=reviewed value=2026-01-01 file=G",
+                    "obsidian property:remove name=reviewed file=G",
+                    "obsidian base:create name=x", "obsidian vault=Notes create name=X",
+                    "obsidian note:set x", "obsidian foo:remove x", "obsidian foo:create x",
+                    "obsidian daily:append content=x", "obsidian -v append file=A",
+                    "sudo obsidian append file=A", "cd wiki && obsidian append file=A",
+                    "obsidian-cli create X --content y", "obsidian-cli move A B",
+                    "obsidian-cli delete A", "obsidian-cli frontmatter A --edit --key reviewed",
+                    "echo A | xargs obsidian delete file="],
+                   "deny", NOTE_WRITE_REASON)
+
+    def test_read_subcommands_are_allowed(self):
+        self.kinds(["obsidian search query=x", "obsidian search:context query=x",
+                    "obsidian read file=A", "obsidian links file=A", "obsidian backlinks file=A",
+                    "obsidian tags", "obsidian properties file=A", "obsidian property:read name=x file=A",
+                    "obsidian unresolved", "obsidian orphans", "obsidian outline file=A",
+                    "obsidian base:query name=x", "obsidian bases", "obsidian vault=Notes read file=A",
+                    "obsidian-cli search x", "obsidian-cli print A", "obsidian-cli frontmatter A",
+                    "obsidian"], "allow")
+
+    def test_unresolved_subcommand_asks_and_eval_asks(self):
+        self.kinds(["obsidian $SUB file=A", "obsidian eval code=x"], "ask")
+
+
 class GuardScriptTests(unittest.TestCase):
     script = str(PLUGIN / "hooks" / "guard.py")
 

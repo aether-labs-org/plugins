@@ -1249,6 +1249,34 @@ def _xargs_verdict(scope, cwd, args, depth):
     return verdict
 
 
+OBSIDIAN_WRITERS = {"create", "append", "prepend", "delete", "move", "rename", "property:set",
+                    "property:remove", "base:create"}
+OBSIDIAN_WRITE_PART = re.compile(r":(?:set|remove|create|append|prepend)")
+OBSIDIAN_CLI_WRITERS = {"create", "move", "delete", "daily"}      # third-party obsidian-cli
+OBSIDIAN_ASK = {"eval"}                                           # runs arbitrary code in the app
+
+
+def _obsidian_verdict(scope, program, args):
+    """D36: the obsidian CLI's write subcommands are denied inside a vault (D33 for every writer).
+    `args` may start with `vault=<name>` and options before the subcommand."""
+    operands = [a for a in args if not str(a).startswith("-") and not re.match(r"^\w+=", str(a))]
+    if not operands:
+        return None
+    sub = operands[0]
+    if _has_var(sub):
+        return ("ask", UNRESOLVED_REASON) if scope.strict else None
+    name = str(sub).lower()
+    if name in OBSIDIAN_WRITERS or OBSIDIAN_WRITE_PART.search(name) or (
+            program == "obsidian-cli" and (name in OBSIDIAN_CLI_WRITERS or (
+                name == "frontmatter" and any(
+                    str(a) in ("-e", "--edit", "-d", "--delete") or str(a).startswith("--edit=")
+                    or str(a).startswith("--delete=") for a in args)))):
+        return ("deny", NOTE_WRITE_REASON)
+    if name in OBSIDIAN_ASK:
+        return ("ask", INTERPRETER_REASON)
+    return None
+
+
 def _command(scope, cwd, tokens, depth):
     """Verdict of one command (wrappers already peeled): ('deny'|'ask', why), ('cd', path) or None."""
     program, args = os.path.basename(tokens[0]), list(tokens[1:])
@@ -1264,6 +1292,8 @@ def _command(scope, cwd, tokens, depth):
         if target[0] == "-" or _has_var(target[0]):
             return ("ask", UNRESOLVED_REASON) if scope.strict else None
         return ("cd", os.path.realpath(os.path.join(cwd, os.path.expanduser(target[0]))))
+    if program.lower() in ("obsidian", "obsidian-cli"):
+        return _obsidian_verdict(scope, program.lower(), args)
     if program == "find":
         return _find_verdict(scope, cwd, args, depth)
     if program == "xargs":
