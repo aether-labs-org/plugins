@@ -48,7 +48,7 @@ XARGS_VALUE_OPTIONS = {"-d", "-E", "-L", "-n", "-P", "-s", "-e", "-l", "--delimi
                        "--max-lines", "--max-procs", "--max-chars", "--eof"}
 EDITORS = {"ex", "ed", "red"}
 VIMS = {"vim", "vi", "nvim", "view", "vimdiff"}
-INTERPRETER_RE = re.compile(r"^(?:python[0-9.]*|node(?:js)?|perl|ruby|deno|bun)$")
+INTERPRETER_RE = re.compile(r"^(?:python[0-9.]*|node(?:js)?|perl|ruby|deno|bun|php[0-9.]*)$")
 MENTION = re.compile(r"wiki/|_raw|\.claude|\.md\b|\.second-brain", re.IGNORECASE)
 
 DENY_REASON = ("%s is protected in a second-brain vault: _raw/ is immutable, and CLAUDE.md, "
@@ -81,6 +81,8 @@ ANCESTOR_REASON = ("%s is the vault or a folder above it; deleting or moving it 
                    "vault along. Ask the human to do it directly.")
 ANCESTOR_ASK_REASON = ("This in-place edit may reach every note of the vault (%s is the vault or a "
                        "folder above it); confirm with the user.")
+LINK_ASK_REASON = ("%s would be a symbolic link inside wiki/; a link can hide a write to a note. "
+                   "Confirm with the user.")
 MOVE_DIR_REASON = ("%s is a folder of notes; moving it moves every note in it. Confirm with the "
                    "user.")
 SHELL_STDIN_REASON = ("A shell is fed a script the guard cannot read here; confirm with the user. "
@@ -98,14 +100,15 @@ class Scope:
     """The vault a Bash command is checked against. `strict` is true when the cwd lies in that
     vault, so an expansion the guard cannot resolve may name a path inside it (D35)."""
 
-    def __init__(self, vault, strict, text):
+    def __init__(self, vault, strict, text, links=None):
         self.vault, self.strict, self.text = vault, strict, text
+        self.links = {} if links is None else links    # symbolic links made by the command: rel -> target rel
 
     def rel(self, cwd, raw):
         return _rel(self.vault, cwd, raw)
 
     def strict_copy(self):
-        return Scope(self.vault, True, self.text)
+        return Scope(self.vault, True, self.text, self.links)
 
 
 def _decision(kind, reason):
@@ -926,6 +929,19 @@ def _candidates(scope, cwd, word):
     return [r for r in rels if r is not None]
 
 
+def _through_link(scope, rel):
+    """Verdict for writing `rel` when it is, or lies under, a symbolic link the command made
+    earlier: the link counts as a note path (or as its protected target)."""
+    for link, target in scope.links.items():
+        if rel == link or rel.startswith(link + "/"):
+            mapped = target + rel[len(link):] if target else None
+            if mapped and _is_protected(mapped):
+                return ("deny", DENY_REASON % mapped)
+            if link.startswith("wiki/") or (mapped and (_is_note(mapped) or _is_about(mapped))):
+                return ("deny", NOTE_WRITE_REASON)
+    return None
+
+
 def _target_verdict(scope, cwd, word, dir_sources=()):
     """('deny', reason) when writing `word` hits a protected path or a note; ('ask', reason) when
     the target holds an expansion that cannot be resolved. `dir_sources` are the names being
@@ -934,6 +950,9 @@ def _target_verdict(scope, cwd, word, dir_sources=()):
     if guess:
         return guess
     for rel in _candidates(scope, cwd, word):
+        through = _through_link(scope, rel)
+        if through:
+            return through
         if _is_protected(rel):
             return ("deny", DENY_REASON % rel)
         if _is_note(rel) or _is_about(rel):
@@ -1062,6 +1081,38 @@ def _copy_dir_verdict(scope, cwd, program, args):
     return None
 
 
+SYMBOLIC = re.compile(r"^-[A-Za-z]*s|^--symbolic$")
+
+
+def _link_verdict(scope, cwd, args):
+    """`ln -s`: a link made under wiki/ asks, and every link made is remembered so that a later
+    write through it in the same command is judged by what it points to (or denied under wiki/)."""
+    if not any(SYMBOLIC.match(a) for a in args):
+        return None
+    operands, directory = _split_options(args)
+    sources = operands if directory is not None else operands[:-1]
+    dest = directory if directory is not None else (operands[-1] if operands else None)
+    if dest is None or not sources:
+        return None
+    verdict = None
+    for source in sources:
+        into_dir = directory is not None or len(sources) > 1 or str(dest).endswith("/") or \
+            os.path.isdir(os.path.join(cwd, os.path.expanduser(str(dest))))
+        link = os.path.join(str(dest), os.path.basename(str(source).rstrip("/"))) if into_dir else dest
+        link_rel = scope.rel(cwd, link)
+        if link_rel is None:
+            continue
+        text = os.path.expanduser(str(source))
+        base = os.path.dirname(os.path.join(cwd, os.path.expanduser(str(link))))
+        target = scope.rel(base, text) if not os.path.isabs(text) else scope.rel(cwd, text)
+        if target is not None and (target == "wiki" or target.startswith("wiki/") or _is_protected(target)) \
+                or link_rel.startswith("wiki/"):
+            scope.links[link_rel] = target
+        if link_rel.startswith("wiki/"):
+            verdict = _merge(verdict, ("ask", LINK_ASK_REASON % link_rel))
+    return verdict
+
+
 def _segment_verdict(scope, cwd, program, args):
     operands = [a for a in args if not a.startswith("-")]
     if program in DELETE_CMDS:
@@ -1084,6 +1135,8 @@ def _segment_verdict(scope, cwd, program, args):
         verdict = _merge(verdict, found)
         if verdict and verdict[0] == "deny":
             return verdict
+    if program == "ln":              # remembered only after its own operands were judged
+        verdict = _merge(verdict, _link_verdict(scope, cwd, args))
     return verdict
 
 
@@ -1214,14 +1267,20 @@ def _extract_verdict(scope, cwd, program, args):
 
 def _editor_verdict(scope, cwd, program, args):
     """ex, ed and vim -es edit files named in a script; the file operands are the targets."""
-    if program in VIMS and not (any(a in ("-es", "-Es", "-s", "--headless") for a in args)):
+    if program in VIMS and not any(
+            a in ("-es", "-Es", "-s", "--headless", "-c", "--cmd", "-S") or (a.startswith("+") and len(a) > 1)
+            for a in args):
+        return None
+    if program == "emacs" and not any(
+            a in ("--batch", "-batch", "--script", "-script", "--eval", "-eval", "--execute", "-l",
+                  "--load", "--funcall", "-f") for a in args):
         return None
     verdict = None
     for operand in [a for a in args if not a.startswith("-")]:
         verdict = _merge(verdict, _target_verdict(scope, cwd, operand))
         if verdict and verdict[0] == "deny":
             return verdict
-    if verdict is None and _mentions(scope):
+    if verdict is None and SCRIPT_MENTION.search(scope.text):
         verdict = ("ask", UNRESOLVED_REASON)
     return verdict
 
@@ -1236,6 +1295,8 @@ def _inline_code(program, args):
         flags = any(a in ("-e", "-p", "--eval", "--print", "-pe") for a in args)
     elif program == "deno":
         flags = args[:1] == ["eval"]
+    elif program.startswith("php"):
+        flags = any(a in ("-r", "-R", "-B", "-E") for a in args)
     else:
         flags = any(a in ("-e", "--eval") for a in args)
     if flags:
@@ -1463,14 +1524,24 @@ def _command(scope, cwd, tokens, depth):
         return _download_verdict(scope, cwd, program, args)
     if program in ("tar", "unzip"):
         return _extract_verdict(scope, cwd, program, args)
-    if program in EDITORS or program in VIMS:
+    if program in EDITORS or program in VIMS or program == "emacs":
         return _editor_verdict(scope, cwd, program, args)
     verdict = _segment_verdict(scope, cwd, program, args)
+    if verdict is None and SCRIPT_MENTION.search(scope.text):
+        texts = [str(a) for a in args if not str(a).startswith("-")]
+        if (program in ("awk", "gawk", "mawk", "nawk") and any(AWK_WRITE.search(t) for t in texts)) or (
+                program == "sed" and any(SED_WRITE_FLAG.search(t) or SED_WRITE_CMD.search(t)
+                                         for t in texts)):
+            verdict = ("ask", UNRESOLVED_REASON)
     if INTERPRETER_RE.match(program) and not (verdict and verdict[0] == "deny"):
         verdict = _merge(verdict, _interpreter_verdict(scope, program, args))
     return verdict
 
 
+SCRIPT_MENTION = re.compile(r"wiki|\.md\b|_raw|\.claude|\.second-brain", re.IGNORECASE)
+AWK_WRITE = re.compile(r"\bprintf?\b[^;}\n]*>|\bsystem\s*\(|\|\s*[\"']")
+SED_WRITE_FLAG = re.compile(r"s(.).*?(?<!\\)\1.*?(?<!\\)\1[0-9gpiIemM]*w[ \t]*\S")
+SED_WRITE_CMD = re.compile(r"(?:^|[\s;{}/$0-9])[wW][ \t]+[^\s;}]")
 CARRIER_MENTION = re.compile(r"\bsb\b|wiki|_raw|\.claude|\.md\b|\.second-brain", re.IGNORECASE)
 
 

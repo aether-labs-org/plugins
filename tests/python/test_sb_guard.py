@@ -1197,6 +1197,48 @@ class BashUnknownCwdTests(Round2Base):
                    cwd=outside)
 
 
+class BashOtherWritersTests(Round2Base):
+    """Item 6: awk, sed w, php, vim, emacs and symbolic links made inside the command."""
+
+    def test_scripted_writers_ask_when_the_command_mentions_a_protected_place(self):
+        self.kinds(["awk 'BEGIN{print \"x\" > \"wiki/Resources/A.md\"}'",
+                    "awk '{print > \"out.md\"}' f", "awk '{print >> $1\".md\"}' f",
+                    "gawk 'BEGIN{printf \"x\" > \"_raw/a\"}'",
+                    "sed -n '/x/w wiki/Resources/A.md' f", "sed 's/a/b/w out.md' f",
+                    "sed -e '1w .claude/x' f",
+                    "php -r 'file_put_contents(\"wiki/Resources/A.md\", \"x\");'",
+                    "nvim +'w wiki/x' file.txt", "vim -c 'e _raw/x' -c w f",
+                    "emacs --batch --eval '(write-region \"x\" nil \"wiki/y\")'",
+                    "emacs --batch -l /tmp/x.el wiki/Resources"], "ask")
+
+    def test_scripted_writers_with_a_note_operand_are_denied(self):
+        self.kinds(["vim -c wq wiki/Resources/G.md", "nvim +wq wiki/Resources/G.md",
+                    "emacs --batch wiki/Resources/G.md --eval '(save-buffer)'"],
+                   "deny", NOTE_WRITE_REASON)
+
+    def test_harmless_uses_of_those_programs_are_allowed(self):
+        self.kinds(["awk '{print $1}' wiki/Resources/A.md", "awk 'BEGIN{print 1 > 0}'",
+                    "sed -n 's/a/b/p' wiki/Resources/A.md", "sed 's/x/wiki/' f", "sed -n '/a/p' f",
+                    "sed 's/a/b/' wiki/Resources/A.md", "php -v", "php script.php", "vim file.txt",
+                    "vim -c q x.txt", "emacs -nw f", "emacs --version",
+                    "awk -F, '{print $2}' _inbox/x.csv"], "allow")
+
+    def test_a_symbolic_link_under_wiki_asks(self):
+        self.kinds(["ln -s ../Resources wiki/Link", "ln -s /tmp/x wiki/Resources/alias",
+                    "ln -sf /tmp/x wiki/Resources/", "ln -s /tmp/x -t wiki/Resources"], "ask")
+        self.kinds(["ln -s /tmp/x out", "ln -sf /tmp/x _inbox/lnk"], "allow")
+
+    def test_writes_through_a_link_made_in_the_same_command_are_denied(self):
+        self.kinds(["ln -s /tmp/x wiki/Resources/alias; echo y > wiki/Resources/alias",
+                    "ln -s ../G.md wiki/Resources/alias; echo y >> wiki/Resources/alias",
+                    "ln -s wiki w; echo x > w/Resources/A.md", "ln -s _raw r; echo x > r/a",
+                    "ln -s /tmp/x wiki/Resources/alias && tee wiki/Resources/alias",
+                    "ln -s ../wiki wiki/Resources/up; sed -i s/a/b/ wiki/Resources/up/Resources/A.md"],
+                   "deny")
+        self.kinds(["ln -s /tmp/x out; echo y > out", "ln -s wiki/Resources w; echo x > w/new.txt"],
+                   "allow")
+
+
 class GuardScriptTests(unittest.TestCase):
     script = str(PLUGIN / "hooks" / "guard.py")
 
