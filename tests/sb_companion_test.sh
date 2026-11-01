@@ -15,7 +15,9 @@ fi
 if [ -d "$dir/node_modules" ]; then
   echo "  ok   companion dependencies present (node_modules reused)"
 else
-  npm ci --prefix "$dir" --no-audit --no-fund >/dev/null 2>&1; check "npm ci" $?
+  log="$(npm ci --prefix "$dir" --no-audit --no-fund 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || printf '%s\n' "$log" | tail -20 | sed 's/^/       /'
+  check "npm ci" "$rc"
 fi
 npm test --prefix "$dir" >/dev/null 2>&1; check "companion unit tests (vitest)" $?
 npm run build --prefix "$dir" >/dev/null 2>&1; check "companion build" $?

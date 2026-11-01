@@ -727,21 +727,21 @@ class BashHardeningTests(unittest.TestCase):
     # find
     def test_find_exec_is_scanned_with_the_found_paths(self):
         self.kinds(["find wiki -name '*.md' -exec sed -i s/a/b/ {} +",
-                    "find wiki/Resources -name A.md -exec tee {} \;",
-                    "find wiki -name '*.md' -execdir sed -i s/a/b/ {} \;",
-                    "find wiki -name '*.md' -exec sh -c 'echo x > wiki/Resources/A.md' _ {} \;",
+                    "find wiki/Resources -name A.md -exec tee {} \\;",
+                    "find wiki -name '*.md' -execdir sed -i s/a/b/ {} \\;",
+                    "find wiki -name '*.md' -exec sh -c 'echo x > wiki/Resources/A.md' _ {} \\;",
                     "find wiki -fprint wiki/Resources/A.md"], "deny", NOTE_WRITE_REASON)
         self.kinds(["find . -name '*.md' -exec sed -i s/a/b/ {} +"], "deny")    # the root holds wiki/ and _raw/
         self.kinds(["find wiki -name '*.md' -exec grep foo {} +", "find wiki -name '*.md'",
-                    "find wiki -name pic.png -exec chmod 644 {} \;",
-                    "find wiki -name '*.md' -exec cp {} /tmp/ \;", "find _inbox -name x -delete",
+                    "find wiki -name pic.png -exec chmod 644 {} \\;",
+                    "find wiki -name '*.md' -exec cp {} /tmp/ \\;", "find _inbox -name x -delete",
                     "find wiki -type f -exec wc -l {} +"], "allow")
 
     def test_find_exec_unresolved_commands_ask(self):
-        self.kinds(["find wiki -exec sh -c 'echo x > \"$1\"' _ {} \;"], "ask", UNRESOLVED)
+        self.kinds(["find wiki -exec sh -c 'echo x > \"$1\"' _ {} \\;"], "ask", UNRESOLVED)
 
     def test_find_delete_follows_the_deletion_rules(self):
-        self.kinds(["find _raw -delete", "find _raw -name '*.pdf' -exec rm {} \;",
+        self.kinds(["find _raw -delete", "find _raw -name '*.pdf' -exec rm {} \\;",
                     "find .claude -delete"], "deny")
         self.kinds(["find wiki -delete", "find wiki/Resources -name A.md -delete", "find . -delete",
                     "find wiki -name '*.md' -exec rm {} +"], "ask")
