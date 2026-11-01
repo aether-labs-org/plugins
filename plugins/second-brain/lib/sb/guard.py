@@ -76,6 +76,8 @@ INTERPRETER_REASON = ("This interpreter command may modify notes; notes are writ
                       "Write/Edit. Confirm with the user.")
 DIR_ASK_REASON = ("%s is inside wiki/ and this command may write notes there; confirm with the "
                   "user. Notes are written only with Write/Edit.")
+SHELL_STDIN_REASON = ("A shell is fed a script the guard cannot read here; confirm with the user. "
+                      "Notes are written only with Write/Edit.")
 SIMULATE_ASK_REASON = ("The guard could not apply this edit to %s to check it (the text to "
                        "replace was not found). Confirm with the user.")
 
@@ -313,9 +315,9 @@ def _classify(scope, cwd, operands, deleting=True):
 C_FLAG = re.compile(r"^-[A-Za-z]*c[A-Za-z]*$")
 
 
-def _nested_bodies(words, heredoc=""):
+def _nested_bodies(words, stdin=()):
     """Command strings a segment runs through a shell: `-c` bodies (`-lc`, `-ec`...), `eval`
-    arguments and, for a shell reading stdin, the here-document."""
+    arguments and, for a shell reading stdin, the literal texts `stdin` carries."""
     bodies = []
     for i, word in enumerate(words):
         if os.path.basename(word) in SHELLS:
@@ -324,12 +326,174 @@ def _nested_bodies(words, heredoc=""):
                     if j + 1 < len(words):
                         bodies.append(str(words[j + 1]))
                     break
-            else:
-                if heredoc:
-                    bodies.append(heredoc)
         elif word == "eval" and i + 1 < len(words):
             bodies.append(" ".join(words[i + 1:]))
+    if stdin and _reads_stdin_shell(words):
+        bodies.extend(stdin)
     return bodies
+
+
+def _reads_stdin_shell(words):
+    """True when the command (behind its wrappers) is a shell that reads its script from stdin:
+    `sh`, `bash -s`, `sh -`, `. /dev/stdin`, with no `-c` and no script file."""
+    tokens = [str(t) for t in _peel(list(words))]
+    if not tokens:
+        return False
+    program, args = os.path.basename(tokens[0]), tokens[1:]
+    if program in (".", "source"):
+        return any(a == "/dev/stdin" or a.startswith("/dev/fd/") for a in args)
+    if program not in SHELLS:
+        return False
+    operands, flag_s = [], False
+    for arg in args:
+        if C_FLAG.match(arg):
+            return False
+        if arg.startswith("-") and len(arg) > 1:
+            flag_s = flag_s or bool(re.match(r"^-[A-Za-z]*s", arg))
+        else:
+            operands.append(arg)
+    return flag_s or not operands or operands == ["-"]
+
+
+def _unescape(text):
+    """The text of `echo -e` / `printf` backslash escapes."""
+    def one(m):
+        kind = m.group(1)
+        simple = {"n": "\n", "t": "\t", "r": "\r", "\\": "\\", "a": "\a", "f": "\f", "v": "\v",
+                  "e": "\x1b"}
+        if kind in simple:
+            return simple[kind]
+        if kind[0] == "x":
+            return chr(int(kind[1:], 16))
+        return chr(int(kind.lstrip("0") or "0", 8) % 256)
+    return re.sub(r"\\(x[0-9A-Fa-f]{1,2}|0?[0-7]{1,3}|[ntr\\afve])", one, text)
+
+
+PRINTF_SPEC = re.compile(r"%%|%[-+ #0]*\d*(?:\.\d+)?[sbdiouxXcq]")
+
+
+def _printf_texts(args):
+    fmt, rest = _unescape(str(args[0])), [str(a) for a in args[1:]]
+    used = [0]
+
+    def fill(m):
+        if m.group(0) == "%%":
+            return "%"
+        value = rest[used[0]] if used[0] < len(rest) else ""
+        used[0] += 1
+        return value
+
+    text = PRINTF_SPEC.sub(fill, fmt)
+    for _ in range(MAX_DEPTH * 4):               # the format is reused while arguments remain
+        if used[0] >= len(rest) or not PRINTF_SPEC.search(fmt):
+            break
+        text += PRINTF_SPEC.sub(fill, fmt)
+    return [text, "\n".join(rest), " ".join([str(args[0])] + rest)]
+
+
+def _literal_output(segment):
+    """Texts a piped-from segment prints when its output is known (`echo`, `printf`, `cat` of a
+    here-document or here-string with literal words), else None."""
+    tokens = _peel(list(segment.words))
+    if not tokens:
+        return None
+    program, args = os.path.basename(tokens[0]), list(tokens[1:])
+    if any(_has_var(a) for a in args):
+        return None
+    if program == "echo":
+        while args and re.match(r"^-[neE]+$", str(args[0])):
+            args.pop(0)
+        text = " ".join(str(a) for a in args)
+        return [text, _unescape(text)]
+    if program == "printf" and args:
+        return _printf_texts(args)
+    if program == "cat" and all(str(a).startswith("-") for a in args):
+        if segment.heredoc:
+            return [segment.heredoc]
+        if segment.herestrings and not any(_has_var(w) for w in segment.herestrings):
+            return [str(w) for w in segment.herestrings]
+    return None
+
+
+def _stdin_texts(segment):
+    """(literal texts on the segment's stdin, whether all of its stdin is known)."""
+    if segment.heredoc or segment.herestrings:
+        known = not any(_has_var(w) for w in segment.herestrings)
+        return ([segment.heredoc] if segment.heredoc else []) + \
+            [str(w) for w in segment.herestrings], known
+    if segment.pipe_from is not None:
+        texts = _literal_output(segment.pipe_from)
+        return (texts or []), texts is not None
+    return [], True
+
+
+SSH_VALUE_OPTIONS = set("-" + c for c in "bcDEeFIiJLlmOopQRSWw")
+TMUX_COMMANDS = {"new", "new-session", "new-window", "neww", "split-window", "splitw",
+                 "run-shell", "run", "send-keys", "respawn-pane", "respawn-window"}
+TMUX_VALUE_OPTIONS = set("-" + c for c in "stncxyeFlfLSTP")
+WATCH_VALUE_OPTIONS = {"-n", "--interval", "-w", "--width"}
+
+
+def _operands_after(args, value_options):
+    """Non-option words of `args`, skipping the values of `value_options`."""
+    found, i = [], 0
+    while i < len(args):
+        arg = str(args[i])
+        if arg == "--":
+            found.extend(args[i + 1:])
+            break
+        if arg in value_options:
+            i += 2
+            continue
+        if not (arg.startswith("-") and len(arg) > 1):
+            found.append(args[i])
+        i += 1
+    return found
+
+
+def _carrier_bodies(words):
+    """(command strings that ssh, su -c, script -c, tmux new, env -S, trap and watch run, whether
+    one of them holds an expansion the guard cannot resolve). Looked for in the wrappers and the
+    command itself, not in the arguments of another command."""
+    words = list(words)
+    stop = len(words) - len(_peel(words))
+    bodies, unknown = [], False
+
+    def take(items, joined=True):
+        nonlocal unknown
+        items = [w for w in items if str(w)]
+        unknown = unknown or any(_has_var(w) for w in items)
+        bodies.extend(str(w) for w in items)
+        if joined and len(items) > 1:
+            bodies.append(" ".join(str(w) for w in items))
+
+    for i in range(min(stop, len(words) - 1) + 1):
+        program, args = os.path.basename(str(words[i])), words[i + 1:]
+        if program == "ssh":
+            operands = _operands_after(args, SSH_VALUE_OPTIONS)
+            take(operands[1:])
+        elif program in ("su", "script"):
+            take(_option_values(args, {"c"}, {"--command"}), joined=False)
+        elif program == "tmux":
+            operands = _operands_after(args, TMUX_VALUE_OPTIONS)
+            if operands and str(operands[0]) in TMUX_COMMANDS:
+                take(operands[1:])
+        elif program == "env":
+            for j, arg in enumerate(args):
+                text = str(arg)
+                if text in ("-S", "--split-string") and j + 1 < len(args):
+                    take([args[j + 1]], joined=False)
+                elif text.startswith("--split-string="):
+                    take([_w(text.split("=", 1)[1], arg)], joined=False)
+                elif re.match(r"^-[A-Za-z]*S.+", text) and not text.startswith("--"):
+                    take([_w(text.split("S", 1)[1], arg)], joined=False)
+        elif program == "trap":
+            if not any(str(a) in ("-l", "-p") for a in args):
+                operands = _operands_after(args, set())
+                take(operands[:1], joined=False)
+        elif program == "watch":
+            take(_operands_after(args, WATCH_VALUE_OPTIONS))
+    return bodies, unknown
 
 
 def _words_run_review(words):
@@ -359,7 +523,9 @@ def _has_sb_review(command, depth=0):
             words = [str(w) for w in item.words]
             if _words_run_review(words):
                 return True
-            if any(_has_sb_review(body, depth + 1) for body in _nested_bodies(words, item.heredoc)):
+            texts, _known = _stdin_texts(item)
+            bodies = _nested_bodies(words, texts) + _carrier_bodies(item.words)[0]
+            if any(_has_sb_review(body, depth + 1) for body in bodies):
                 return True
     return False
 
@@ -377,6 +543,8 @@ class Segment:
         self.words = words          # command words (program first)
         self.redirects = redirects  # output redirection targets
         self.heredoc = ""           # text of its here-documents
+        self.herestrings = []       # words of its here-strings (<<<)
+        self.pipe_from = None       # the Segment whose output is piped into this one
 
 
 def _match_paren(text, i):
@@ -407,7 +575,8 @@ def _lex(command):
     """Items in order: Segment, "(" , ")" or ("sub", text) for `$(...)` and backtick bodies."""
     items, words, redirects = [], [], []
     cur, state = [], {"has": False, "glob": False, "var": False, "pending": None}
-    heredocs, new_heredocs = [], []
+    heredocs, new_heredocs, new_herestrings = [], [], []
+    pipe = {"into_next": False, "last": None}
     i, n = 0, len(command)
 
     def flush():
@@ -428,15 +597,21 @@ def _lex(command):
                 redirects.append(word)
         elif mode == "heredoc":
             new_heredocs.append(str(word))
+        elif mode == "herestring":
+            new_herestrings.append(word)
 
     def end():
         flush()
         state["pending"] = None
         segment = Segment(list(words), list(redirects))
+        segment.herestrings = list(new_herestrings)
         if words or redirects:
+            if pipe["into_next"]:
+                segment.pipe_from = pipe["last"]
+            pipe["into_next"], pipe["last"] = False, segment
             items.append(segment)
         heredocs.extend((delimiter, segment) for delimiter in new_heredocs)
-        del new_heredocs[:], words[:], redirects[:]
+        del new_heredocs[:], new_herestrings[:], words[:], redirects[:]
 
     def sub(body):
         state["var"] = True
@@ -522,6 +697,8 @@ def _lex(command):
             i += 2
         elif c == "|":
             end()
+            if nxt != "|":
+                pipe["into_next"] = True
             i += 2 if nxt in "|&" and nxt else 1
         elif c == "&" and nxt != ">":
             end()
@@ -547,7 +724,7 @@ def _lex(command):
                     flush()
             if c == "<":
                 if command.startswith("<<<", i):
-                    state["pending"], i = "ignore", i + 3
+                    state["pending"], i = "herestring", i + 3
                 elif command.startswith("<<", i):
                     i += 3 if command.startswith("<<-", i) else 2
                     state["pending"] = "heredoc"
@@ -1105,9 +1282,42 @@ def _command(scope, cwd, tokens, depth):
     return verdict
 
 
+CARRIER_MENTION = re.compile(r"\bsb\b|wiki|_raw|\.claude|\.md\b|\.second-brain", re.IGNORECASE)
+
+
+def _runner_verdict(scope, cwd, words, depth):
+    """ssh, su -c, tmux new, env -S, trap, watch: scan the command string they run, or ask when it
+    cannot be read and the command line mentions sb or a protected place; `sb` followed by a word
+    that is not resolved (`sb $X`) asks too."""
+    verdict = None
+    bodies, unknown = _carrier_bodies(words)
+    for body in bodies:
+        verdict = _merge(verdict, _scan(scope, cwd, body, depth + 1))
+    if unknown and CARRIER_MENTION.search(scope.text):
+        verdict = _merge(verdict, ("ask", UNRESOLVED_REASON))
+    if _sb_subcommand_unresolved(words):
+        verdict = _merge(verdict, ("ask", UNRESOLVED_REASON))
+    return verdict
+
+
+def _sb_subcommand_unresolved(words):
+    """True when the word after `sb` (options aside) holds an expansion the guard cannot read."""
+    for i, word in enumerate(words):
+        start = None
+        if os.path.basename(str(word)) == "sb":
+            start = i + 1
+        elif str(word) == "-m" and words[i + 1:i + 2] and str(words[i + 1]) in ("sb", "sb.cli"):
+            start = i + 2
+        if start is not None:
+            operands = [w for w in words[start:] if not str(w).startswith("-")]
+            if operands and _has_var(operands[0]):
+                return True
+    return False
+
+
 def _run(scope, cwd, words, depth):
     """Verdict of a command given as words, behind its wrappers; nested shells are scanned."""
-    verdict = None
+    verdict = _runner_verdict(scope, cwd, words, depth)
     for body in _nested_bodies([str(w) for w in words]):
         verdict = _merge(verdict, _scan(scope, cwd, body, depth + 1))
     tokens = _peel(words)
@@ -1150,8 +1360,12 @@ def _segment(scope, cwd, segment, depth):
     for word in segment.redirects:
         verdict = _merge(verdict, _target_verdict(scope, cwd, word))
     words = list(segment.words)
-    for body in _nested_bodies([str(w) for w in words], segment.heredoc):
+    texts, known = _stdin_texts(segment)
+    for body in _nested_bodies([str(w) for w in words], texts):
         verdict = _merge(verdict, _scan(scope, cwd, body, depth + 1))
+    if not known and _reads_stdin_shell(words):
+        verdict = _merge(verdict, ("ask", SHELL_STDIN_REASON))
+    verdict = _merge(verdict, _runner_verdict(scope, cwd, words, depth))
     tokens = _peel(words)
     if tokens:
         found = _command(scope, cwd, tokens, depth)
