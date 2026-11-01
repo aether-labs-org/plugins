@@ -1,0 +1,9 @@
+{
+	"id": "second-brain-companion",
+	"name": "Second Brain Companion",
+	"version": "0.1.0",
+	"minAppVersion": "1.4.4",
+	"description": "Review notes written by the second-brain Claude Code plugin: mark reviewed, accept agent blocks, see trust status.",
+	"author": "Aether Labs",
+	"isDesktopOnly": false
+}
