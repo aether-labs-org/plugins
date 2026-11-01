@@ -1147,6 +1147,35 @@ class BashDirectoryTests(Round2Base):
                     "cp _inbox/x.txt wiki/Resources/x.txt"], "allow", None)
 
 
+class BashUnknownCwdTests(Round2Base):
+    """Item 5: after cd -, a bare cd, cd ~..., pushd or popd the cwd is unknown (D35)."""
+
+    def test_relative_writes_after_an_unknown_cwd_ask(self):
+        self.kinds(["cd -; echo x > foo.txt", "cd - && rm foo", "cd; echo x > foo.txt",
+                    "cd ~; echo x > wiki/Resources/A.md", "cd ~/x; touch a", "cd ~root; touch a",
+                    "pushd wiki/Resources; echo x > A.md", "pushd /tmp; popd; echo x > wiki/Resources/A.md",
+                    "popd; rm a", "cd -; mv a b", "cd -; sed -i s/a/b/ f", "cd -; cp a wiki/",
+                    "cd -; cd wiki; echo x > Resources/A.md", "cd -; tee out", "cd -; truncate -s0 f",
+                    "cd -; find . -delete", "cd -; mv wiki/Resources x"],
+                   "ask", UNRESOLVED)
+
+    def test_absolute_writes_and_reads_after_an_unknown_cwd_are_judged_as_usual(self):
+        self.kinds(["cd -; echo x > /tmp/o.txt", "cd -; cat wiki/Resources/A.md", "cd -; ls",
+                    "cd ~; echo x > /tmp/o.txt", "cd - && git status", "(cd -); echo x > out.txt",
+                    "cd -; grep x wiki/Resources/A.md > /dev/null"], "allow")
+        self.kinds(["cd -; echo x > %s/wiki/Resources/A.md" % self.vault,
+                    "cd -; rm -rf %s/_raw" % self.vault], "deny")
+
+    def test_an_absolute_cd_makes_the_cwd_known_again(self):
+        self.kinds(["cd -; cd /tmp; echo x > a.txt"], "allow")
+        self.kinds(["cd -; cd %s; echo x > wiki/Resources/A.md" % self.vault], "deny", NOTE_WRITE_REASON)
+
+    def test_a_known_cd_is_unchanged(self):
+        self.kinds(["cd wiki; echo x > Resources/A.md", "cd wiki/Resources && echo x > A.md"],
+                   "deny", NOTE_WRITE_REASON)
+        self.kinds(["cd wiki && cd .. && echo x > out.txt"], "allow")
+
+
 class GuardScriptTests(unittest.TestCase):
     script = str(PLUGIN / "hooks" / "guard.py")
 

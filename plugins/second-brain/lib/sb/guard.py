@@ -33,7 +33,7 @@ DELETE_CMDS = {"rmdir", "rm", "unlink", "shred", "trash", "trash-put", "gvfs-tra
 ALL_OPERANDS_WRITE = {"mv", "touch", "tee", "sponge", "truncate", "ln", "chmod", "chown", "mkdir"}
 LAST_OPERAND_WRITES = {"cp", "install", "rsync"}
 NOTE_ALL_OPERANDS = {"mv", "touch", "tee", "sponge", "truncate", "ln"}  # chmod etc. keep v0.1
-CD_CMDS = {"cd", "pushd"}
+CD_CMDS = {"cd", "pushd", "popd"}
 MAX_DEPTH = 5
 MAX_VARIANTS = 50
 MAX_FOUND = 400
@@ -87,6 +87,11 @@ SHELL_STDIN_REASON = ("A shell is fed a script the guard cannot read here; confi
                       "Notes are written only with Write/Edit.")
 SIMULATE_ASK_REASON = ("The guard could not apply this edit to %s to check it (the text to "
                        "replace was not found). Confirm with the user.")
+
+
+class UnknownCwd(str):
+    """The working directory after `cd -`, a bare `cd`, `cd ~...`, `pushd` or `popd`: the text is the
+    last known directory, but a relative write target cannot be placed from it (D35)."""
 
 
 class Scope:
@@ -302,10 +307,23 @@ def _strip_wrappers(tokens):
     return tokens[i:]
 
 
+def _unknown_cwd_ask(scope, cwd, word):
+    """('ask', reason) for a relative write target when the cwd is unknown inside a vault."""
+    if scope.strict and isinstance(cwd, UnknownCwd):
+        text = str(word).strip().strip("'\"")
+        if text and not text.startswith(("/", "~")):
+            return ("ask", UNRESOLVED_REASON)
+    return None
+
+
 def _classify(scope, cwd, operands, deleting=True):
     """Verdict for deleting `operands`: protected paths deny, curated notes ask."""
     verdict = None
     for raw in operands:
+        guess = _unknown_cwd_ask(scope, cwd, raw)
+        if guess:
+            verdict = _merge(verdict, guess)         # a relative path from an unknown cwd
+            continue
         rel = scope.rel(cwd, raw)
         if deleting and (rel is None or getattr(raw, "glob", False)) \
                 and _ancestor_hit(scope, cwd, raw):
@@ -911,6 +929,9 @@ def _target_verdict(scope, cwd, word, dir_sources=()):
     """('deny', reason) when writing `word` hits a protected path or a note; ('ask', reason) when
     the target holds an expansion that cannot be resolved. `dir_sources` are the names being
     placed when `word` is a directory (cp/mv/ln into it)."""
+    guess = _unknown_cwd_ask(scope, cwd, word)
+    if guess:
+        return guess
     for rel in _candidates(scope, cwd, word):
         if _is_protected(rel):
             return ("deny", DENY_REASON % rel)
@@ -925,11 +946,14 @@ def _target_verdict(scope, cwd, word, dir_sources=()):
                     return ("deny", NOTE_WRITE_REASON)
     if scope.strict and _has_var(word):
         return ("ask", UNRESOLVED_REASON)
-    return None
+    return _unknown_cwd_ask(scope, cwd, word)
 
 
 def _dir_verdict(scope, cwd, word):
     """Verdict for a directory that files are extracted or downloaded into."""
+    guess = _unknown_cwd_ask(scope, cwd, word)
+    if guess:
+        return guess
     for rel in _candidates(scope, cwd, word):
         if _is_protected(rel):
             return ("deny", DENY_REASON % rel)
@@ -937,7 +961,7 @@ def _dir_verdict(scope, cwd, word):
             return ("ask", DIR_ASK_REASON % rel)
     if scope.strict and _has_var(word):
         return ("ask", UNRESOLVED_REASON)
-    return None
+    return _unknown_cwd_ask(scope, cwd, word)
 
 
 def _merge(current, verdict):
@@ -1010,6 +1034,7 @@ def _move_verdict(scope, cwd, args):
     for word in sources:
         if _ancestor_hit(scope, cwd, word):
             return ("deny", ANCESTOR_REASON % word)
+        verdict = _merge(verdict, _unknown_cwd_ask(scope, cwd, word))
         for rel in _candidates(scope, cwd, word):
             if (rel == "wiki" or rel.startswith("wiki/")) and (scope.vault / rel).is_dir():
                 verdict = _merge(verdict, ("ask", MOVE_DIR_REASON % rel))
@@ -1260,6 +1285,10 @@ def _find_verdict(scope, cwd, args, depth):
             for root in roots:
                 if scope.rel(cwd, root) is None and _ancestor_hit(scope, cwd, root):
                     return ("deny", ANCESTOR_REASON % root)
+                guess = _unknown_cwd_ask(scope, cwd, root)
+                if guess:
+                    verdict = _merge(verdict, guess)
+                    continue
                 for rel in _candidates(scope, cwd, root):
                     if _is_protected(rel):
                         return ("deny", DENY_REASON % rel)
@@ -1409,13 +1438,15 @@ def _command(scope, cwd, tokens, depth):
         program = sub if sub in ("rm", "mv") else "git"
     if program == "gio" and args[:1] == ["trash"]:
         program, args = "trash", args[1:]
-    if program in CD_CMDS:
+    if program in CD_CMDS or program == "popd":
         target = [t for t in args if not t.startswith("-")][:1]
-        if not target:
-            return ("cd", os.path.expanduser("~"))
-        if target[0] == "-" or _has_var(target[0]):
+        if program != "cd" or not target or target[0] == "-" or str(target[0]).startswith("~"):
+            return ("cd", UnknownCwd(cwd))       # bare cd, cd -, cd ~..., pushd, popd
+        if _has_var(target[0]):
             return ("ask", UNRESOLVED_REASON) if scope.strict else None
-        return ("cd", os.path.realpath(os.path.join(cwd, os.path.expanduser(target[0]))))
+        moved = os.path.realpath(os.path.join(cwd, os.path.expanduser(target[0])))
+        return ("cd", UnknownCwd(moved) if isinstance(cwd, UnknownCwd)
+                and not str(target[0]).startswith("/") else moved)
     if program.lower() in ("obsidian", "obsidian-cli"):
         return _obsidian_verdict(scope, program.lower(), args)
     if program == "find":
