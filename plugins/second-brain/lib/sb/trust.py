@@ -61,16 +61,22 @@ def _frontmatter_lines(text, wide=False):
     return [line.rstrip() for line in lines[1:end]]
 
 
+# A YAML merge key (`<<`), an anchor (`&name`) or an alias (`*name`) can pull a trust key into the
+# mapping from somewhere the line scan does not look.
+YAML_TRICK_RE = re.compile(r"^[\"']?<<|(?:^|:[ \t]|-[ \t]|[\[{,][ \t]*)[&*]\S")
+
+
 def hidden_trust_lines(text, wide=True):
     """`(field, line)` for each frontmatter line that a YAML reader may take for a trust key
     but that is not a plain `key: value` line the restricted parser reads: a quoted, spaced,
-    case-varied or escaped key, and any flow mapping (`field` is `*` for those)."""
+    case-varied or escaped key, any flow mapping, and any merge key, anchor or alias (`field` is
+    `*` for those)."""
     found = []
     for raw in _frontmatter_lines(text, wide):
         line = raw.strip()
         if BLANK_RE.fullmatch(raw) or line.startswith("#"):
             continue
-        if line.startswith("{"):
+        if line.startswith("{") or YAML_TRICK_RE.search(line):
             found.append(("*", line))
             continue
         key_part = line.split(":", 1)[0]

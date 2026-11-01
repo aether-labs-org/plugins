@@ -176,6 +176,30 @@ class NoteGuardTests(unittest.TestCase):
                         "---\norigin: agent\n---\nbody\n\n---\n\nmore\n"):
             self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "allow", content)
 
+    YAML_TRICKS = ("<<: {reviewed: 2026-01-01}", "<<: *base", "\"<<\": 1", "extra: &x 1",
+                   "alias: *x", "tags:\n  - *x", "&x extra: 1", "list: [*x, b]")
+
+    def test_new_note_with_merge_key_anchor_or_alias_is_denied(self):
+        for line in self.YAML_TRICKS:
+            content = AGENT.replace("origin: agent", "origin: agent\n" + line)
+            self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "deny", line)
+            self.assertTrue(self.reason("Write", "wiki/Resources/N.md", content=content)
+                            .startswith(REASON_TRUST), line)
+
+    def test_edit_adding_merge_key_or_anchor_is_denied_but_existing_ones_stay(self):
+        for line in self.YAML_TRICKS:
+            self.assertEqual(self.kind("Edit", "wiki/Resources/G.md", old_string="origin: agent",
+                                       new_string="origin: agent\n" + line), "deny", line)
+        anchored = AGENT.replace("origin: agent", "origin: agent\nbase: &b 1")
+        (self.vault / "wiki/Resources/Anch.md").write_text(anchored, encoding="utf-8")
+        self.assertEqual(self.kind("Edit", "wiki/Resources/Anch.md", old_string="do agente",
+                                   new_string="reescrito"), "allow")
+
+    def test_plain_ampersands_and_asterisks_are_fine(self):
+        content = AGENT.replace("origin: agent", "origin: agent\ntitle: R&D\nsummary: Uses * as a wildcard"
+                                "\nalt: A & B\ntags: [a, b]")
+        self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "allow")
+
     def test_new_note_with_duplicate_origin_key_is_denied(self):
         content = AGENT.replace("origin: agent", "origin: agent\norigin: human")
         self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "deny")
@@ -922,6 +946,16 @@ class AboutGuardTests(unittest.TestCase):
     def test_edit_of_a_missing_about_is_allowed(self):
         self.assertEqual(self.kind("Edit", "wiki/Archive/_about.md", old_string="a", new_string="b"),
                          "allow")
+
+    def test_about_with_merge_key_or_anchor_is_denied(self):
+        for line in ("<<: {protected: true}", "extra: &x 1", "alias: *x"):
+            content = ABOUT.replace("protected: false", "protected: false\n" + line)
+            self.assertEqual(self.kind("Write", "wiki/Archive/_about.md", content=content), "deny", line)
+            (self.vault / "wiki/Archive").mkdir(exist_ok=True)
+            (self.vault / "wiki/Archive/_about.md").write_text(ABOUT, encoding="utf-8")
+            self.assertEqual(self.kind("Edit", "wiki/Archive/_about.md", old_string="protected: false",
+                                       new_string="protected: false\n" + line), "deny", line)
+            (self.vault / "wiki/Archive/_about.md").unlink()
 
     def test_hidden_protected_keys_in_about_are_denied(self):
         for extra in ('"protected": true', "{protected: true}", "'protected' : true", "PROTECTED :true"):
