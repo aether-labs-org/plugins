@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: ingest-1ton
+description: One clipped inbox note with three ideas becomes new notes (and possibly an agent block on an evergreen note); the two human notes keep their original last line; ingesting the same source again creates nothing.
+tags: [ingest, guard]
+context:
+  scaffold_script: scaffold.sh

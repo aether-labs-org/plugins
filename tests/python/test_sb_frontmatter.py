@@ -1,10 +1,28 @@
 import unittest
 
 import sb_helpers  # noqa: F401  (sets sys.path)
-from sb.frontmatter import parse
+from sb.frontmatter import parse, set_keys
 
 
 class ParseTests(unittest.TestCase):
+    def test_fence_allows_only_spaces_tabs_and_cr_around_dashes(self):
+        for fence in ("---\x85", "---\x1c", "---\ufeff", "---\xa0", "\x1c---"):
+            p = parse("---\ntitle: Foo\n%s\nextra: kept\n---\nBody\n" % fence)
+            self.assertEqual(p.body, "Body\n", repr(fence))
+            self.assertEqual(p.data["title"], "Foo", repr(fence))
+        for fence in ("--- \t", " \t---", "---\r"):
+            p = parse("---\ntitle: Foo\n%s\nBody\n" % fence)
+            self.assertEqual(p.errors, [], repr(fence))
+            self.assertEqual(p.body, "Body\n", repr(fence))
+        self.assertEqual(parse("---\x85\ntitle: Foo\n---\n").errors[0][1], "missing frontmatter")
+        self.assertEqual(parse(" \t---\t\ntitle: Foo\n---\nBody\n").body, "Body\n")
+
+    def test_set_keys_uses_the_same_fence_rule(self):
+        text = "---\ntitle: Foo\n---\x85\n---\nBody\n"
+        self.assertEqual(set_keys(text, {"a": "1"}), "---\ntitle: Foo\n---\x85\na: 1\n---\nBody\n")
+        with self.assertRaises(ValueError):
+            set_keys("---\x1c\ntitle: Foo\n---\n", {"a": "1"})
+
     def test_scalars_lists_and_body(self):
         text = "---\ntitle: Foo\ntags: [a, \"b c\"]\nsource: [[Other]]\nreviewed:\n---\nBody\n"
         p = parse(text)
@@ -28,9 +46,36 @@ class ParseTests(unittest.TestCase):
         p = parse("---\nkey:\n  nested: 1\n---\n")
         self.assertEqual([line for line, _ in p.errors], [3])
 
-    def test_block_list_is_rejected(self):
-        p = parse("---\ntags:\n- a\n---\n")
-        self.assertEqual([line for line, _ in p.errors], [3])
+    def test_block_list(self):
+        p = parse("---\ntags:\n  - estudo\n  - memória\n---\n")
+        self.assertEqual(p.errors, [])
+        self.assertEqual(p.data, {"tags": ["estudo", "memória"]})
+
+    def test_block_list_without_indent_and_quoted_items(self):
+        p = parse("---\naliases:\n- \"Repetição espaçada\"\n- 'SRS'\ntitle: X\n---\n")
+        self.assertEqual(p.errors, [])
+        self.assertEqual(p.data, {"aliases": ["Repetição espaçada", "SRS"], "title": "X"})
+
+    def test_empty_key_without_items_stays_empty_string(self):
+        self.assertEqual(parse("---\nreviewed:\ntitle: X\n---\n").data,
+                         {"reviewed": "", "title": "X"})
+
+    def test_stray_list_item_is_rejected(self):
+        p = parse("---\n- a\ntitle: X\n---\n")
+        self.assertEqual([line for line, _ in p.errors], [2])
+
+    def test_obsidian_properties_sample(self):
+        text = ("---\ntitle: Repetição\nsummary: Revisar em intervalos.\ntags:\n  - estudo\n"
+                "aliases:\n  - SRS\ncssclasses:\ntype: conceito\nstatus: draft\norigin: human\n"
+                "created: 2026-10-01\n---\nCorpo\n")
+        p = parse(text)
+        self.assertEqual(p.errors, [])
+        self.assertEqual(p.data["aliases"], ["SRS"])
+        self.assertEqual(p.data["cssclasses"], "")
+        self.assertEqual(p.body_line, 14)
+
+    def test_block_list_item_comment_is_stripped(self):
+        self.assertEqual(parse("---\ntags:\n  - a # c\n---\n").data, {"tags": ["a"]})
 
     def test_block_scalar_is_rejected(self):
         p = parse("---\nsummary: |\n  x\n---\n")
@@ -50,6 +95,42 @@ class ParseTests(unittest.TestCase):
         p = parse("---\ntitle: a\ntitle: b\n---\n")
         self.assertEqual(p.data, {"title": "a"})
         self.assertEqual([line for line, _ in p.errors], [3])
+
+
+class SetKeysTests(unittest.TestCase):
+    UPDATES = {"reviewed": "2026-11-05", "reviewed_hash": "sha256:0123456789abcdef"}
+
+    def test_set_keys_preserves_other_lines(self):
+        text = "---\ntitle: A\ntags:\n  - x\nreviewed:\n---\nBody\n"
+        self.assertEqual(set_keys(text, self.UPDATES),
+                         "---\ntitle: A\ntags:\n  - x\nreviewed: 2026-11-05\n"
+                         "reviewed_hash: sha256:0123456789abcdef\n---\nBody\n")
+
+    def test_existing_keys_are_replaced_in_place(self):
+        text = "---\nreviewed: 2026-01-01\ntitle: 'A'\nreviewed_hash: sha256:aa\n---\nBody\n"
+        self.assertEqual(set_keys(text, self.UPDATES),
+                         "---\nreviewed: 2026-11-05\ntitle: 'A'\n"
+                         "reviewed_hash: sha256:0123456789abcdef\n---\nBody\n")
+
+    def test_block_list_value_is_replaced_with_its_items(self):
+        text = "---\nreviewed:\n  - x\ntitle: A\n---\n"
+        self.assertEqual(set_keys(text, {"reviewed": "2026-11-05"}),
+                         "---\nreviewed: 2026-11-05\ntitle: A\n---\n")
+
+    def test_crlf_and_bom_are_kept(self):
+        text = "\ufeff---\r\ntitle: A\r\n---\r\nBody\r\n"
+        self.assertEqual(set_keys(text, {"reviewed": "2026-11-05"}),
+                         "\ufeff---\r\ntitle: A\r\nreviewed: 2026-11-05\r\n---\r\nBody\r\n")
+
+    def test_body_and_a_look_alike_key_are_untouched(self):
+        text = "---\nxreviewed: 1\n---\nreviewed: in the body\n---\n"
+        self.assertEqual(set_keys(text, {"reviewed": "2026-11-05"}),
+                         "---\nxreviewed: 1\nreviewed: 2026-11-05\n---\nreviewed: in the body\n---\n")
+
+    def test_without_closed_frontmatter_raises(self):
+        for text in ("Body\n", "---\ntitle: A\nBody\n"):
+            with self.assertRaises(ValueError):
+                set_keys(text, {"reviewed": "x"})
 
 
 if __name__ == "__main__":

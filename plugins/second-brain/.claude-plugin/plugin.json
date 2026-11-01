@@ -1,7 +1,7 @@
 {
   "name": "second-brain",
   "description": "Local-first Second Brain for Claude Code: capture, ingest, find, link, update and lint a plain-markdown vault with a deterministic CLI, protective hooks and optional local auto-commit.",
-  "version": "0.1.0",
+  "version": "0.2.3",
   "author": {
     "name": "Aether Labs"
   },
@@ -13,6 +13,12 @@
       "type": "boolean",
       "title": "Auto-commit vault changes",
       "description": "At the end of each session, commit vault changes locally when the vault has a .git directory. Never pushes.",
+      "default": true
+    },
+    "recall": {
+      "type": "boolean",
+      "title": "Recall vault notes on each prompt",
+      "description": "Before each prompt, search the vault and add up to five possibly relevant note summaries to the context.",
       "default": true
     }
   }
