@@ -248,9 +248,37 @@ and Node to be installed. `sb doctor` (milestone C) checks each and prints the i
    stdin code that mentions one of those (ask). An unresolved `$VAR`, `${...}`, `$(...)` or
    backtick in a write target or `cd` target, with the cwd inside the vault, asks (reason: "second-brain
    cannot resolve this write target; confirm with the user.").
-10. The vault is also found from each tool target (`find_vault` of the target's folder) and from
+10. Bash, second review (D33, D35, D36):
+    - Shells fed by stdin (`sh`, `bash -s`, `. /dev/stdin`...) read a literal here-string, here-document
+      or `echo`/`printf`/`cat` pipe as a script, scanned with the same lexer; any other input
+      (`curl ... | sh`, `cat f | bash`) asks. `ssh`, `su -c`, `script -c`, `tmux new...`, `env -S`, `trap`
+      and `watch` have their command string scanned, or ask when it is not literal and the line mentions
+      `sb`, `wiki`, `.md`, `_raw`, `.claude` or `.second-brain`. `sb` followed by an unresolved
+      subcommand asks.
+    - `obsidian` / `obsidian-cli` write subcommands (`create`, `append`, `prepend`, `delete`, `move`,
+      `rename`, any `:set`/`:remove`/`:create`/`:append`/`:prepend`, and obsidian-cli `daily` and
+      `frontmatter --edit/--delete`) are denied (D36); `obsidian eval` and an unresolved subcommand ask.
+    - Folders and ancestors: `mv`/`git mv` of a folder under `wiki/` asks; deleting or moving the vault
+      root or any folder above it (`..`, `~`, absolute parents, globs and `find` roots that reach them)
+      is denied and an in-place edit of one asks; globs that run through an ancestor are matched against
+      the vault path; `trash`, `trash-put`, `gio trash` and `gvfs-trash` follow the deletion rules;
+      `cp -r/-R/-a` and `rsync -a/-r` of a folder into `wiki/` ask.
+    - Working directory: `cd -`, `popd`, a bare `pushd`, `pushd +N/-N`, and `cd`/`cd ~` in a command that
+      assigns `HOME` leave the cwd unknown; a relative write, delete, move or in-place target after that
+      asks, in every scope. Otherwise `cd ~`, a bare `cd` and `pushd <path>` are resolved.
+    - Other writers: `awk` (`print >`, `| "cmd"`, `system(`), `sed` with a `w` command or flag, `php -r`,
+      `vim`/`nvim` with `-c`, `+cmd` or `-S`, and `emacs --batch/--eval/-l` ask when the line mentions
+      one of the places above (a note operand of vim/emacs is denied). `ln -s` making a link under
+      `wiki/` asks; a later write in the same command through a link that points into `wiki/` or `_raw/`,
+      or lives under `wiki/`, is denied.
+    - Frontmatter: fences and blank lines are found with the parser's own `FENCE_RE`/`BLANK_RE`, never
+      `str.strip()`; the trust scan also follows a column-0 `---` fence (Obsidian does not skip leading
+      blanks), and a new note is checked on the parsed data too. A YAML merge key `<<`, an anchor `&x`
+      or an alias `*x` in the frontmatter of a note or `_about.md` the agent writes is denied with the
+      trust-field reason.
+11. The vault is also found from each tool target (`find_vault` of the target's folder) and from
     absolute paths in a Bash command, so the guard runs when the cwd is outside the vault.
-11. On a case-insensitive file system (detected once by stat-ing the vault root with swapped case)
+12. On a case-insensitive file system (detected once by stat-ing the vault root with swapped case)
     the names `wiki`, `_raw`, `.claude`, `CLAUDE.md`, `.second-brain.json` and `_about.md` are
     compared ignoring case; on Linux nothing changes.
 
@@ -425,9 +453,11 @@ A failed item changes the matching task, not the goals.
 ## 11. Accepted risks
 
 - Bash can still write where the guard cannot see: interpreter code that builds its paths at
-  run time (`python -c` without `wiki/` or `.md` in the text), scripts run from files, `git
-  checkout`/`restore`/`reset --hard`/`clean` over uncommitted notes, `rsync` of a directory into
-  `wiki/`. D35 turns what the guard cannot resolve into an `ask`; git and `SB110` (milestone D)
+  run time (`python -c` without `wiki/` or `.md` in the text), scripts run from files (`make`,
+  `npm run`, a shell script), `git checkout`/`restore`/`reset --hard`/`clean`/`stash`/`pull` over
+  uncommitted notes, `cp`/`rsync` of single non-note files into `wiki/`, `~` or `$HOME` inside a
+  write target when the same command changed `HOME`, and other scripting languages (`lua -e`,
+  `julia -e`, `Rscript -e`). D35 turns what the guard cannot resolve into an `ask`; git and `SB110` (milestone D)
   are the net. Full Bash hardening is v0.3.
 - No secret scanning before squad pushes.
 - Lexical search misses pure paraphrase; embeddings wait for a measured trigger (Recall@10 on
