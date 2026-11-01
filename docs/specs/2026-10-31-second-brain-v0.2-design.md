@@ -89,6 +89,7 @@ spec; the plans may revisit it with evidence.
 | D32 | A vault is always its own repository: vault root = git top-level = where `claude` runs (v0.1 D3). `sb init` refuses a target inside another git work tree; `sb doctor` fails when the git top-level differs from the vault root, and squad sync is skipped in that case. | decided |
 | D33 | Bash writes to notes under wiki/ are denied in every tier; notes are written only with Write/Edit/MultiEdit. Interpreter one-liners (python -c, node -e) remain an accepted risk until v0.3. | decided |
 | D34 | _about.md is guarded: changing its protected key is denied, other edits ask, Bash writes are denied. | builder |
+| D35 | When the guard cannot resolve a write target or simulate an edit inside a vault, it returns `ask`, never allow. Deny stays deny where already decided (D12, D28, D33, D34). | decided |
 
 ## 4. Milestone A — search and recall (v0.2.0)
 

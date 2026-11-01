@@ -16,7 +16,8 @@ from pathlib import Path
 
 from .frontmatter import parse
 from .tree import _is_true, folder_protected
-from .trust import append_only, link_only, norm, tier, trust_key_lines, trust_fields_changed_text
+from .trust import (append_only, hidden_trust_lines, link_only, norm, tier, trust_key_lines,
+                    trust_fields_changed_text)
 from .vault import find_vault, is_note_rel
 
 WRITE_TOOLS = {"Write": "file_path", "Edit": "file_path", "MultiEdit": "file_path",
@@ -75,11 +76,10 @@ def _rel(vault, cwd, raw):
 
 def simulate(tool, tool_input, current):
     """Text of the file after the tool runs, or None when an Edit/MultiEdit `old_string` is
-    absent (the tool itself will fail). `current` is None for a file that does not exist."""
+    absent (the tool itself will fail). `current` is None for a file that does not exist. An
+    empty `old_string` creates the content of a missing or empty file."""
     if tool == "Write":
         return str(tool_input.get("content") or "")
-    if current is None:
-        return None
     if tool == "Edit":
         edits = [tool_input]
     elif tool == "MultiEdit":
@@ -90,7 +90,12 @@ def simulate(tool, tool_input, current):
     for edit in edits:
         old = str(edit.get("old_string") or "").replace("\r\n", "\n")
         new = str(edit.get("new_string") or "").replace("\r\n", "\n")
-        if not old or old not in text:
+        if not old:
+            if text:
+                return None
+            text = new
+            continue
+        if text is None or old not in text:
             return None
         text = text.replace(old, new) if edit.get("replace_all") else text.replace(old, new, 1)
     return text
@@ -123,12 +128,13 @@ def _decide_note(vault, tool, tool_input, rel):
     if new is None:
         return None
     new = new.replace("\r\n", "\n")
-    if current is None:
+    if current is None or not current.strip():
         data = parse(new).data
-        if norm(data.get("origin")).lower() != "agent":
+        if norm(data.get("origin")) != "agent":
             return _decision("deny", NEW_ORIGIN_REASON)
         lines = trust_key_lines(new)
-        if any(lines[f] for f in lines if f != "origin") or len(lines["origin"]) != 1:
+        if any(lines[f] for f in lines if f != "origin") or len(lines["origin"]) != 1 \
+                or hidden_trust_lines(new):
             return _decision("deny", TRUST_REASON)
         if folder_protected(vault, rel):
             return _decision("ask", T2_REASON % rel)
@@ -160,7 +166,8 @@ def _decide_about(vault, tool, tool_input, rel):
     if current is None:
         lines = trust_key_lines(new)["protected"]
         if _is_true(parse(new).data.get("protected")) or any(
-                _is_true(line.split(":", 1)[1]) for line in lines):
+                _is_true(line.split(":", 1)[1]) for line in lines) or any(
+                field in ("protected", "*") for field, _line in hidden_trust_lines(new)):
             return _decision("deny", TRUST_REASON)
         return None
     if "protected" in trust_fields_changed_text(current, new):
@@ -196,35 +203,56 @@ def _classify(vault, cwd, operands, deleting):
     return ask
 
 
-def _is_sb_review(program, args):
-    operands = [a for a in args if not a.startswith("-")]
-    if program == "sb":
-        return operands[:1] == ["review"]
-    if program.startswith("python"):
-        if "-m" in args:
-            module = args[args.index("-m") + 1:][:1]
-            return module in (["sb"], ["sb.cli"]) and operands[1:2] == ["review"]
-        return bool(operands) and operands[0].endswith("/bin/sb") and operands[1:2] == ["review"]
+C_FLAG = re.compile(r"^-[A-Za-z]*c[A-Za-z]*$")
+
+
+def _nested_bodies(words, heredoc=""):
+    """Command strings a segment runs through a shell: `-c` bodies (`-lc`, `-ec`...), `eval`
+    arguments and, for a shell reading stdin, the here-document."""
+    bodies = []
+    for i, word in enumerate(words):
+        if os.path.basename(word) in SHELLS:
+            for j in range(i + 1, len(words)):
+                if C_FLAG.match(words[j]):
+                    if j + 1 < len(words):
+                        bodies.append(str(words[j + 1]))
+                    break
+            else:
+                if heredoc:
+                    bodies.append(heredoc)
+        elif word == "eval" and i + 1 < len(words):
+            bodies.append(" ".join(words[i + 1:]))
+    return bodies
+
+
+def _words_run_review(words):
+    """True when a word whose basename is `sb` (or `-m sb` / `-m sb.cli`) is followed by the
+    subcommand `review`, wherever the word sits behind wrappers such as timeout or xargs."""
+    for i, word in enumerate(words):
+        start = None
+        if os.path.basename(word) == "sb":
+            start = i + 1
+        elif word == "-m" and words[i + 1:i + 2] and words[i + 1] in ("sb", "sb.cli"):
+            start = i + 2
+        if start is not None:
+            operands = [w for w in words[start:] if not w.startswith("-")]
+            if operands[:1] == ["review"]:
+                return True
     return False
 
 
-def _has_sb_review(command):
-    for segment in SEGMENT_SPLIT.split(command):
-        try:
-            tokens = shlex.split(segment)
-        except ValueError:
-            tokens = segment.split()
-        tokens = _strip_wrappers(tokens)
-        if tokens and os.path.basename(tokens[0]) == "env":
-            tokens = _strip_wrappers([t for t in tokens[1:] if not t.startswith("-")])
-        if not tokens:
-            continue
-        program = os.path.basename(tokens[0])
-        if _is_sb_review(program, tokens[1:]):
-            return True
-        if program in SHELLS and "-c" in tokens[1:]:
-            rest = tokens[tokens.index("-c") + 1:][:1]
-            if rest and _has_sb_review(rest[0]):
+def _has_sb_review(command, depth=0):
+    if depth > MAX_DEPTH:
+        return False
+    for item in _lex(_expand_vars(command)):
+        if isinstance(item, tuple):
+            if _has_sb_review(item[1], depth + 1):
+                return True
+        elif isinstance(item, Segment):
+            words = [str(w) for w in item.words]
+            if _words_run_review(words):
+                return True
+            if any(_has_sb_review(body, depth + 1) for body in _nested_bodies(words, item.heredoc)):
                 return True
     return False
 
@@ -240,6 +268,7 @@ class Segment:
     def __init__(self, words, redirects):
         self.words = words          # command words (program first)
         self.redirects = redirects  # output redirection targets
+        self.heredoc = ""           # text of its here-documents
 
 
 def _match_paren(text, i):
@@ -270,7 +299,7 @@ def _lex(command):
     """Items in order: Segment, "(" , ")" or ("sub", text) for `$(...)` and backtick bodies."""
     items, words, redirects = [], [], []
     cur, state = [], {"has": False, "glob": False, "pending": None}
-    heredocs = []
+    heredocs, new_heredocs = [], []
     i, n = 0, len(command)
 
     def flush():
@@ -289,14 +318,16 @@ def _lex(command):
             if not (word.isdigit() or word == "-"):
                 redirects.append(word)
         elif mode == "heredoc":
-            heredocs.append(str(word))
+            new_heredocs.append(str(word))
 
     def end():
         flush()
         state["pending"] = None
+        segment = Segment(list(words), list(redirects))
         if words or redirects:
-            items.append(Segment(list(words), list(redirects)))
-        del words[:], redirects[:]
+            items.append(segment)
+        heredocs.extend((delimiter, segment) for delimiter in new_heredocs)
+        del new_heredocs[:], words[:], redirects[:]
 
     def sub(body):
         items.append(("sub", body))
@@ -361,14 +392,15 @@ def _lex(command):
         elif c == "\n":
             end()
             i += 1
-            for delimiter in heredocs:
+            for delimiter, owner in heredocs:
                 while i < n:
                     j = command.find("\n", i)
                     j = n if j < 0 else j
-                    line = command[i:j].lstrip("\t")
+                    raw_line = command[i:j]
                     i = min(j + 1, n)
-                    if line == delimiter:
+                    if raw_line.lstrip("\t") == delimiter:
                         break
+                    owner.heredoc += raw_line + "\n"
             del heredocs[:]
         elif c == ";":
             end()

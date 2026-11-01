@@ -32,6 +32,8 @@ class TierTests(unittest.TestCase):
         self.assertEqual(tier({"origin": "agent"}), "T0")
         self.assertEqual(tier({"origin": "agent", "reviewed": "2026-10-01"}), "T1")
         self.assertEqual(tier({}), "T1")
+        self.assertEqual(tier({"origin": "Agent"}), "T1")      # only the exact lowercase value
+        self.assertEqual(tier({"origin": "AGENT"}), "T1")
         self.assertEqual(tier({"origin": "mixed"}), "T1")
         self.assertEqual(tier({"origin": "agent", "status": "evergreen"}), "T2")
         self.assertEqual(tier({"origin": "human", "protected": "true"}), "T2")

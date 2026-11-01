@@ -292,6 +292,80 @@ class NoteGuardTests(unittest.TestCase):
         self.assertEqual(self.kind("Edit", "wiki/Resources/../Resources/H.md",
                                    old_string="revisado", new_string="x"), "ask")
 
+    # H1: sb review through every wrapper the lexer can see
+    def test_sb_review_bypasses_are_denied(self):
+        for command in ("(sb review N)", "echo $(sb review N)", "echo `sb review N`",
+                        "echo x &sb review N", "echo x & sb review N", "timeout 5 sb review N",
+                        "nice -n 5 sb review N", "stdbuf -oL sb review N", "echo N | xargs sb review",
+                        "sudo -u x sb review N", "env -i FOO=1 sb review N", "command sb review N",
+                        "bash -lc 'sb review N'", "sh -ec 'sb review N'", "zsh -c 'sb review N'",
+                        "dash -c \"sb review N\"", "eval 'sb review N'", "eval sb review N",
+                        "python3 bin/sb review N", "python3 -m sb.cli review N",
+                        "python3 -W error -m sb review N", "{ sb review N; }",
+                        "if true; then sb review N; fi", "echo \"$(bash -c 'sb review N')\"",
+                        "bash -c \"eval 'sb review N'\"", "timeout 5 bash -lc 'sb review N'",
+                        "bash <<EOF\nsb review N\nEOF", "SB=sb; $SB review N", "./bin/sb review N",
+                        "(cd x && /p/bin/sb review N)", "xargs -I{} sh -c 'sb review {}' < list"):
+            self.assertEqual(self.bash(command), "deny", command)
+
+    def test_sb_review_lookalikes_are_allowed(self):
+        for command in ("sb search review", "echo review sb", "grep -rn 'sb review' docs/",
+                        "python3 -m json.tool review.json", "bash -c 'sb lint'",
+                        "echo $(sb search review)", "bash -lc 'ls review'"):
+            self.assertEqual(self.bash(command), "allow", command)
+
+    # H2: an empty old_string creates the file
+    def test_edit_with_empty_old_string_on_a_missing_note_applies_new_note_rules(self):
+        bad = "---\ntitle: x\norigin: agent\nreviewed: 2026-01-01\n---\nx"
+        for path in ("wiki/Resources/New.md",):
+            self.assertEqual(self.kind("Edit", path, old_string="", new_string=bad), "deny")
+            self.assertEqual(self.kind("MultiEdit", path,
+                                       edits=[{"old_string": "", "new_string": bad}]), "deny")
+            self.assertEqual(self.kind("Edit", path, old_string="",
+                                       new_string=note("N", origin="human")), "deny")
+            self.assertEqual(self.kind("Edit", path, old_string="", new_string=AGENT), "allow")
+            self.assertEqual(self.kind("MultiEdit", path,
+                                       edits=[{"old_string": "", "new_string": AGENT},
+                                              {"old_string": "agente", "new_string": "robo"}]), "allow")
+
+    def test_edit_with_empty_old_string_on_an_empty_note_applies_new_note_rules(self):
+        (self.vault / "wiki" / "Resources" / "Empty.md").write_text("", encoding="utf-8")
+        self.assertEqual(self.kind("Edit", "wiki/Resources/Empty.md", old_string="",
+                                   new_string=note("N", origin="human")), "deny")
+        self.assertEqual(self.kind("Edit", "wiki/Resources/Empty.md", old_string="",
+                                   new_string=AGENT), "allow")
+
+    # H3: trust keys the restricted parser ignores but a YAML reader sees
+    def test_new_note_with_hidden_trust_keys_is_denied(self):
+        for extra in ('"reviewed": 2026-11-02', "'reviewed_hash': sha256:00", "Reviewed : 2026",
+                      "reviewed :2026", '" protected ": true', "{reviewed: 2026-11-02}",
+                      "{ origin: human }", '"re\\u0076iewed": 2026', "? reviewed", "REVIEWED: x",
+                      "reviewed:2026"):
+            content = AGENT.replace("origin: agent", "origin: agent\n" + extra)
+            self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "deny", extra)
+            self.assertTrue(self.reason("Write", "wiki/Resources/N.md", content=content)
+                            .startswith(REASON_TRUST), extra)
+
+    def test_edit_adding_a_hidden_trust_key_to_an_existing_note_is_denied(self):
+        for name, anchor in (("G.md", "origin: agent"), ("H.md", "origin: human")):
+            for extra in ('"reviewed": 2026-11-02', "{reviewed: 2026-11-02}", '"protected": false'):
+                self.assertEqual(self.kind("Edit", "wiki/Resources/" + name, old_string=anchor,
+                                           new_string=anchor + "\n" + extra), "deny", (name, extra))
+
+    def test_unchanged_hidden_trust_keys_do_not_block_body_edits(self):
+        path = self.vault / "wiki" / "Resources" / "G.md"
+        path.write_text(AGENT.replace("origin: agent", 'origin: agent\n"reviewed": x'), encoding="utf-8")
+        self.assertEqual(self.kind("Edit", "wiki/Resources/G.md", old_string="Texto do agente.",
+                                   new_string="Outro."), "allow")
+
+    # H4: origin must be exactly lowercase agent
+    def test_new_note_origin_is_case_sensitive(self):
+        for origin in ("Agent", "AGENT"):
+            content = AGENT.replace("origin: agent", "origin: " + origin)
+            self.assertEqual(self.kind("Write", "wiki/Resources/N.md", content=content), "deny", origin)
+            self.assertTrue(self.reason("Write", "wiki/Resources/N.md", content=content)
+                            .startswith("New notes written by the agent must have origin: agent."))
+
     # bash: sb review
     def bash(self, command):
         out = decide({"tool_name": "Bash", "tool_input": {"command": command}}, str(self.vault))
@@ -551,6 +625,14 @@ class AboutGuardTests(unittest.TestCase):
     def test_edit_of_a_missing_about_is_allowed(self):
         self.assertEqual(self.kind("Edit", "wiki/Archive/_about.md", old_string="a", new_string="b"),
                          "allow")
+
+    def test_hidden_protected_keys_in_about_are_denied(self):
+        for extra in ('"protected": true', "{protected: true}", "'protected' : true", "PROTECTED :true"):
+            content = "---\ndescription: Notes.\n%s\n---\n" % extra
+            self.assertEqual(self.kind("Write", "wiki/Resources/New/_about.md", content=content),
+                             "deny", extra)
+            self.assertEqual(self.kind("Edit", "wiki/Resources/_about.md", old_string="protected: false",
+                                       new_string="protected: false\n" + extra), "deny", extra)
 
     def test_bash_writes_to_about_are_denied(self):
         for command in ("echo x > wiki/Resources/_about.md", "echo x >> wiki/Resources/_about.md",

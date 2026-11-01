@@ -2,7 +2,7 @@
 import re
 from collections import Counter
 
-from .frontmatter import parse
+from .frontmatter import KEY_RE, parse
 
 AGENT_BLOCK_RE = re.compile(r"^>[ \t]*\[!agent\]", re.IGNORECASE | re.MULTILINE)
 
@@ -35,8 +35,7 @@ def tier(data, folder_protected=False):
     protected = norm(data.get("protected")).lower() in ("true", "yes", "1")
     if folder_protected or protected or norm(data.get("status")).lower() == "evergreen":
         return "T2"
-    origin = norm(data.get("origin")).lower()
-    if origin != "agent" or norm(data.get("reviewed")):
+    if norm(data.get("origin")) != "agent" or norm(data.get("reviewed")):
         return "T1"
     return "T0"
 
@@ -55,10 +54,36 @@ def _frontmatter_lines(text):
     return [line.rstrip() for line in lines[1:end]]
 
 
+def hidden_trust_lines(text):
+    """`(field, line)` for each frontmatter line that a YAML reader may take for a trust key
+    but that is not a plain `key: value` line the restricted parser reads: a quoted, spaced,
+    case-varied or escaped key, and any flow mapping (`field` is `*` for those)."""
+    found = []
+    for raw in _frontmatter_lines(text):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("{"):
+            found.append(("*", line))
+            continue
+        key_part = line.split(":", 1)[0]
+        key = key_part.lstrip("? ").strip().strip("\"'").strip().casefold()
+        match = KEY_RE.match(raw)
+        if key in TRUST_FIELDS:
+            if not (match and match.group(1) == key):
+                found.append((key, line))
+        elif key_part[:1] in "\"'" and "\\" in key_part:
+            found.append(("*", line))         # an escaped quoted key can spell any name
+    return found
+
+
 def trust_fields_changed_text(old_text, new_text):
-    """Like `trust_fields_changed` on whole files, and also catches duplicate or
+    """Like `trust_fields_changed` on whole files, and also catches duplicate, hidden or
     unparseable occurrences of a trust key that the parser would drop."""
     changed = set(trust_fields_changed(parse(old_text).data, parse(new_text).data))
+    old_hidden, new_hidden = Counter(hidden_trust_lines(old_text)), Counter(hidden_trust_lines(new_text))
+    for field, _line in list((old_hidden - new_hidden) + (new_hidden - old_hidden)):
+        changed.update(TRUST_FIELDS if field == "*" else (field,))
     old_lines, new_lines = _frontmatter_lines(old_text), _frontmatter_lines(new_text)
     for field in TRUST_FIELDS:
         prefix = field + ":"
