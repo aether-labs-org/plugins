@@ -43,7 +43,7 @@ has "$R/plan-template.md" 'review_by' && has "$R/plan-template.md" 'make gate-fa
 [ -f "$R/interview.md" ] && has "$R/interview.md" 'at most 4 questions'; check "interview.md" $?
 has "$sk/../build/SKILL.md" '/keel-harness:rules'; check "build SKILL.md offers /keel-harness:rules" $?
 ! grep -rq 'docs/adr' "$root/plugins/keel-harness"; check "docs/adr appears nowhere" $?
-! grep -rq "docs/""rules" "$root/plugins" "$root/tests"; check "per-rule doc path is gone (D28)" $?
+! grep -rq --exclude-dir=node_modules "docs/""rules" "$root/plugins" "$root/tests"; check "per-rule doc path is gone (D28)" $?
 
 # --- Task 17: rules evals
 EV="$root/plugins/keel-harness/evals"
