@@ -10,12 +10,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..
 def main():
     try:
         try:
-            cwd = json.load(sys.stdin).get("cwd") or os.getcwd()
+            event = json.load(sys.stdin)
+            cwd = event.get("cwd") or os.getcwd()
+            session_id = str(event.get("session_id") or "")
         except Exception:
-            cwd = os.getcwd()
+            cwd, session_id = os.getcwd(), ""
         from sb.autocommit import run
-        status = run(cwd)
-        if status.startswith("committed"):
+        status = run(cwd, session_id=session_id)
+        if status.startswith("committed") or "push:" in status:
             print("second-brain: " + status, file=sys.stderr)
     except Exception as exc:
         print("second-brain: auto-commit error: %s" % exc, file=sys.stderr)

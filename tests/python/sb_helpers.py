@@ -30,7 +30,7 @@ def make_vault(tmp, notes=None, config=None, index=True):
     from sb.vault import load_notes
 
     root = Path(tmp)
-    cfg = {"schema_version": 1, "language": "en", "areas": []}
+    cfg = {"schema_version": 2, "language": "en", "areas": []}
     cfg.update(config or {})
     (root / ".second-brain.json").write_text(json.dumps(cfg), encoding="utf-8")
     for rel in ("_inbox/_done", "_raw", "wiki"):

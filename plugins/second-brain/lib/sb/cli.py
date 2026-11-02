@@ -2,15 +2,19 @@
 import argparse
 import json
 import re
+import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
+from . import frontmatter
 from . import index as index_mod
 from . import logfile
 from .fsutil import write_atomic
-from .lint import check_note, lint as run_lint
+from .lint import INFO_CODES, check_note, lint as run_lint, render_text
 from .links import WIKILINK, extract, prose_lines, target_name
-from .vault import MARKER, VaultError, find_vault, load_config, load_note, load_notes
+from .vault import (MARKER, VaultError, find_vault, is_note_rel, load_config, load_note,
+                    load_notes)
 
 EXIT_OK, EXIT_FINDINGS, EXIT_USAGE = 0, 1, 2
 
@@ -62,8 +66,116 @@ def cmd_lint(args, out, err):
         print("sb: %s" % exc, file=err)
         return EXIT_USAGE
     findings = run_lint(root, config)
-    _emit(args, out, [f.as_dict() for f in findings], "\n".join(str(f) for f in findings))
-    return EXIT_FINDINGS if findings else EXIT_OK
+    _emit(args, out, [f.as_dict() for f in findings], render_text(findings, args.verbose))
+    return EXIT_FINDINGS if any(f.code not in INFO_CODES for f in findings) else EXIT_OK
+
+
+def _find_note_file(root, raw):
+    """The note file named by a path (cwd- or vault-relative) or a note name, or None."""
+    wiki = root / "wiki"
+    for candidate in (Path(raw), root / raw):
+        path = candidate.resolve()
+        if path.is_file() and path.suffix == ".md":
+            try:
+                if is_note_rel(path.relative_to(wiki).as_posix()):
+                    return path
+            except ValueError:
+                pass
+    wanted = target_name(raw)
+    return next((n.path for n in load_notes(root) if n.name == wanted), None)
+
+
+def cmd_review(args, out, err):
+    from . import review
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    path = _find_note_file(root, args.note)
+    if path is None:
+        print("sb: note not found: %s" % args.note, file=err)
+        return EXIT_USAGE
+    try:
+        text = path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        print("sb: cannot read %s: %s" % (path, exc), file=err)
+        return EXIT_USAGE
+    digest, today = review.review_hash(text), date.today().isoformat()
+    try:
+        updated = frontmatter.set_keys(text, {"reviewed": today, "reviewed_hash": digest})
+    except ValueError as exc:
+        print("sb: %s: %s" % (path, exc), file=err)
+        return EXIT_USAGE
+    write_atomic(path, updated)
+    rel = path.relative_to(root).as_posix()
+    _emit(args, out, {"note": rel, "reviewed": today, "reviewed_hash": digest},
+          "reviewed %s on %s (%s)" % (rel, today, digest))
+    return EXIT_OK
+
+
+def cmd_search(args, out, err):
+    from .search import SearchIndex
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    boost = {}
+    for spec in args.folder_boost:
+        folder, _, weight = spec.rpartition("=")
+        try:
+            boost[folder.strip("/")] = float(weight)
+        except ValueError:
+            folder = ""
+        if not folder:
+            print("sb: --folder-boost expects FOLDER=WEIGHT, got %r" % spec, file=err)
+            return EXIT_USAGE
+    results = SearchIndex(root).search(args.query, limit=args.limit, folder_boost=boost or None)
+    text = "\n".join("%s  [%s]  %s" % (r["rel"], r["trust"], r["summary"]) for r in results)
+    _emit(args, out, results, text)
+    return EXIT_OK if results else EXIT_FINDINGS
+
+
+def cmd_tree(args, out, err):
+    from . import tree
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    folders = tree.load(root)
+    if args.compact:
+        text = tree.render_compact(folders)
+    else:
+        text = tree.render_compact(folders, limit=None)
+    _emit(args, out, folders, text)
+    return EXIT_OK
+
+
+def cmd_doctor(args, out, err):
+    from . import doctor
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    results = doctor.run(root)
+    _emit(args, out, results, doctor.render_text(results))
+    return EXIT_FINDINGS if any(r["status"] == "fail" for r in results) else EXIT_OK
+
+
+def cmd_eval(args, out, err):
+    from . import evalrun
+    from .search import SearchIndex
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    try:
+        qrels = evalrun.load_qrels(args.qrels)
+    except (OSError, ValueError) as exc:
+        print("sb: %s" % exc, file=err)
+        return EXIT_USAGE
+    result = evalrun.evaluate(SearchIndex(root), qrels)
+    _emit(args, out, result, evalrun.render_table(result))
+    return EXIT_OK
 
 
 def cmd_validate(args, out, err):
@@ -146,16 +258,109 @@ def cmd_log(args, out, err):
     return EXIT_OK
 
 
+def cmd_source_add(args, out, err):
+    from . import source
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    try:
+        source_id, kind = source.source_id_for(root, args.target)
+    except (ValueError, OSError) as exc:
+        print("sb: %s" % exc, file=err)
+        return EXIT_USAGE
+    notes = source.notes_for(root, source_id)
+    status = "seen" if notes else "new"
+    _emit(args, out, {"source_id": source_id, "kind": kind, "status": status, "notes": notes},
+          "%s %s (%s)%s" % (status, source_id, kind, "".join("\n  " + n for n in notes)))
+    return EXIT_OK
+
+
+def _read_stdin(stream):
+    stream = stream or sys.stdin
+    data = stream.buffer.read() if hasattr(stream, "buffer") else stream.read()
+    return data.decode("utf-8", "replace") if isinstance(data, bytes) else data
+
+
+def cmd_source_save(args, out, err):
+    from . import source
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    try:
+        result = source.save(root, args.source_id, _read_stdin(getattr(args, "stdin", None)),
+                             tool=args.tool, origin=args.origin)
+    except (ValueError, OSError) as exc:
+        print("sb: %s" % exc, file=err)
+        return EXIT_USAGE
+    text = ["saved %s (removed %d characters)" % (result["path"], result["removed"])]
+    if result["suspicious"]:
+        text.append("SUSPICIOUS: %d line(s) look like instructions to a model:" % len(result["flagged"]))
+        text += ["  line %d: %s" % (f["line"], f["text"]) for f in result["flagged"]]
+    _emit(args, out, result, "\n".join(text))
+    return EXIT_OK
+
+
+def cmd_inbox_done(args, out, err):
+    from . import source
+
+    root = _vault(args, err)
+    if root is None:
+        return EXIT_USAGE
+    try:
+        rel = source.inbox_done(root, args.file, args.title)
+    except (ValueError, OSError) as exc:
+        print("sb: %s" % exc, file=err)
+        return EXIT_USAGE
+    _emit(args, out, {"moved_to": rel}, "moved to %s" % rel)
+    return EXIT_OK
+
+
+def cmd_upgrade(args, init_mod, target, out, err):
+    root = find_vault(target)
+    if root is None or root != target:
+        print("sb: %s is not a second-brain vault (%s not found)" % (target, MARKER), file=err)
+        return EXIT_USAGE
+    try:
+        result = init_mod.upgrade(root, profile=args.profile, yes=args.yes)
+    except (VaultError, ValueError, OSError, subprocess.SubprocessError) as exc:
+        print("sb: upgrade failed: %s" % exc, file=err)
+        return EXIT_USAGE
+    if not result["actions"]:
+        verb = "nothing to do"
+    else:
+        verb = "applied" if result["applied"] else "would apply (pass --yes to apply)"
+    lines = ["%s: %d action(s)" % (verb, len(result["actions"]))]
+    lines += ["  " + a for a in result["actions"]]
+    if result["kept"]:
+        lines.append("kept (not touched): " + ", ".join(result["kept"]))
+    lines += ["warning: " + w for w in result["warnings"]]
+    _emit(args, out, result, "\n".join(lines))
+    return EXIT_OK
+
+
 def cmd_init(args, out, err):
     from . import init as init_mod
 
     target = Path(args.vault).resolve() if args.vault else Path.cwd()
+    if args.upgrade:
+        return cmd_upgrade(args, init_mod, target, out, err)
     parent = find_vault(target)
     if parent is not None and parent != target:
         print("sb: %s is inside the existing vault %s" % (target, parent), file=err)
         return EXIT_USAGE
+    repo = init_mod.enclosing_repo(target)
+    if repo is not None:
+        print("sb: %s is inside the git repository %s; a vault is its own repository"
+              % (target, repo), file=err)
+        return EXIT_USAGE
+    if args.remote and not (args.git or (target / ".git").exists()):
+        print("sb: --remote needs --git (or an existing .git in the vault)", file=err)
+        return EXIT_USAGE
     areas = [a for a in args.areas.split(",") if a.strip()]
-    result = init_mod.run(target, language=args.language, areas=areas, git=args.git)
+    result = init_mod.run(target, language=args.language, profile=args.profile or "personal",
+                          remote=args.remote, areas=areas, git=args.git)
     lines = ["%s: %s" % (result["status"], target)]
     if result["created"]:
         lines.append("created: " + ", ".join(result["created"]))
@@ -181,7 +386,31 @@ def build_parser():
     p.set_defaults(func=cmd_index)
 
     p = sub.add_parser("lint", parents=[common], help="run the lint rules")
+    p.add_argument("--verbose", action="store_true", help="one line per finding, never grouped")
     p.set_defaults(func=cmd_lint)
+
+    p = sub.add_parser("review", parents=[common],
+                       help="record a human review: sets reviewed and reviewed_hash (run by the human)")
+    p.add_argument("note", help="note name or path")
+    p.set_defaults(func=cmd_review)
+
+    p = sub.add_parser("search", parents=[common], help="ranked, accent-insensitive note search")
+    p.add_argument("query")
+    p.add_argument("--limit", type=int, default=10)
+    p.add_argument("--folder-boost", action="append", default=[], metavar="FOLDER=WEIGHT",
+                   help="raise the score of notes under FOLDER by WEIGHT (repeatable)")
+    p.set_defaults(func=cmd_search)
+
+    p = sub.add_parser("tree", parents=[common], help="folders under wiki/ and what they are for")
+    p.add_argument("--compact", action="store_true", help="at most 2,000 characters")
+    p.set_defaults(func=cmd_tree)
+
+    p = sub.add_parser("doctor", parents=[common], help="check the vault setup and explain fixes")
+    p.set_defaults(func=cmd_doctor)
+
+    p = sub.add_parser("eval", parents=[common], help="Recall@k and MRR of sb search over qrels")
+    p.add_argument("--qrels", required=True, help="JSONL file of queries with graded answers")
+    p.set_defaults(func=cmd_eval)
 
     p = sub.add_parser("links", parents=[common], help="links and backlinks of a note")
     p.add_argument("note", help="note name or path")
@@ -197,19 +426,44 @@ def build_parser():
     p.add_argument("title")
     p.set_defaults(func=cmd_log)
 
+    p = sub.add_parser("source", help="provenance of a file or URL being ingested")
+    ssub = p.add_subparsers(dest="source_command", required=True)
+    q = ssub.add_parser("add", parents=[common], help="source id and notes already made from it")
+    q.add_argument("target", help="file path or URL")
+    q.set_defaults(func=cmd_source_add)
+    q = ssub.add_parser("save", parents=[common],
+                        help="sanitise Markdown from stdin into _raw/.converted/")
+    q.add_argument("source_id")
+    q.add_argument("--tool", required=True, help="extraction tool used (pandoc, pdftotext, ...)")
+    q.add_argument("--origin", required=True, help="original path or URL")
+    q.set_defaults(func=cmd_source_save)
+
+    p = sub.add_parser("inbox", help="inbox bookkeeping")
+    isub = p.add_subparsers(dest="inbox_command", required=True)
+    q = isub.add_parser("done", parents=[common], help="move an ingested item to _inbox/_done/")
+    q.add_argument("file")
+    q.add_argument("--title", required=True, help="title for the ingest log line")
+    q.set_defaults(func=cmd_inbox_done)
+
     p = sub.add_parser("init", parents=[common], help="create a vault in the target directory")
     p.add_argument("--language", default="en")
+    p.add_argument("--profile", choices=("personal", "work", "project", "squad"),
+                   help="folder set and sync mode (default: personal; with --upgrade, keep)")
+    p.add_argument("--upgrade", action="store_true", help="bring an existing vault to schema 2")
+    p.add_argument("--yes", action="store_true", help="with --upgrade: apply the plan")
+    p.add_argument("--remote", help="git remote URL to add as origin (needs --git)")
     p.add_argument("--areas", default="", help="comma-separated initial areas")
     p.add_argument("--git", action="store_true", help="run git init if there is no .git")
     p.set_defaults(func=cmd_init)
     return parser
 
 
-def main(argv=None, out=None, err=None):
+def main(argv=None, out=None, err=None, stdin=None):
     out = out or sys.stdout
     err = err or sys.stderr
     try:
         args = build_parser().parse_args(argv)
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else EXIT_USAGE
+    args.stdin = stdin
     return args.func(args, out, err)

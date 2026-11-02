@@ -17,6 +17,8 @@ allowed-tools: Read Edit Grep Glob Bash(sb *) Bash(rg *)
    - `SB101` broken link · `SB102` missing summary · `SB103` orphan · `SB104` duplicate name/title
    - `SB105` index out of sync · `SB106` agent note not reviewed · `SB107` old schema
    - `SB108` bad frontmatter · `SB109` source file missing
+   - `SB110` reviewed text changed since the review (fails lint) · `SB111` folder without
+     `_about.md` (info) · `SB112` reviewed note with agent blocks waiting for review (info)
 3. Propose a concrete fix per finding, smallest first. Examples: for `SB105` run
    `sb index --write`; for `SB102` draft a one-line summary from the note body; for `SB101` suggest
    the closest existing note name or removing the link.
@@ -25,5 +27,7 @@ allowed-tools: Read Edit Grep Glob Bash(sb *) Bash(rg *)
 5. Contradictions: after the deterministic pass, you may compare notes that share topics (use
    summaries from `_index.md`) and report conflicting claims. Label that section **suggestion, not
    verified** and quote both notes. Never edit notes to resolve a contradiction yourself.
-6. `SB106` is cleared only by the human adding `reviewed: <date>`; offer to do it when they confirm
-   they reviewed the note.
+6. `SB106` and `SB110` are cleared by the human re-reviewing the note: "Mark as reviewed" in the
+   Obsidian companion plugin, or `sb review <note>` in a terminal. Never write `reviewed` or
+   `reviewed_hash` yourself and never run `sb review` (the guard blocks both); tell the user which
+   notes need it. `SB112` is cleared by the human accepting or deleting the agent blocks.

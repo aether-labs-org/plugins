@@ -57,7 +57,7 @@ has "$root/plugins/keel-harness/contracts/plan.md" 'Status:' && has "$root/plugi
 has "$root/plugins/keel-harness/skills/build/SKILL.md" '/keel-harness:rules'; check "build SKILL.md offers /keel-harness:rules" $?
 has "$sk/SKILL.md" 'adr_dir:'; check "rules records adr_dir in state.yml (D45)" $?
 has "$sk/SKILL.md" 'docs/adr/'; check "rules defaults the ADR folder to docs/adr/" $?
-! grep -rq "docs/""rules" "$root/plugins" "$root/tests"; check "per-rule doc path is gone (D28)" $?
+! grep -rq --exclude-dir=node_modules "docs/""rules" "$root/plugins" "$root/tests"; check "per-rule doc path is gone (D28)" $?
 
 # --- Task 17: rules evals
 EV="$root/plugins/keel-harness/evals"
