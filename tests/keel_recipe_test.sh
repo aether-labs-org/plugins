@@ -41,6 +41,7 @@ section 'Profile L (experimental)' "$RM" | qgrep -E 'journey-catches-regression'
 section 'Profile L (experimental)' "$RM" | qgrep -iE 'diff.*(leaves|sent)|leave the machine'; check "plugin README says the reviewer sends the diff to the configured command" $?
 
 # ------------------------------------------------------------------ keel does not orchestrate
-! find "$KEEL/assets" "$KEEL/scripts" -type f | qgrep -iE 'orchestrat|planner|subagent|runner'; check "no asset or script is an orchestrator, planner or runner" $?
+# names relative to the plugin: the checkout's own path may say "runner" (GitHub Actions: /home/runner/work/...)
+! (cd "$KEEL" && find assets scripts -type f) | qgrep -iE 'orchestrat|planner|subagent|runner'; check "no asset or script is an orchestrator, planner or runner" $?
 ! grep -rniE 'executing-plans|subagent-driven-development' "$KEEL/assets" "$KEEL/scripts" --include='*.sh' | qgrep .; check "no installed script calls a runner" $?
 finish
