@@ -76,6 +76,27 @@ def source_id_for(root, target):
     return "sha256:" + _sha16(data), "file"
 
 
+def source_value(root, target):
+    """The exact value for a note's `source:` field: the URL when the target is one, or an inbox
+    clip carries one; else the item's final path (`_inbox/_done/<file>` for inbox items)."""
+    if _is_url(target):
+        return str(target).strip()
+    path = _resolve(root, target)
+    try:
+        rel = path.resolve().relative_to(Path(root).resolve())
+    except ValueError:
+        return str(path)
+    if rel.parts[:1] == ("_inbox",):
+        if path.suffix == ".md":
+            fields = parse(path.read_bytes().decode("utf-8", "replace")).data
+            for key in ("url", "source"):
+                value = norm(fields.get(key))
+                if _is_url(value):
+                    return value
+        return "_inbox/_done/" + path.name
+    return rel.as_posix()
+
+
 def notes_for(root, source_id):
     """Rels of notes whose frontmatter `source_id` matches or that hold an agent block citing it."""
     block = re.compile(r"^>[ \t]*\[!agent\][^\n]*·[ \t]*%s[ \t]*$" % re.escape(source_id),
