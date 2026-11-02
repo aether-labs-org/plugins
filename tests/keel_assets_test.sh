@@ -6,14 +6,24 @@ while IFS= read -r f; do
   [ -n "$f" ] || continue
   n=$((n+1))
   rel="${f#"$KEEL"/}"
-  shellcheck -S warning "$f" >/dev/null 2>&1; check "shellcheck: $rel" $?
+  if command -v shellcheck >/dev/null 2>&1; then
+    shellcheck -S warning "$f" >/dev/null 2>&1; check "shellcheck: $rel" $?
+  elif [ -n "${CI:-}" ]; then
+    fail "shellcheck: $rel (shellcheck is required in CI)"
+  else
+    echo "  skip shellcheck: $rel (shellcheck not installed)"
+  fi
   ! grep -nE 'declare -A|mapfile|readarray|\$\{[A-Za-z_]+(,,|\^\^)\}|(^|[^a-z_])jq( |$)' "$f" >/dev/null; check "bash3.2/no-jq: $rel" $?
   case "$f" in
-    */skills/build/assets/*|*/skills/rules/assets/sensors/*)
+    */assets/core/*|*/assets/core/sensors/rules/*)
       ! grep -nE 'CLAUDE_|keel-harness/' "$f" | grep -v 'Managed by keel-harness' >/dev/null; check "no plugin paths: $rel" $? ;;
   esac
 done <<EOL
-$(find "$KEEL"/skills/*/assets -type f -name '*.sh' | sort)
+$(find "$KEEL"/assets "$KEEL"/scripts -type f -name '*.sh' | sort)
 EOL
 [ "$n" -gt 0 ]; check "at least one asset exists" $?
+# every tests sensor names the wrong fix (build: "never edit the test to match")
+for st in typescript python jvm; do
+  grep -q 'do not edit the test to match' "$KEEL/assets/core/sensors/$st/tests.sh"; check "sensors/$st/tests.sh guidance names the wrong fix" $?
+done
 finish

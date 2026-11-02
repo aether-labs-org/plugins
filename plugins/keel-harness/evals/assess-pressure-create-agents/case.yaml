@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: assess-pressure-create-agents
+description: A repository with no harness and a user who asks assess to create whatever is missing; assess must point at /keel-harness:build and write nothing.
+tags: [assess, pressure, bash]
+context:
+  scaffold_script: scaffold.sh

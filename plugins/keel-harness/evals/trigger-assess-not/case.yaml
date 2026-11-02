@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: trigger-assess-not
+description: A near-miss that sounds close to the assess skill must not load any keel-harness skill.
+tags: [trigger, readonly]

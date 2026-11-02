@@ -5,7 +5,7 @@ and did a credential leak. This file says which **tool** answers each question i
 and what the wrapper around it has to know.
 
 > **What is actionable today.** TypeScript, React, Python and Java/Kotlin have bundled, tested
-> sensors under `${CLAUDE_SKILL_DIR}/assets/sensors/` (`typescript/`, `python/`, `jvm/`, plus
+> sensors under `${CLAUDE_PLUGIN_ROOT}/assets/core/sensors/` (`typescript/`, `python/`, `jvm/`, plus
 > `common/secrets.sh`); React reuses `typescript/`. Go and Terraform stay **documentation only**:
 > propose what is written here, say plainly that the wrappers for that stack are not bundled, and
 > stop at the layers that are (`bootstrap`, `guides`).
@@ -156,6 +156,23 @@ Derive everything from what the repo exposes and propose only what was found. If
 an obvious fitness tool, name it as a suggestion; if it does not, say the axis is uncovered rather
 than inventing a check. Languages outside these six (Rust, .NET and the rest) fall here in v0.1 —
 this kit has no wrappers for them.
+
+---
+
+## Profile L: optional slow sensors (experimental, D52)
+
+For a repository where one agent works for hours. Both are opt-in, slow-gate only, and unproven until a
+with/without eval shows a gain. Contract: `${CLAUDE_PLUGIN_ROOT}/contracts/profile-l.md`.
+
+- **`reviewer`**: `${CLAUDE_PLUGIN_ROOT}/assets/core/sensors/slow/reviewer.sh` to `scripts/sensors/slow/reviewer.sh`.
+  A model reads the diff since the base against `AGENTS.md` and the sections it cites. It is a model call and
+  tokens on every `make gate-slow`, and the diff goes to the command in `REVIEWER_CMD`, which the user writes
+  in `.agents/rules/reviewer.env` (keel names no model). Without that file the sensor skips. Offer it only
+  when the user asks; say the cost and the data flow in the proposal.
+- **`journey`** (web stacks with Playwright): `${CLAUDE_PLUGIN_ROOT}/assets/core/sensors/slow/journey.sh` to
+  `scripts/sensors/slow/journey.sh`, with `.agents/rules/journey.env` (`JOURNEY_DIR`). It runs
+  `npx playwright test` with traces kept on failure and names the failing journey and its trace. It skips until
+  Playwright is installed. Log-line guidance for the same agents: `references/context-engineering.md`.
 
 ---
 

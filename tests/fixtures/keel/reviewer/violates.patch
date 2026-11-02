@@ -1,0 +1,11 @@
+diff --git a/src/app.ts b/src/app.ts
+index 8221221..f292168 100644
+--- a/src/app.ts
++++ b/src/app.ts
+@@ -1,5 +1,6 @@
+ import { log } from "./log";
+ 
+ export function total(items: number[]): number {
++  console.log("total of", items);
+   return items.reduce((a, b) => a + b, 0);
+ }

@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: reviewer-catches-violation-with
+description: The same uncommitted change that breaks a documented rule, on the same repository and harness, graded by the installed slow gate. This arm installs the opt-in reviewer sensor (REVIEWER_CMD is a real model call). Run with --ablation none and compare the two scores by hand; experimental (D52).
+tags: [profile-l, effect]
+context:
+  scaffold_script: scaffold.sh
