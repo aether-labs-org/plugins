@@ -54,6 +54,35 @@ def evaluate(index, qrels, ks=(5, 10)):
                           "scores": negatives}}
 
 
+def recall_gate(root, qrels, index=None):
+    """What the recall hook would do for each qrels query (spec 4.3): a positive counts when its
+    query has enough terms and the hook injects any of its relevant notes; a negative is noisy
+    when the hook injects anything."""
+    from . import recall
+    from .search import SearchIndex, tokenize
+
+    index = index or SearchIndex(root)
+    pos = {"n": 0, "injected": 0, "missed": []}
+    neg = {"n": 0, "injected": 0, "noisy": []}
+    for row in qrels:
+        relevant = set(row["relevant"])
+        if relevant and len(tokenize(row["query"])) < recall.MIN_TOKENS:
+            continue                            # the hook never fires on such a prompt
+        names = {r["name"] for r in recall.select(root, row["query"], index)}
+        if relevant:
+            pos["n"] += 1
+            if names & relevant:
+                pos["injected"] += 1
+            else:
+                pos["missed"].append(row["id"])
+        else:
+            neg["n"] += 1
+            if names:
+                neg["injected"] += 1
+                neg["noisy"].append(row["id"])
+    return {"positives": pos, "negatives": neg}
+
+
 def render_table(result, ks=(5, 10)):
     cols = ["recall@%d" % k for k in ks] + ["mrr"]
     lines = ["%-10s %4s  %s" % ("type", "n", "  ".join("%9s" % c for c in cols))]
@@ -63,4 +92,10 @@ def render_table(result, ks=(5, 10)):
     neg = result["negatives"]
     if neg["n"]:
         lines.append("negatives  %4d  max top score %.4f" % (neg["n"], neg["max_top_score"]))
+    gate = result.get("recall_gate")
+    if gate:
+        lines.append("recall gate  positives injected %d/%d"
+                     % (gate["positives"]["injected"], gate["positives"]["n"]))
+        lines.append("recall gate  negatives with injection %d/%d"
+                     % (gate["negatives"]["injected"], gate["negatives"]["n"]))
     return "\n".join(lines)

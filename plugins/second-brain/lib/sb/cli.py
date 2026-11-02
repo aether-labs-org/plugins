@@ -173,7 +173,9 @@ def cmd_eval(args, out, err):
     except (OSError, ValueError) as exc:
         print("sb: %s" % exc, file=err)
         return EXIT_USAGE
-    result = evalrun.evaluate(SearchIndex(root), qrels)
+    index = SearchIndex(root)
+    result = evalrun.evaluate(index, qrels)
+    result["recall_gate"] = evalrun.recall_gate(root, qrels, index)
     _emit(args, out, result, evalrun.render_table(result))
     return EXIT_OK
 
@@ -266,13 +268,16 @@ def cmd_source_add(args, out, err):
         return EXIT_USAGE
     try:
         source_id, kind = source.source_id_for(root, args.target)
+        value = source.source_value(root, args.target)
     except (ValueError, OSError) as exc:
         print("sb: %s" % exc, file=err)
         return EXIT_USAGE
     notes = source.notes_for(root, source_id)
     status = "seen" if notes else "new"
-    _emit(args, out, {"source_id": source_id, "kind": kind, "status": status, "notes": notes},
-          "%s %s (%s)%s" % (status, source_id, kind, "".join("\n  " + n for n in notes)))
+    _emit(args, out, {"source_id": source_id, "source": value, "kind": kind, "status": status,
+                      "notes": notes},
+          "%s %s (%s)\nsource: %s%s" % (status, source_id, kind, value,
+                                       "".join("\n  " + n for n in notes)))
     return EXIT_OK
 
 

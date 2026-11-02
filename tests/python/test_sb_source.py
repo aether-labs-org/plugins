@@ -146,12 +146,44 @@ class SourceCliTests(unittest.TestCase):
         (self.root / "_inbox/c.md").write_text("---\nurl: https://x.org/a/\n---\nclip\n", encoding="utf-8")
         code, out, _ = self.run_cli("source", "add", "_inbox/c.md", "--json")
         self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out), {"source_id": "url:https://x.org/a", "kind": "inbox",
+        self.assertEqual(json.loads(out), {"source_id": "url:https://x.org/a",
+                                           "source": "https://x.org/a/", "kind": "inbox",
                                            "status": "new", "notes": []})
         (self.root / "wiki/Resources/N.md").write_text(
             note("N", body="> [!agent] 2026-11-02 · url:https://x.org/a\n> x"), encoding="utf-8")
         data = json.loads(self.run_cli("source", "add", "https://x.org/a?utm_source=z", "--json")[1])
         self.assertEqual((data["status"], data["notes"]), ("seen", ["wiki/Resources/N.md"]))
+
+    def source_of(self, target):
+        code, out, _ = self.run_cli("source", "add", target, "--json")
+        self.assertEqual(code, 0)
+        return json.loads(out)["source"]
+
+    def test_source_add_returns_url_for_inbox_clip(self):
+        (self.root / "_inbox/c.md").write_text(
+            "---\nurl: https://example.org/a\n---\nclip\n", encoding="utf-8")
+        self.assertEqual(self.source_of("_inbox/c.md"), "https://example.org/a")
+
+    def test_source_add_inbox_without_url_returns_done_path(self):
+        (self.root / "_inbox/2026-11-01-x.md").write_text("plain clip\n", encoding="utf-8")
+        self.assertEqual(self.source_of("_inbox/2026-11-01-x.md"), "_inbox/_done/2026-11-01-x.md")
+
+    def test_source_add_non_http_url_falls_back_to_path(self):
+        (self.root / "_inbox/o.md").write_text(
+            "---\nurl: obsidian://open?x\n---\nclip\n", encoding="utf-8")
+        self.assertEqual(self.source_of("_inbox/o.md"), "_inbox/_done/o.md")
+
+    def test_source_add_raw_file_returns_vault_path(self):
+        (self.root / "_raw/a.pdf").write_bytes(b"%PDF-1.4 x")
+        self.assertEqual(self.source_of("_raw/a.pdf"), "_raw/a.pdf")
+
+    def test_source_add_url_target_returns_url(self):
+        self.assertEqual(self.source_of(" https://X.org/a/?utm_x=1 "), "https://X.org/a/?utm_x=1")
+
+    def test_source_add_text_output_has_source_line(self):
+        (self.root / "_inbox/c.md").write_text("---\nurl: https://x.org/a\n---\nc\n", encoding="utf-8")
+        _, out, _ = self.run_cli("source", "add", "_inbox/c.md")
+        self.assertIn("\nsource: https://x.org/a", out)
 
     def test_source_add_missing_file_exits_2(self):
         code, _, err = self.run_cli("source", "add", "_raw/nope.pdf")

@@ -1,7 +1,9 @@
 import io
 import json
+import sqlite3
 import tempfile
 import unittest
+from unittest import mock
 
 from sb_helpers import make_vault, note
 from sb import cli
@@ -112,6 +114,49 @@ class SearchTests(unittest.TestCase):
         root = make_vault(self.tmp.name, {"Resources/A.md": note("A", body="repetitions everywhere")})
         self.assertEqual(len(SearchIndex(root).search("repetition")), 1)
         self.assertEqual(SearchIndex(root).search("rep"), [])
+
+    def test_result_has_hits_in_query_order(self):
+        root = make_vault(self.tmp.name, {
+            "Resources/Circuit Breaker.md": note("Circuit Breaker", body="open state"),
+            "Resources/Other.md": note("Other", body="nothing")})
+        r = SearchIndex(root).search("state circuit pizza", limit=1)[0]
+        self.assertEqual(r["hits"], ["state", "circuit"])
+        self.assertEqual(r["matched"], 2)
+
+    def _freq_vault(self):
+        return make_vault(self.tmp.name, {
+            "Resources/A.md": note("A", body="semana de plantao e fermentacao"),
+            "Resources/B.md": note("B", body="outra semana com fermentacoes"),
+            "Resources/C.md": note("C", body="semana qualquer"),
+            "Resources/D.md": note("D", body="nada")})
+
+    def test_doc_freq_counts_notes_and_total(self):
+        df, total = SearchIndex(self._freq_vault()).doc_freq(["semana", "plantao", "inexistente"])
+        self.assertEqual((df, total), ({"semana": 3, "plantao": 1, "inexistente": 0}, 4))
+
+    def test_doc_freq_counts_prefix_like_hits(self):
+        # same rule as hits: "fermentacao" does not prefix-match "fermentacoes"
+        df, _ = SearchIndex(self._freq_vault()).doc_freq(["fermentacao", "ferme"])
+        self.assertEqual(df, {"fermentacao": 1, "ferme": 2})
+
+    def test_doc_freq_fallback_matches_fts(self):
+        root = self._freq_vault()
+        tokens = ["semana", "plantao", "ferme"]
+        self.assertEqual(SearchIndex(root, use_fts=False).doc_freq(tokens),
+                         SearchIndex(root, use_fts=True).doc_freq(tokens))
+
+    def test_doc_freq_on_locked_db_uses_memory(self):
+        index = SearchIndex(self._freq_vault())
+        with mock.patch.object(index, "_db", side_effect=sqlite3.OperationalError("database is locked")):
+            df, total = index.doc_freq(["semana"])
+        self.assertEqual((df["semana"], total), (3, 4))
+
+    def test_doc_freq_after_search_does_not_rescan(self):
+        index = SearchIndex(self._freq_vault())
+        index.search("semana plantao", limit=5)
+        with mock.patch.object(index, "_scan", side_effect=AssertionError("rescanned")):
+            df, total = index.doc_freq(["semana"], refresh=False)
+        self.assertEqual((df["semana"], total), (3, 4))
 
     def test_cli_json_and_exit_codes(self):
         root = make_vault(self.tmp.name, {"Resources/A.md": note("A", summary="Sum.", body="alpha")})

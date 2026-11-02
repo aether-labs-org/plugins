@@ -23,7 +23,7 @@ Write and change notes only with Write/Edit/MultiEdit; never with shell redirect
 
 1. **Pick the item.** `$ARGUMENTS`, else list `_inbox/*.md` (not `_inbox/_done/`) and ask which.
    Nothing to do: say so and stop.
-2. **Provenance.** `sb source add "<item>" --json` gives `source_id`, `kind` and `status`.
+2. **Provenance.** `sb source add "<item>" --json` gives `source_id`, `source`, `kind` and `status`.
    - `seen`: the source was already ingested into the listed `notes`. Say so and offer to update
      them (see `update`); create nothing. Stop unless the user wants an update.
    - `new`: go on. Keep the `source_id`.
@@ -53,11 +53,12 @@ Write and change notes only with Write/Edit/MultiEdit; never with shell redirect
    Show the user the plan as a short table (idea, decision, target) before writing.
 6. **Write.**
    - *New note* at `wiki/<Projects|Areas|Resources>/<Name>.md` (never `Archive`); `Name` is
-     unique, atomic, one idea. Frontmatter: `title`, one-line `summary` (vault language), `type`,
-     `status: seed`, `origin: agent`, `created: <today>`, `source: <url, or the item path>`,
-     `source_id: <source_id>`. For an inbox item without a URL the path is the final one,
-     `_inbox/_done/<file>` (a transient `SB109` about it is expected until step 8). Never write
-     `reviewed`, `reviewed_hash` or `protected`. The body is the idea in the author's terms.
+     unique, atomic, one idea; `title` is exactly `Name`, same case and accents. Frontmatter:
+     `title`, one-line `summary` (vault language), `type`, `status: seed`, `origin: agent`,
+     `created: <today>`, `source: <source>` (the value from step 2, verbatim),
+     `source_id: <source_id>`. A transient `SB109` is expected until step 8 when `source` is
+     under `_inbox/_done/`. Never write `reviewed`, `reviewed_hash` or `protected`. The body is
+     the idea in the author's terms.
    - *Agent block* on an existing note: append at the very end of the file, after a blank line,
      with this exact header and every line prefixed `> `:
 

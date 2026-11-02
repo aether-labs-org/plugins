@@ -6,7 +6,7 @@ import unittest
 
 from sb_helpers import ROOT, make_vault, note
 from sb import cli
-from sb.evalrun import evaluate, load_qrels
+from sb.evalrun import evaluate, load_qrels, recall_gate
 from sb.search import SearchIndex
 
 FIXTURE = ROOT / "tests" / "fixtures" / "sb-eval"
@@ -71,7 +71,7 @@ class FixtureTests(unittest.TestCase):
         counts = {}
         for row in qrels:
             counts[row["type"]] = counts.get(row["type"], 0) + 1
-        self.assertEqual(counts, {"lexical": 12, "accent": 8, "alias": 8, "implicit": 6, "negative": 6})
+        self.assertEqual(counts, {"lexical": 12, "accent": 8, "alias": 8, "implicit": 6, "negative": 31})
         names = {p.stem for p in (FIXTURE / "vault" / "wiki").rglob("*.md")}
         for row in qrels:
             self.assertLessEqual(set(row["relevant"]), names, row["id"])
@@ -80,6 +80,23 @@ class FixtureTests(unittest.TestCase):
         result = evaluate(SearchIndex(self.root), load_qrels(FIXTURE / "qrels.jsonl"))
         self.assertGreaterEqual(result["overall"]["recall@10"], 0.85)
         self.assertGreaterEqual(result["overall"]["mrr"], 0.6)
+
+    def test_fixture_recall_gate(self):
+        gate = recall_gate(self.root, load_qrels(FIXTURE / "qrels.jsonl"))
+        self.assertEqual(gate["positives"]["injected"], gate["positives"]["n"])   # 21/21
+        self.assertEqual(gate["positives"]["n"], 21)
+        self.assertLessEqual(gate["negatives"]["injected"], 2)                     # of 31
+        self.assertEqual(gate["negatives"]["n"], 31)
+
+    def test_cli_prints_recall_gate(self):
+        out = io.StringIO()
+        cli.main(["eval", "--qrels", str(FIXTURE / "qrels.jsonl"), "--vault", self.root],
+                 out, io.StringIO())
+        self.assertIn("recall gate  positives injected 21/21", out.getvalue())
+        out = io.StringIO()
+        cli.main(["eval", "--qrels", str(FIXTURE / "qrels.jsonl"), "--vault", self.root, "--json"],
+                 out, io.StringIO())
+        self.assertIn("recall_gate", json.loads(out.getvalue()))
 
     def test_cli_prints_a_table_and_json(self):
         out, err = io.StringIO(), io.StringIO()

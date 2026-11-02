@@ -87,6 +87,23 @@ class InitTests(unittest.TestCase):
         init.run(self.root)
         self.assertLess(len((self.root / "CLAUDE.md").read_text(encoding="utf-8").splitlines()), 200)
 
+    def test_init_writes_gitkeep_in_done_and_raw(self):
+        result = init.run(self.root)
+        for rel in ("_inbox/_done/.gitkeep", "_raw/.gitkeep"):
+            self.assertTrue((self.root / rel).is_file(), rel)
+            self.assertEqual((self.root / rel).read_text(encoding="utf-8"), "")
+            self.assertIn(rel, result["created"])
+
+    def test_gitkeep_is_not_an_inbox_item(self):
+        from sb import session
+        init.run(self.root)
+        self.assertEqual(session._inbox_count(self.root), 0)
+
+    def test_claude_md_rule_5_marks_general_knowledge(self):
+        init.run(self.root)
+        text = (self.root / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertIn('marked "(conhecimento geral)"', " ".join(text.split()))
+
     def test_is_idempotent_and_never_touches_an_existing_marker_vault(self):
         init.run(self.root, language="en")
         (self.root / "CLAUDE.md").write_text("mine", encoding="utf-8")
@@ -427,6 +444,16 @@ class UpgradeTests(unittest.TestCase):
         init.upgrade(self.root, yes=True)
         again = init.upgrade(self.root, yes=True)
         self.assertEqual(again["actions"], [])
+
+    def test_upgrade_adds_missing_gitkeep(self):
+        plan = init.upgrade(self.root)
+        self.assertIn("add _inbox/_done/.gitkeep", plan["actions"])
+        self.assertIn("add _raw/.gitkeep", plan["actions"])
+        self.assertFalse((self.root / "_inbox/_done/.gitkeep").exists())
+        init.upgrade(self.root, yes=True)
+        self.assertTrue((self.root / "_inbox/_done/.gitkeep").is_file())
+        self.assertTrue((self.root / "_raw/.gitkeep").is_file())
+        self.assertEqual(init.upgrade(self.root, yes=True)["actions"], [])
 
     def test_upgrade_installs_a_missing_companion_only_with_yes(self):
         plan = init.upgrade(self.root)

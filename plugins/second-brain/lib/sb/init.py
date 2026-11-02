@@ -17,6 +17,7 @@ BUNDLE = PLUGIN_ROOT / "obsidian" / "dist"
 COMPANION = ".obsidian/plugins/second-brain-companion"
 PROFILES = ("personal", "work", "project", "squad")
 BASE_DIRS = ("_inbox/_done", "_raw", "_meta", "_views", ".claude")
+KEEP_DIRS = ("_inbox/_done", "_raw")      # empty at first: a .gitkeep lets a clone have them
 GITIGNORE_LINES = (".sb/", ".obsidian/workspace*", ".smart-env/")
 SQUAD_GITIGNORE_LINES = ("_index.md", "_log.md")
 # (path in the vault, template file) written when absent
@@ -146,6 +147,8 @@ def run(root, language="en", profile="personal", remote=None, git=False, areas=(
 
     template = (TEMPLATES / "CLAUDE.md").read_text(encoding="utf-8")
     _write_new(root, "CLAUDE.md", template.replace("{{language}}", language), created, kept)
+    for rel in KEEP_DIRS:
+        _write_new(root, rel + "/.gitkeep", "", created, kept)
     for rel, source in EXTRA_FILES:
         _write_new(root, rel, (TEMPLATES / source).read_text(encoding="utf-8"), created, kept)
     _append_gitignore(root, gitignore_lines(spec["sync"]), created, kept)
@@ -292,6 +295,13 @@ def upgrade(root, profile=None, yes=False):
         else:
             actions.append("add %s" % rel)
             writes.append((root / rel, (TEMPLATES / source).read_text(encoding="utf-8")))
+    for rel in KEEP_DIRS:
+        keep = rel + "/.gitkeep"
+        if (root / keep).exists():
+            kept.append(keep)
+        else:
+            actions.append("add %s" % keep)
+            writes.append((root / keep, ""))
     if (root / "CLAUDE.md").exists():
         kept.append("CLAUDE.md")
 

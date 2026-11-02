@@ -38,3 +38,28 @@
 {"id": "neg-04", "type": "negative", "query": "resultado do jogo de ontem do campeonato brasileiro", "relevant": {}}
 {"id": "neg-05", "type": "negative", "query": "configure webpack code splitting for react", "relevant": {}}
 {"id": "neg-06", "type": "negative", "query": "quantas calorias tem um pão francês", "relevant": {}}
+{"id": "neg-07", "type": "negative", "query": "Qual a melhor receita de pão de fermentação natural para o fim de semana?", "relevant": {}}
+{"id": "neg-08", "type": "negative", "query": "Me ajuda a escrever um email para o time sobre a reunião de amanhã de manhã", "relevant": {}}
+{"id": "neg-09", "type": "negative", "query": "Corrija esse erro: TypeError undefined is not a function no meu componente React", "relevant": {}}
+{"id": "neg-10", "type": "negative", "query": "Qual a capital da Austrália e quantos habitantes ela tem hoje?", "relevant": {}}
+{"id": "neg-11", "type": "negative", "query": "Traduza para o inglês: obrigado pela ajuda com o relatório da semana passada", "relevant": {}}
+{"id": "neg-12", "type": "negative", "query": "Quais filmes de ficção científica bons estrearam este ano no cinema?", "relevant": {}}
+{"id": "neg-13", "type": "negative", "query": "Como faço para trocar o pneu do carro sozinho na estrada?", "relevant": {}}
+{"id": "neg-14", "type": "negative", "query": "Escreva um poema curto sobre o outono e as folhas caindo", "relevant": {}}
+{"id": "neg-15", "type": "negative", "query": "Me explica a diferença entre let e const em JavaScript moderno", "relevant": {}}
+{"id": "neg-16", "type": "negative", "query": "Quanto custa uma passagem de avião de São Paulo para Recife em dezembro?", "relevant": {}}
+{"id": "neg-17", "type": "negative", "query": "Qual o melhor horário para correr no verão sem passar calor?", "relevant": {}}
+{"id": "neg-18", "type": "negative", "query": "Resuma o jogo de futebol de ontem entre Flamengo e Palmeiras", "relevant": {}}
+{"id": "neg-19", "type": "negative", "query": "Como configurar o fuso horário no Ubuntu pelo terminal?", "relevant": {}}
+{"id": "neg-20", "type": "negative", "query": "Gere uma lista de compras para um churrasco com dez pessoas no sábado", "relevant": {}}
+{"id": "neg-21", "type": "negative", "query": "Preciso de ideias de presente de aniversário para minha mãe", "relevant": {}}
+{"id": "neg-22", "type": "negative", "query": "What is the weather going to be like in London next week?", "relevant": {}}
+{"id": "neg-23", "type": "negative", "query": "Write a haiku about coffee and rainy mornings", "relevant": {}}
+{"id": "neg-24", "type": "negative", "query": "How do I center a div with flexbox in CSS?", "relevant": {}}
+{"id": "neg-25", "type": "negative", "query": "Can you help me plan a two week vacation in Japan?", "relevant": {}}
+{"id": "neg-26", "type": "negative", "query": "Explain how photosynthesis works to a ten year old", "relevant": {}}
+{"id": "neg-27", "type": "negative", "query": "Qual a diferença entre juros simples e compostos numa aplicação?", "relevant": {}}
+{"id": "neg-28", "type": "negative", "query": "Faça um resumo do livro Dom Casmurro em cinco linhas", "relevant": {}}
+{"id": "neg-29", "type": "negative", "query": "Como limpar o cache do npm quando a instalação trava?", "relevant": {}}
+{"id": "neg-30", "type": "negative", "query": "Monte um treino de academia de três dias por semana para iniciantes", "relevant": {}}
+{"id": "neg-31", "type": "negative", "query": "Revise a gramática deste parágrafo: a gente vamos no mercado amanhã cedo", "relevant": {}}
