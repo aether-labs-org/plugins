@@ -2,6 +2,7 @@
 
 Advisory only: `build` returns None whenever there is nothing worth saying.
 """
+from pathlib import Path
 from typing import Optional
 
 from .sanitize import clean_inline, escape_tags
@@ -71,6 +72,7 @@ def render(results):
 
 def select(root, prompt, index: Optional[SearchIndex] = None):
     """The search results that pass the recall gate for this prompt (empty when none do)."""
+    root = Path(root)
     tokens = tokenize(prompt[:PROMPT_CHARS], cap=64)
     if len(tokens) < MIN_TOKENS:
         return []

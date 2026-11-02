@@ -173,7 +173,9 @@ def cmd_eval(args, out, err):
     except (OSError, ValueError) as exc:
         print("sb: %s" % exc, file=err)
         return EXIT_USAGE
-    result = evalrun.evaluate(SearchIndex(root), qrels)
+    index = SearchIndex(root)
+    result = evalrun.evaluate(index, qrels)
+    result["recall_gate"] = evalrun.recall_gate(root, qrels, index)
     _emit(args, out, result, evalrun.render_table(result))
     return EXIT_OK
 
