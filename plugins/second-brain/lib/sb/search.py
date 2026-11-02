@@ -116,11 +116,12 @@ def _word_matches(token, words):
     return False
 
 
-def _count_matched(tokens, text):
+def _matched_tokens(tokens, text):
+    """The query tokens that match the note (exact word, or word prefix for long tokens)."""
     words = set()
     for field in FIELDS:
         words.update(WORD_RE.findall(text[field]))
-    return sum(1 for token in tokens if _word_matches(token, words))
+    return [token for token in tokens if _word_matches(token, words)]
 
 
 def _boost_factor(folder_boost, directory):
@@ -304,12 +305,43 @@ class SearchIndex:
         results = []
         for score, entry in rows:
             score *= _boost_factor(folder_boost, entry["dir"])
+            hits = _matched_tokens(tokens, entry["text"])
             results.append({
                 "rel": entry["rel"], "name": entry["name"], "title": entry["title"],
                 "folder": entry["folder"], "summary": entry["summary"], "score": score,
-                "matched": _count_matched(tokens, entry["text"]), "trust": entry["trust"]})
+                "hits": hits, "matched": len(hits), "trust": entry["trust"]})
         results.sort(key=lambda r: (-r["score"], r["name"]))
         return results[:limit]
+
+    def doc_freq(self, tokens):
+        """({token: number of notes matching it}, total notes indexed). A token matches a note
+        the same way it does in `search` (exact word, or word prefix for long tokens)."""
+        self.refresh()
+        if self.use_fts:
+            try:
+                return self._db(lambda conn: self._doc_freq_fts(conn, tokens))
+            except sqlite3.Error:
+                self.use_fts = False
+        return self._doc_freq_mem(tokens)
+
+    def _doc_freq_fts(self, conn, tokens):
+        total = conn.execute("SELECT count(*) FROM files").fetchone()[0]
+        df = {token: conn.execute("SELECT count(*) FROM notes WHERE notes MATCH ?",
+                                  (self._expression([token]),)).fetchone()[0]
+              for token in tokens}
+        return df, total
+
+    def _doc_freq_mem(self, tokens):
+        df = {token: 0 for token in tokens}
+        for item in self._mem.values():
+            text = item["entry"]["text"]
+            words = set()
+            for field in FIELDS:
+                words.update(WORD_RE.findall(text[field]))
+            for token in tokens:
+                if _word_matches(token, words):
+                    df[token] += 1
+        return df, len(self._mem)
 
     @staticmethod
     def _expression(tokens):
