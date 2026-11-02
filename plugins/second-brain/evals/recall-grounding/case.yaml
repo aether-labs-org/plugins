@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: recall-grounding
+description: An answer built on a recalled note keeps what the note says apart from general knowledge and marks the latter.
+tags: [find, recall]
+context:
+  scaffold_script: scaffold.sh

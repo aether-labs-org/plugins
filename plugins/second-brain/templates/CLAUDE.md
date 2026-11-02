@@ -37,8 +37,9 @@ Everything outside `wiki/` is system. The `_` prefix marks paths the agent opera
    `origin: agent`. Additions to human or reviewed notes go in blocks at the end of the note:
    `> [!agent] <YYYY-MM-DD> · <source_id>`, every line prefixed `> `.
 5. Search before answering from memory: `sb search "<terms>"`. A `<second-brain-recall>` block
-   lists candidate notes; open them before answering. Mark unreviewed notes in answers. Open
-   `_raw/` only to verify a source.
+   lists candidate notes; open them before answering. Answer from the notes first; anything you
+   add that they do not say goes after it, marked "(conhecimento geral)". Mark unreviewed notes
+   in answers. Open `_raw/` only to verify a source.
 6. Link only to notes that exist. Note names are unique, so `[[Name]]` survives folder moves.
 7. `CLAUDE.md`, `.claude/` and `.second-brain.json` are edited by the human, not the agent.
 

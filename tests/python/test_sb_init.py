@@ -87,6 +87,11 @@ class InitTests(unittest.TestCase):
         init.run(self.root)
         self.assertLess(len((self.root / "CLAUDE.md").read_text(encoding="utf-8").splitlines()), 200)
 
+    def test_claude_md_rule_5_marks_general_knowledge(self):
+        init.run(self.root)
+        text = (self.root / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertIn('marked "(conhecimento geral)"', " ".join(text.split()))
+
     def test_is_idempotent_and_never_touches_an_existing_marker_vault(self):
         init.run(self.root, language="en")
         (self.root / "CLAUDE.md").write_text("mine", encoding="utf-8")
