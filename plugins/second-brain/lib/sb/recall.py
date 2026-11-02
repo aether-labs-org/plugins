@@ -82,7 +82,7 @@ def select(root, prompt, index: Optional[SearchIndex] = None):
     if not results:
         return []
     terms = sorted({t for r in results for t in r["hits"]})
-    df, total = index.doc_freq(terms)
+    df, total = index.doc_freq(terms, refresh=False)     # search() just refreshed it
     limit = max(DISTINCT_MIN_DF, DISTINCT_RATIO * total)
     kept = []
     for result in results:

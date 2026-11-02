@@ -313,10 +313,12 @@ class SearchIndex:
         results.sort(key=lambda r: (-r["score"], r["name"]))
         return results[:limit]
 
-    def doc_freq(self, tokens):
+    def doc_freq(self, tokens, refresh=True):
         """({token: number of notes matching it}, total notes indexed). A token matches a note
-        the same way it does in `search` (exact word, or word prefix for long tokens)."""
-        self.refresh()
+        the same way it does in `search` (exact word, or word prefix for long tokens). Pass
+        refresh=False right after `search`, which has just refreshed the index."""
+        if refresh:
+            self.refresh()
         if self.use_fts:
             try:
                 return self._db(lambda conn: self._doc_freq_fts(conn, tokens))

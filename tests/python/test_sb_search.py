@@ -151,6 +151,13 @@ class SearchTests(unittest.TestCase):
             df, total = index.doc_freq(["semana"])
         self.assertEqual((df["semana"], total), (3, 4))
 
+    def test_doc_freq_after_search_does_not_rescan(self):
+        index = SearchIndex(self._freq_vault())
+        index.search("semana plantao", limit=5)
+        with mock.patch.object(index, "_scan", side_effect=AssertionError("rescanned")):
+            df, total = index.doc_freq(["semana"], refresh=False)
+        self.assertEqual((df["semana"], total), (3, 4))
+
     def test_cli_json_and_exit_codes(self):
         root = make_vault(self.tmp.name, {"Resources/A.md": note("A", summary="Sum.", body="alpha")})
         out, err = io.StringIO(), io.StringIO()
