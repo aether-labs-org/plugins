@@ -85,7 +85,7 @@ Inputs the spec implies but the happy-path tests would not exercise. Each has a 
 **Interfaces:**
 - Produces: `sb_helpers.PLUGIN` (Path to the plugin), `sb_helpers.ROOT`, `sb_helpers.note(title, summary="A summary.", body="", origin="human", status="draft", type="nota", created="2026-09-30", source="", reviewed=None) -> str` (pass `summary=None` / `created=None` to omit the key), `sb_helpers.make_vault(tmp, notes=None, config=None, index=True) -> Path` (`notes` maps a path under `wiki/` to file text). Importing `sb_helpers` puts `plugins/second-brain/lib` on `sys.path`.
 
-- [ ] **Step 1: Create the manifest**
+- [x] **Step 1: Create the manifest**
 
 `plugins/second-brain/.claude-plugin/plugin.json`:
 
@@ -111,7 +111,7 @@ Inputs the spec implies but the happy-path tests would not exercise. Each has a 
 }
 ```
 
-- [ ] **Step 2: Create the package marker and the shared test helpers**
+- [x] **Step 2: Create the package marker and the shared test helpers**
 
 `plugins/second-brain/lib/sb/__init__.py`:
 
@@ -171,7 +171,7 @@ def make_vault(tmp, notes=None, config=None, index=True):
     return root
 ```
 
-- [ ] **Step 3: Create the two repo-style test entry points**
+- [x] **Step 3: Create the two repo-style test entry points**
 
 `tests/sb_cli_test.sh`:
 
@@ -218,12 +218,12 @@ exit $fail
 
 Make both executable: `chmod +x tests/sb_cli_test.sh tests/sb_structure_test.sh`.
 
-- [ ] **Step 4: Run the structure test and confirm it fails**
+- [x] **Step 4: Run the structure test and confirm it fails**
 
 Run: `bash tests/sb_structure_test.sh`
 Expected: FAIL on "marketplace lists second-brain" (and on `validate`, which cannot pass yet because the manifest is not registered or complete), exit 1.
 
-- [ ] **Step 5: Register the plugin**
+- [x] **Step 5: Register the plugin**
 
 In `.claude-plugin/marketplace.json`, append this object to the `plugins` array (after `solutions-architect`; keep valid JSON):
 
@@ -249,17 +249,17 @@ In `Makefile`, add to the `validate` recipe:
 	claude plugin validate ./plugins/second-brain --strict
 ```
 
-- [ ] **Step 6: Run the structure test again**
+- [x] **Step 6: Run the structure test again**
 
 Run: `bash tests/sb_structure_test.sh && python3 -c "import json;json.load(open('.claude-plugin/marketplace.json'))"`
 Expected: all `ok` (the plugin has no skills/hooks yet; `claude plugin validate` passes on a manifest-only plugin). If `validate` reports warnings that `--strict` turns into failures, read the message and fix the manifest, not the test.
 
-- [ ] **Step 7: Run the whole existing suite to make sure nothing regressed**
+- [x] **Step 7: Run the whole existing suite to make sure nothing regressed**
 
 Run: `bash tests/run.sh`
 Expected: every pre-existing script still passes (the new `sb_cli_test.sh` reports "Ran 0 tests" success).
 
-- [ ] **Step 8: Checkpoint** — show `git status`, ask the user whether to commit. Suggested message: `feat(second-brain): scaffold plugin, marketplace entry and test harness`.
+- [x] **Step 8: Checkpoint** — show `git status`, ask the user whether to commit. Suggested message: `feat(second-brain): scaffold plugin, marketplace entry and test harness`.
 
 ---
 
@@ -273,7 +273,7 @@ Expected: every pre-existing script still passes (the new `sb_cli_test.sh` repor
 **Interfaces:**
 - Produces: `frontmatter.parse(text) -> Parsed(data: dict, body: str, errors: list[(line, message)], body_line: int)`; `links.WIKILINK` (compiled regex), `links.prose_lines(body, first_line=1) -> iterator[(line_number, text_without_inline_code)]`, `links.extract(body, first_line=1) -> list[(line_number, target_name)]`, `links.target_name(raw) -> str`.
 
-- [ ] **Step 1: Write the failing frontmatter tests**
+- [x] **Step 1: Write the failing frontmatter tests**
 
 `tests/python/test_sb_frontmatter.py`:
 
@@ -363,12 +363,12 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `python3 -m unittest discover -s tests/python -p 'test_sb_f*.py' -q; python3 -m unittest discover -s tests/python -p 'test_sb_l*.py' -q`
 Expected: `ModuleNotFoundError: No module named 'sb.frontmatter'` / `'sb.links'`.
 
-- [ ] **Step 3: Implement the parser**
+- [x] **Step 3: Implement the parser**
 
 `plugins/second-brain/lib/sb/frontmatter.py`:
 
@@ -443,7 +443,7 @@ def _value(value, number, errors):
     return value
 ```
 
-- [ ] **Step 4: Implement link extraction**
+- [x] **Step 4: Implement link extraction**
 
 `plugins/second-brain/lib/sb/links.py`:
 
@@ -485,12 +485,12 @@ def extract(body, first_line=1):
     return found
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: PASS (`ok second-brain unit tests`).
 
-- [ ] **Step 6: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): frontmatter subset parser and wikilink extraction`.
+- [x] **Step 6: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): frontmatter subset parser and wikilink extraction`.
 
 ---
 
@@ -508,7 +508,7 @@ Expected: PASS (`ok second-brain unit tests`).
   - `index.build(notes) -> str`, `index.drift(root, notes) -> str` (unified diff, `""` when in sync), `index.summary_of(note) -> str`, `index.HEADER`.
   - `logfile.EVENTS`, `logfile.append(root, event, title, today=None)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/python/test_sb_vault.py`:
 
@@ -641,12 +641,12 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: FAIL — `ModuleNotFoundError: No module named 'sb.vault'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `plugins/second-brain/lib/sb/fsutil.py`:
 
@@ -798,12 +798,12 @@ def append(root, event, title, today=None):
     write_atomic(path, existing + line)
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: PASS.
 
-- [ ] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): vault model, deterministic index and append-only log`.
+- [x] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): vault model, deterministic index and append-only log`.
 
 ---
 
@@ -817,7 +817,7 @@ Expected: PASS.
 - Consumes: `vault.load_notes`, `vault.SCHEMA_VERSION`, `links.extract`, `links.target_name`, `index.drift`.
 - Produces: `lint.Finding(code, path, line, message)` (frozen dataclass; `.as_dict()`, `str()` → `path:line: CODE message`), `lint.check_note(note) -> list[Finding]` (SB108 + SB102 only; used by `validate` and the PostToolUse hook), `lint.lint(root, config) -> list[Finding]` sorted by `(path, line, code)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/python/test_sb_lint.py`:
 
@@ -950,12 +950,12 @@ if __name__ == "__main__":
 
 Notes on expectations: `note()` puts the body at line 10 of the file, so `x\n[[Missing]]…` puts the link on line 11. `test_sb105…` builds a second vault under `self.tmp.name + "/ok"` (create the parent: `make_vault` calls `mkdir(parents=True)` for subfolders; add `os.makedirs` inside the test if the directory does not exist — see Step 3 note). In `test_accented…` the lowercase link `[[café noir]]` is deliberately broken: resolution is case-sensitive (spec §4.3).
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: FAIL — `ModuleNotFoundError: No module named 'sb.lint'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 If `test_sb105…` fails with `FileNotFoundError` for `self.tmp.name + "/ok"`, add `import os` and `os.makedirs(self.tmp.name + "/ok")` before that `make_vault` call (the helper only creates the vault subfolders, not the root).
 
@@ -1092,12 +1092,12 @@ def lint(root, config):
     return sorted(findings, key=lambda f: (f.path, f.line, f.code))
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: PASS. If a test fails because of the line-number arithmetic in `test_sb101…`, recount the fixture: `note()` emits 9 header lines (`---`, title, summary, type, status, origin, created, source, `---`), so the first body line is 10.
 
-- [ ] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): lint rules SB101-SB109`.
+- [x] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): lint rules SB101-SB109`.
 
 ---
 
@@ -1111,7 +1111,7 @@ Expected: PASS. If a test fails because of the line-number arithmetic in `test_s
 - Consumes: everything from Tasks 2–4; `init.run` from Task 6 is imported lazily inside `cmd_init` so this task does not depend on it.
 - Produces: `cli.main(argv=None, out=None, err=None) -> int`; subcommands `index --write|--check`, `lint`, `links NOTE [--suggest]`, `validate FILE...`, `log EVENT TITLE`, `init [--language L] [--areas a,b] [--git]`; common options `--vault PATH`, `--json`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/python/test_sb_cli.py`:
 
@@ -1238,12 +1238,12 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: FAIL — `ModuleNotFoundError: No module named 'sb.cli'`.
 
-- [ ] **Step 3: Implement the CLI**
+- [x] **Step 3: Implement the CLI**
 
 `plugins/second-brain/lib/sb/cli.py`:
 
@@ -1495,12 +1495,12 @@ if __name__ == "__main__":
 
 Run `chmod +x plugins/second-brain/bin/sb`.
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: PASS. (`cmd_init` is not exercised until Task 6.)
 
-- [ ] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): sb CLI (index, lint, links, validate, log)`.
+- [x] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): sb CLI (index, lint, links, validate, log)`.
 
 ---
 
@@ -1514,7 +1514,7 @@ Expected: PASS. (`cmd_init` is not exercised until Task 6.)
 - Consumes: `fsutil.write_atomic`, `index.build`, `logfile.append`, `vault.MARKER`, `vault.SCHEMA_VERSION`.
 - Produces: `init.run(root, language="en", areas=(), git=False) -> {"status": "created"|"exists", "root": str, "created": [str], "kept": [str], "warnings": [str]}`. Writes the marker **last** (spec §7).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/python/test_sb_init.py`:
 
@@ -1607,12 +1607,12 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: FAIL — `ImportError: cannot import name 'init' from 'sb'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `plugins/second-brain/lib/sb/init.py`:
 
@@ -1778,12 +1778,12 @@ Changes are committed locally by the plugin when this directory has a `.git` (se
 `auto_commit`). Review with `git diff`; revert with `git`.
 ````
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: PASS. The `_append_gitignore` created/kept bookkeeping line is the only intricate one: if `test_creates_layout…` expects `.gitignore` among created files and the assertion on `result` fails, simplify to `created.append(".gitignore")` when the file did not exist before and `kept.append(".gitignore")` otherwise — compute `existed = path.exists()` once at the top of the function.
 
-- [ ] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): sb init and vault CLAUDE.md template`.
+- [x] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): sb init and vault CLAUDE.md template`.
 
 ---
 
@@ -1797,7 +1797,7 @@ Expected: PASS. The `_append_gitignore` created/kept bookkeeping line is the onl
 - Consumes: `vault.find_vault`.
 - Produces: `guard.decide(event: dict, cwd: str) -> dict|None` returning a `hookSpecificOutput` object with `permissionDecision` `"deny"` or `"ask"`, or `None` (allow); `hooks/guard.py` script printing that JSON and always exiting `0`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/python/test_sb_guard.py`:
 
@@ -1913,12 +1913,12 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: FAIL — `ModuleNotFoundError: No module named 'sb.guard'`.
 
-- [ ] **Step 3: Implement the decision logic**
+- [x] **Step 3: Implement the decision logic**
 
 `plugins/second-brain/lib/sb/guard.py`:
 
@@ -2077,12 +2077,12 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: PASS. If a Bash case disagrees, fix the matching code, not the expectation, unless the expectation contradicts spec §6.
 
-- [ ] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): PreToolUse guard for protected vault paths`.
+- [x] **Step 5: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): PreToolUse guard for protected vault paths`.
 
 ---
 
@@ -2097,7 +2097,7 @@ Expected: PASS. If a Bash case disagrees, fix the matching code, not the expecta
 - Consumes: `vault.find_vault`, `vault.load_note`, `lint.check_note`.
 - Produces: `postcheck.check(event, cwd) -> dict|None` (`hookSpecificOutput.additionalContext`), `autocommit.run(cwd, env=None, today=None) -> str` (a status line starting `committed:` or `skipped:`), `autocommit.enabled(env) -> bool`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/python/test_sb_hooks.py`:
 
@@ -2255,12 +2255,12 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `bash tests/sb_cli_test.sh`
 Expected: FAIL — `ImportError: cannot import name 'autocommit' from 'sb'`.
 
-- [ ] **Step 3: Implement the library modules**
+- [x] **Step 3: Implement the library modules**
 
 `plugins/second-brain/lib/sb/postcheck.py`:
 
@@ -2357,7 +2357,7 @@ def run(cwd, env=None, today=None):
         return "skipped: %s" % exc
 ```
 
-- [ ] **Step 4: Implement the hook scripts and `hooks.json`**
+- [x] **Step 4: Implement the hook scripts and `hooks.json`**
 
 `plugins/second-brain/hooks/validate_note.py`:
 
@@ -2464,12 +2464,12 @@ if __name__ == "__main__":
 
 The shell-form commands read `CLAUDE_PLUGIN_OPTION_AUTO_COMMIT` from the environment (documented: exported to hook processes for every `userConfig` option), so no `${user_config.*}` reference is used.
 
-- [ ] **Step 5: Run to verify pass, then validate the plugin**
+- [x] **Step 5: Run to verify pass, then validate the plugin**
 
 Run: `bash tests/sb_cli_test.sh && bash tests/sb_structure_test.sh`
 Expected: PASS, and `claude plugin validate … --strict` still `ok`. If validate warns about the `${CLAUDE_PLUGIN_ROOT}` quoting, mirror `solutions-architect/hooks/hooks.json` exactly (it uses the same shape).
 
-- [ ] **Step 6: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): PostToolUse frontmatter check, local auto-commit hook and hooks.json`.
+- [x] **Step 6: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): PostToolUse frontmatter check, local auto-commit hook and hooks.json`.
 
 ---
 
@@ -2483,7 +2483,7 @@ Expected: PASS, and `claude plugin validate … --strict` still `ok`. If validat
 - Consumes: `sb` subcommands (Tasks 5–6); vault conventions (spec §4, template in Task 6).
 - Produces: skills invocable as `/second-brain:<name>`.
 
-- [ ] **Step 1: Extend the structure test (failing first)**
+- [x] **Step 1: Extend the structure test (failing first)**
 
 Insert before the final `exit $fail` in `tests/sb_structure_test.sh`:
 
@@ -2513,7 +2513,7 @@ done < <(grep -rhoE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+' "$p" --include='
 Run: `bash tests/sb_structure_test.sh`
 Expected: FAIL on the missing skills.
 
-- [ ] **Step 2: Write `init` and `capture`**
+- [x] **Step 2: Write `init` and `capture`**
 
 `plugins/second-brain/skills/init/SKILL.md`:
 
@@ -2595,7 +2595,7 @@ matters. That is what `/second-brain:ingest` is for.
 Never write outside `_inbox/`. If the target file exists, add `-2`, `-3`... to the slug.
 ````
 
-- [ ] **Step 3: Write `ingest` and `find`**
+- [x] **Step 3: Write `ingest` and `find`**
 
 `plugins/second-brain/skills/ingest/SKILL.md`:
 
@@ -2679,7 +2679,7 @@ knowledge and attribute it to a note.
    edit anything (use `/second-brain:link`).
 ````
 
-- [ ] **Step 4: Write `link`, `update` and `lint`**
+- [x] **Step 4: Write `link`, `update` and `lint`**
 
 `plugins/second-brain/skills/link/SKILL.md`:
 
@@ -2776,12 +2776,12 @@ allowed-tools: Read Edit Grep Glob Bash(sb *) Bash(rg *)
    they reviewed the note.
 ````
 
-- [ ] **Step 5: Run the structure test and the unit tests**
+- [x] **Step 5: Run the structure test and the unit tests**
 
 Run: `bash tests/sb_structure_test.sh && bash tests/sb_cli_test.sh`
 Expected: all `ok`. If a description is outside 150–400 characters, edit the description (not the test). If `claude plugin validate --strict` flags a skill frontmatter field, consult `https://code.claude.com/docs/en/skills.md` and fix the field.
 
-- [ ] **Step 6: Manual skill smoke test (the one thing unit tests cannot cover)**
+- [ ] **Step 6: Manual skill smoke test (the one thing unit tests cannot cover)**  _(open: no record of the manual skill smoke test)_
 
 Run, from a scratch directory outside this repo:
 
@@ -2791,7 +2791,7 @@ tmp="$(mktemp -d)" && cd "$tmp" && claude --plugin-dir /home/igors/Code/aether-l
 
 Inside the session: run `/second-brain:init`, answer the questions, then `/second-brain:capture a note about spaced repetition`, `/second-brain:ingest`, `/second-brain:find spaced repetition`, `/second-brain:lint`. Expected: files appear as described; `_log.md` has three entries; a `git log` shows local commits after each response when git was enabled; asking Claude to edit `_raw/x` is refused. Record any deviation as a fix in this task before committing.
 
-- [ ] **Step 7: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): init, capture, ingest, find, link, update and lint skills`.
+- [x] **Step 7: Checkpoint** — ask the user whether to commit. Suggested message: `feat(second-brain): init, capture, ingest, find, link, update and lint skills`.
 
 ---
 
@@ -2808,7 +2808,7 @@ Inside the session: run `/second-brain:init`, answer the questions, then `/secon
 - Consumes: `sb init`, `sb index --write`, `sb lint`.
 - Produces: eval cases runnable with `claude plugin eval` from the plugin root; fixtures proven by unit tests (AC4, AC7).
 
-- [ ] **Step 1: Write the fixture notes**
+- [x] **Step 1: Write the fixture notes**
 
 `evals/_fixtures/notes/Resources/Spaced Repetition.md`:
 
@@ -2896,7 +2896,7 @@ makes me better at telling concepts apart. Feels harder but sticks longer. Goes 
 repetition and active recall.
 ```
 
-- [ ] **Step 2: Write the failing fixture test**
+- [x] **Step 2: Write the failing fixture test**
 
 `tests/python/test_sb_fixtures.py`:
 
@@ -2950,7 +2950,7 @@ if __name__ == "__main__":
 Run: `bash tests/sb_cli_test.sh`
 Expected: PASS once Step 1 files exist (it exercises `init` + `index` + `lint` end to end). If it fails, fix the fixture content, not the linter.
 
-- [ ] **Step 3: Write the eval cases**
+- [x] **Step 3: Write the eval cases**
 
 Common `scaffold.sh` for `find-trigger` and `find-empty` (create at `evals/find-trigger/scaffold.sh`, and the same content at `evals/find-empty/scaffold.sh`):
 
@@ -3178,17 +3178,17 @@ arm: both
 
 `chmod +x` every `scaffold.sh`.
 
-- [ ] **Step 4: Validate the eval layout and run the suite**
+- [x] **Step 4: Validate the eval layout and run the suite**
 
 Run: `cd plugins/second-brain && claude plugin eval . 2>&1 | tail -40; cd ../..`
 Expected: the five cases load and run. If the command reports early-access/unavailable (documented under "Troubleshooting"), record that in the task notes and in the README, keep the cases (they are still the acceptance specification), and rely on Step 5 plus the Task 9 manual smoke test for AC2/AC3. If a case fails because the skill misbehaves, fix the **skill text** (Task 9 files), then re-run. Do not weaken a grader to make it pass.
 
-- [ ] **Step 5: Re-run the deterministic suite**
+- [x] **Step 5: Re-run the deterministic suite**
 
 Run: `bash tests/run.sh`
 Expected: everything passes, including the fixture tests.
 
-- [ ] **Step 6: Checkpoint** — ask the user whether to commit. Suggested message: `test(second-brain): eval cases and fixture vaults`.
+- [x] **Step 6: Checkpoint** — ask the user whether to commit. Suggested message: `test(second-brain): eval cases and fixture vaults`.
 
 ---
 
@@ -3203,7 +3203,7 @@ Expected: everything passes, including the fixture tests.
 - Consumes: the finished plugin.
 - Produces: user documentation with the acceptance traceability table.
 
-- [ ] **Step 1: Write the plugin README**
+- [x] **Step 1: Write the plugin README**
 
 `plugins/second-brain/README.md` must contain these sections, with real content (no placeholders):
 
@@ -3226,7 +3226,7 @@ Expected: everything passes, including the fixture tests.
 8. **Roadmap** — the F1–F4 table from spec §11 with triggers.
 9. **Acceptance traceability** — table AC1–AC10 → the test or eval that covers it, using the exact file names from this plan.
 
-- [ ] **Step 2: Sync the spec with what was built**
+- [x] **Step 2: Sync the spec with what was built**
 
 Edit `docs/specs/2026-09-30-second-brain-design.md`:
 - §5 table: add the row ``| `sb init [--language L] [--areas a,b] [--git]` | Scaffold a vault; writes `.second-brain.json` last; idempotent |``.
@@ -3235,7 +3235,7 @@ Edit `docs/specs/2026-09-30-second-brain-design.md`:
 - §12: add "8. `sb init` is a CLI subcommand (not only a skill) so scaffolding is testable; 9. commit cadence is per response because the documented `Stop` event fires per turn."
 - Change the header `Status:` line to `implemented in v0.1.0; see plan 2026-10-01-second-brain-plan.md`.
 
-- [ ] **Step 3: Full verification**
+- [x] **Step 3: Full verification**
 
 Run: `make check && make validate`
 Expected: every script reports `ok`; `claude plugin validate` passes for all three plugins with `--strict`.
@@ -3246,11 +3246,11 @@ Expected: `none`.
 Run: `git status --short`
 Expected: only files under `plugins/second-brain/`, `tests/`, `docs/`, `.claude-plugin/marketplace.json`, `Makefile`, `README.md`.
 
-- [ ] **Step 4: Acceptance walk-through**
+- [x] **Step 4: Acceptance walk-through**
 
 Tick off AC1–AC10 from spec §10 against the traceability table. For AC2 and AC3 state explicitly which evidence was used: eval run output, or the Task 9 manual smoke test if `claude plugin eval` was unavailable. Do not claim an AC that has no executed evidence.
 
-- [ ] **Step 5: Checkpoint** — show the user the summary of what was verified and what was not, then ask whether to commit and whether to push. Suggested message: `docs(second-brain): README, spec sync and acceptance traceability`.
+- [x] **Step 5: Checkpoint** — show the user the summary of what was verified and what was not, then ask whether to commit and whether to push. Suggested message: `docs(second-brain): README, spec sync and acceptance traceability`.
 
 ---
 
