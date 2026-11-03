@@ -1,0 +1,27 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] cart.spec.js:2:1 › add to cart updates the count
+[1A[2K  1) cart.spec.js:2:1 › add to cart updates the count ──────────────────────────────────────────────
+
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium-1140/chrome-linux/chrome
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     npx playwright install                                              ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/cart-add-to-cart-updates-the-count/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/cart-add-to-cart-updates-the-count/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K  1 failed
+    cart.spec.js:2:1 › add to cart updates the count ───────────────────────────────────────────────

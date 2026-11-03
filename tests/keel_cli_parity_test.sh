@@ -14,8 +14,8 @@ fi
 mk() {
   local r; r="$(new_repo "$@")"
   mkdir -p "$r/scripts/sensors" "$r/.agents"
-  cp "$KEEL/skills/build/assets/gate.sh" "$r/scripts/gate.sh"
-  cp "$KEEL/skills/build/assets/gate.env" "$r/.agents/gate.env"
+  cp "$KEEL/assets/core/gate.sh" "$r/scripts/gate.sh"
+  cp "$KEEL/assets/core/gate.env" "$r/.agents/gate.env"
   printf '%s\n' "$r"
 }
 # sensor REPO RELPATH SCRIPT-BODY

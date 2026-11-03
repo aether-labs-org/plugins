@@ -1,0 +1,689 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.312",
+  "startedAt": "2026-10-28T10:49:40.702Z",
+  "durationSeconds": 349,
+  "costUsd": 1.6775584,
+  "partial": false,
+  "suite": {
+    "root": "/home/igors/Code/aether-labs/keel-f1-measure/plugins/keel-harness",
+    "ablation": "with-without",
+    "caseFilter": "assess-*",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "keel-harness",
+        "version": "0.2.0",
+        "path": "/home/igors/Code/aether-labs/keel-f1-measure/plugins/keel-harness"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "assess-claude-md",
+      "dir": "evals/assess-claude-md",
+      "source": "mixed",
+      "promptMarkdown": "I want to start using AI coding agents on this repository. Is it ready? What is missing?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 25,
+      "graders": [
+        {
+          "name": "context-partial",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "Context\\s*\\|\\s*partial",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "names-the-bridge",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "@AGENTS\\.md",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "no-writes",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "**/*",
+            "exists": false
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 12,
+            "costUsd": 0.1575206,
+            "judgeCostUsd": 0,
+            "durationSeconds": 26,
+            "startedAt": "2026-10-28T10:49:40.762Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-jyj8YZ/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Context\\s*\\|\\s*partial",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 10,
+            "costUsd": 0.146681,
+            "judgeCostUsd": 0,
+            "durationSeconds": 22,
+            "startedAt": "2026-10-28T10:50:06.344Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-IsFQcH/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Context\\s*\\|\\s*partial",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 12,
+            "costUsd": 0.161289,
+            "judgeCostUsd": 0,
+            "durationSeconds": 34,
+            "startedAt": "2026-10-28T10:50:28.244Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-2dhRUX/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Context\\s*\\|\\s*partial",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.6,
+            "passed": false,
+            "turns": 12,
+            "costUsd": 0.13580540000000002,
+            "judgeCostUsd": 0,
+            "durationSeconds": 27,
+            "startedAt": "2026-10-28T10:51:01.769Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-GPP6BJ/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.6,
+            "passed": false,
+            "turns": 10,
+            "costUsd": 0.1207662,
+            "judgeCostUsd": 0,
+            "durationSeconds": 30,
+            "startedAt": "2026-10-28T10:51:28.994Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-XnfMfF/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.6,
+            "passed": false,
+            "turns": 10,
+            "costUsd": 0.13122260000000002,
+            "judgeCostUsd": 0,
+            "durationSeconds": 30,
+            "startedAt": "2026-10-28T10:51:58.697Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-0tmoZY/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "context-partial",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-the-bridge",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched @AGENTS\\.md",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 0.6,
+        "passRateWithout": 0,
+        "delta": 0.4
+      }
+    },
+    {
+      "name": "assess-mature-repo",
+      "dir": "evals/assess-mature-repo",
+      "source": "mixed",
+      "promptMarkdown": "I want to start using AI coding agents on this repository. Is it ready? What is missing?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 25,
+      "graders": [
+        {
+          "name": "evidence-path",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "last_message",
+            "pattern": "`[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "no-writes",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": "**/*",
+            "exists": false
+          }
+        },
+        {
+          "name": "rubric-axes",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "Bootstrap[\\s\\S]*Guides[\\s\\S]*Fast sensors[\\s\\S]*Slow sensors[\\s\\S]*Enforcement[\\s\\S]*Context[\\s\\S]*Rules",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "rubric-states",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "\\|\\s*(present|partial|absent)\\s*\\|",
+            "flags": "i",
+            "match": "count:7"
+          }
+        },
+        {
+          "name": "skill-fired",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "\"skill\"\\s*:\\s*\"(?:[\\w-]+:)?assess\""
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 13,
+            "costUsd": 0.1579398,
+            "judgeCostUsd": 0,
+            "durationSeconds": 45,
+            "startedAt": "2026-10-28T10:52:28.384Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-sycFlM/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Bootstrap[\\s\\S]*Guides[\\s\\S]*Fast sensors[\\s\\S]*Slow sensors[\\s\\S]*Enforcement[\\s\\S]*Context[\\s\\S]*Rules",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": true,
+                "weight": 2,
+                "explanation": "found 7 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": true,
+                "scored": false
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 12,
+            "costUsd": 0.160879,
+            "judgeCostUsd": 0,
+            "durationSeconds": 25,
+            "startedAt": "2026-10-28T10:53:13.202Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-xcsBwb/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Bootstrap[\\s\\S]*Guides[\\s\\S]*Fast sensors[\\s\\S]*Slow sensors[\\s\\S]*Enforcement[\\s\\S]*Context[\\s\\S]*Rules",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": true,
+                "weight": 2,
+                "explanation": "found 7 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": true,
+                "scored": false
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 12,
+            "costUsd": 0.16254600000000002,
+            "judgeCostUsd": 0,
+            "durationSeconds": 24,
+            "startedAt": "2026-10-28T10:53:38.439Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-oFfogt/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched Bootstrap[\\s\\S]*Guides[\\s\\S]*Fast sensors[\\s\\S]*Slow sensors[\\s\\S]*Enforcement[\\s\\S]*Context[\\s\\S]*Rules",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": true,
+                "weight": 2,
+                "explanation": "found 7 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-fired",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": true,
+                "scored": false
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.3333333333333333,
+            "passed": false,
+            "turns": 9,
+            "costUsd": 0.11899400000000002,
+            "judgeCostUsd": 0,
+            "durationSeconds": 37,
+            "startedAt": "2026-10-28T10:54:02.905Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-Yk4Frr/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": false,
+                "weight": 2,
+                "explanation": "found 0 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.3333333333333333,
+            "passed": false,
+            "turns": 8,
+            "costUsd": 0.11497840000000001,
+            "judgeCostUsd": 0,
+            "durationSeconds": 26,
+            "startedAt": "2026-10-28T10:54:39.627Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-uf0VYc/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": false,
+                "weight": 2,
+                "explanation": "found 0 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.3333333333333333,
+            "passed": false,
+            "turns": 8,
+            "costUsd": 0.10893640000000002,
+            "judgeCostUsd": 0,
+            "durationSeconds": 24,
+            "startedAt": "2026-10-28T10:55:05.543Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-OQlR9R/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "evidence-path",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched `[\\w./-]+\\.(json|ts|js|mjs|cjs|yml|yaml|toml|md|xml)`",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-writes",
+                "passed": true,
+                "weight": 1,
+                "explanation": "**/* absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-axes",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in last_message",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "rubric-states",
+                "passed": false,
+                "weight": 2,
+                "explanation": "found 0 matches (expected 7)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 0.3333333333333333,
+        "passRateWithout": 0,
+        "delta": 0.6666666666666667
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 2,
+    "casesPassed": 2,
+    "overallScore": 1,
+    "overallPassRate": 1,
+    "meanDelta": 0.5333333333333334
+  }
+}

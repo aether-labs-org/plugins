@@ -1,0 +1,366 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.312",
+  "startedAt": "2026-10-29T01:56:47.589Z",
+  "durationSeconds": 133,
+  "costUsd": 0.3483215,
+  "partial": false,
+  "suite": {
+    "root": "/home/user/plugins/plugins/keel-harness",
+    "ablation": "with-without",
+    "caseFilter": "doctor-validator-drift",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "keel-harness",
+        "version": "0.2.0",
+        "path": "/home/user/plugins/plugins/keel-harness"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "doctor-validator-drift",
+      "dir": "evals/doctor-validator-drift",
+      "source": "mixed",
+      "promptMarkdown": "Is the agent harness in this repository still up to date?",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 30,
+      "graders": [
+        {
+          "name": "names-guard",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "names-validator-drift",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "no-bash-write",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "Bash",
+            "input_match": "\"command\"\\s*:\\s*\"(?:[^\"\\\\]|\\\\.)*(?:(?<![0-9&])>>?(?!&|\\s*/dev/null)|\\btee\\b|\\brm\\s|\\bmv\\s|\\bcp\\s|\\bsed\\s+-i|\\btouch\\s|\\bmkdir\\s|\\bgit\\s+(?:add|commit|apply|checkout|reset|stash)\\b|\\bnpm\\s+(?:i|install|ci)\\b)",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "no-edit",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "Edit",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "no-notebook-edit",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "NotebookEdit",
+            "min": 0,
+            "max": 0
+          }
+        },
+        {
+          "name": "no-write",
+          "type": "tool_used",
+          "weight": 0.25,
+          "config": {
+            "tool": "Write",
+            "min": 0,
+            "max": 0
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 5,
+            "costUsd": 0.0757426,
+            "judgeCostUsd": 0,
+            "durationSeconds": 30,
+            "startedAt": "2026-10-29T01:56:47.749Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-HmgN9q/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Bash called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.95,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.071851,
+            "judgeCostUsd": 0,
+            "durationSeconds": 32,
+            "startedAt": "2026-10-29T01:57:17.376Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-Y4j1gd/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": false,
+                "weight": 0.25,
+                "explanation": "Bash called 1x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.95,
+            "passed": false,
+            "turns": 6,
+            "costUsd": 0.0794202,
+            "judgeCostUsd": 0,
+            "durationSeconds": 34,
+            "startedAt": "2026-10-29T01:57:49.342Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-Hl7Kd7/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": false,
+                "weight": 0.25,
+                "explanation": "Bash called 1x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0.95,
+            "passed": false,
+            "turns": 9,
+            "costUsd": 0.1213077,
+            "judgeCostUsd": 0,
+            "durationSeconds": 38,
+            "startedAt": "2026-10-29T01:58:22.843Z",
+            "error": null,
+            "tracePath": "/tmp/claude-eval-w5dPRO/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "names-guard",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched guard[\\s\\S]{0,200}(missing|absent|not installed|install|no )",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "names-validator-drift",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched harness-check[\\s\\S]{0,300}(differ|older|out of date|outdated|stale|behind|update)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-bash-write",
+                "passed": false,
+                "weight": 0.25,
+                "explanation": "Bash called 1x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Edit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-notebook-edit",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "NotebookEdit called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "no-write",
+                "passed": true,
+                "weight": 0.25,
+                "explanation": "Write called 0x (expected 0..0)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.975,
+        "passRate": 0.5,
+        "scoreWithout": 0.95,
+        "passRateWithout": 0,
+        "delta": 0.025000000000000022
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 0,
+    "overallScore": 0.975,
+    "overallPassRate": 0.5,
+    "meanDelta": 0.025000000000000022
+  }
+}

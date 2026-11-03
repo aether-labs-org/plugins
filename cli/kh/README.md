@@ -1,7 +1,7 @@
 # kh — the keel harness CLI
 
 `kh` runs a repository's keel gates from `.agents/keel.yaml` and keeps the sensor contract of
-`plugins/keel-harness/skills/build/references/sensor-contract.md` byte for byte. Design:
+`plugins/keel-harness/contracts/sensor.md` byte for byte. Design:
 `docs/specs/2026-10-24-keel-cli-design.md`; plan: `docs/plans/2026-10-24-keel-cli-plan.md`.
 The binary is `kh`, not `keel`, so it never collides with the plugin's own `scripts/keel` (v0.3 D34).
 

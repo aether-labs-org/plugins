@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from sb_helpers import make_vault, note
-from sb.vault import MARKER, VaultError, find_vault, load_config, load_notes
+from sb.vault import MARKER, VaultError, asset_names, find_vault, load_config, load_notes
 
 
 class VaultTests(unittest.TestCase):
@@ -39,6 +39,21 @@ class VaultTests(unittest.TestCase):
         root = Path(self.tmp.name)
         (root / MARKER).write_text("{}", encoding="utf-8")
         self.assertEqual(load_notes(root), [])
+
+    def test_load_notes_skips_underscore_dot_and_excalidraw(self):
+        root = make_vault(self.tmp.name, {
+            "Resources/A.md": note("A"), "Resources/_about.md": "x",
+            "Resources/_assets/img.md": "x", "Resources/Sketch.excalidraw.md": "x",
+            "_views/v.md": "x"})
+        self.assertEqual([n.rel for n in load_notes(root)], ["wiki/Resources/A.md"])
+
+    def test_asset_names(self):
+        root = make_vault(self.tmp.name, {"Resources/A.md": note("A")})
+        (root / "wiki/Resources/_assets").mkdir()
+        (root / "wiki/Resources/_assets/curva.png").write_bytes(b"x")
+        (root / ".obsidian").mkdir()
+        (root / ".obsidian/app.json").write_text("{}")
+        self.assertEqual(asset_names(root), {"curva.png"})
 
 
 if __name__ == "__main__":

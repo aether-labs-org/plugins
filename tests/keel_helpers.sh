@@ -35,16 +35,16 @@ new_repo() {
   )
   printf '%s\n' "$d"
 }
-# install_asset REPO SRC_REL DEST_REL  (SRC_REL relative to $KEEL/skills/)
+# install_asset REPO SRC_REL DEST_REL  (SRC_REL relative to $KEEL, the plugin root)
 # Under KEEL_ENGINE=cli, gate.sh is replaced by a shim that runs `kh gate` on the same layout.
 install_asset() {
   mkdir -p "$(dirname "$1/$3")"
-  if [ "$KEEL_ENGINE" = cli ] && [ "$2" = build/assets/gate.sh ]; then
+  if [ "$KEEL_ENGINE" = cli ] && [ "$2" = assets/core/gate.sh ]; then
     printf '%s\n' '#!/usr/bin/env bash' 'cd "$(dirname "$0")/.." || exit 1' \
       '"$KEEL_BIN" import --force --sums "$KEEL_SUMS" >/dev/null || exit 3' 'exec "$KEEL_BIN" gate "$@"' > "$1/$3"
     chmod +x "$1/$3"; return
   fi
-  cp "$KEEL/skills/$2" "$1/$3" && chmod +x "$1/$3"
+  cp "$KEEL/$2" "$1/$3" && chmod +x "$1/$3"
 }
 # use_stub REPO TOOL DEST_REL
 use_stub() {

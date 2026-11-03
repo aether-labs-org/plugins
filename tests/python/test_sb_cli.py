@@ -97,7 +97,8 @@ class CliTests(unittest.TestCase):
         self.assertTrue(os.access(shim, os.X_OK))
         done = subprocess.run([str(shim), "lint", "--vault", str(self.root)],
                               capture_output=True, text=True)
-        self.assertEqual((done.returncode, done.stdout), (0, ""))
+        self.assertEqual(done.returncode, 0)
+        self.assertEqual({l.split(": ")[1].split()[0] for l in done.stdout.splitlines()}, {"SB111"})
 
     def test_ripgrep_finds_notes_under_underscore_folders(self):
         if not shutil.which("rg"):

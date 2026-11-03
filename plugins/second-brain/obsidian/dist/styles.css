@@ -1,0 +1,10 @@
+/* Second Brain Companion */
+
+.callout[data-callout="agent"] {
+	--callout-color: 100, 149, 237;
+	--callout-icon: lucide-bot;
+}
+
+.status-bar-item.sbc-hidden {
+	display: none;
+}

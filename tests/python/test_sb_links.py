@@ -1,7 +1,7 @@
 import unittest
 
 import sb_helpers  # noqa: F401
-from sb.links import extract, target_name
+from sb.links import extract, is_asset, target_name
 
 
 class ExtractTests(unittest.TestCase):
@@ -16,6 +16,13 @@ class ExtractTests(unittest.TestCase):
 
     def test_target_name_strips_folder_and_extension(self):
         self.assertEqual(target_name(" wiki/Resources/Café Noir.md "), "Café Noir")
+
+    def test_is_asset(self):
+        self.assertTrue(is_asset("curva.png"))
+        self.assertTrue(is_asset("Diagram.drawio"))
+        self.assertFalse(is_asset("Note"))
+        self.assertFalse(is_asset("Note.md"))
+        self.assertFalse(is_asset("Dr. Who"))   # a suffix with a space is not an extension
 
 
 if __name__ == "__main__":

@@ -1,0 +1,27 @@
+{
+  "enabledPlugins": {
+    "second-brain@aether-labs": true,
+    "document-skills@anthropic-agent-skills": true,
+    "obsidian@obsidian-skills": true
+  },
+  "extraKnownMarketplaces": {
+    "aether-labs": {
+      "source": { "source": "github", "repo": "aether-labs-org/plugins" }
+    },
+    "anthropic-agent-skills": {
+      "source": { "source": "github", "repo": "anthropics/skills" }
+    },
+    "obsidian-skills": {
+      "source": { "source": "github", "repo": "kepano/obsidian-skills" }
+    }
+  },
+  "permissions": {
+    "deny": [
+      "Edit(/_raw/**)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean*)"
+    ]
+  }
+}

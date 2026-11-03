@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from sb_helpers import make_vault, note
-from sb.lint import lint
+from sb.lint import INFO_CODES, Finding, lint, render_text
 from sb.vault import load_config
 
 PAIR = {
@@ -30,7 +30,7 @@ class LintTests(unittest.TestCase):
         return [f.code for f in findings if path is None or f.path == path]
 
     def test_clean_vault_has_no_findings(self):
-        self.assertEqual(run(self.vault()), [])
+        self.assertEqual([f for f in run(self.vault()) if f.code not in INFO_CODES], [])
 
     def test_sb101_broken_link_reports_the_body_line(self):
         root = self.vault({"Resources/C.md": note("C", body="x\n[[Missing]] and [[A]]")})
@@ -123,6 +123,27 @@ class LintTests(unittest.TestCase):
         findings = run(root)
         self.assertIn("SB108", self.codes(findings, "wiki/Resources/Bin.md"))
         self.assertIn("SB108", self.codes(findings))
+
+    def test_embedded_asset_is_not_a_broken_link(self):
+        root = make_vault(self.tmp.name,
+                          {"Resources/A.md": note("A", body="![[curva.png]] ![[falta.png]]")})
+        (root / "wiki/Resources/_assets").mkdir(parents=True)
+        (root / "wiki/Resources/_assets/curva.png").write_bytes(b"x")
+        sb101 = [f.message for f in lint(root, {"schema_version": 1}) if f.code == "SB101"]
+        self.assertEqual(sb101, ["broken link: [[falta.png]]"])
+
+    def test_render_text_aggregates_codes_over_20(self):
+        fs = [Finding("SB103", "wiki/N%d.md" % i, 1, "orphan note: nothing links here")
+              for i in range(21)]
+        fs.append(Finding("SB101", "wiki/A.md", 3, "broken link: [[X]]"))
+        text = render_text(fs)
+        self.assertIn("SB103 orphan note: nothing links here: 21 notes (run with --verbose)", text)
+        self.assertIn("wiki/A.md:3: SB101 broken link: [[X]]", text)
+        self.assertEqual(len(render_text(fs, verbose=True).splitlines()), 22)
+
+    def test_render_text_aggregates_differing_messages_without_a_misleading_target(self):
+        fs = [Finding("SB101", "wiki/N%d.md" % i, 1, "broken link: [[T%d]]" % i) for i in range(21)]
+        self.assertEqual(render_text(fs), "SB101 broken link: 21 findings (run with --verbose)")
 
 
 if __name__ == "__main__":

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -uo pipefail
+qgrep() { grep "$@" >/dev/null; } # reads all its input: `| grep -q` can SIGPIPE the writer under pipefail
 . "$(dirname "$0")/keel_helpers.sh"
 
 # mkrepo [--no-commit] -> repo with gate.sh + gate.env installed
 mkrepo() {
   local r; r="$(new_repo "$@")"
-  install_asset "$r" build/assets/gate.sh scripts/gate.sh
+  install_asset "$r" assets/core/gate.sh scripts/gate.sh
   mkdir -p "$r/.agents" "$r/scripts/sensors"
-  cp "$KEEL/skills/build/assets/gate.env" "$r/.agents/gate.env"
+  cp "$KEEL/assets/core/gate.env" "$r/.agents/gate.env"
   printf '%s\n' "$r"
 }
 # stub_sensor REPO RELPATH ID CLASS STATUS SUMMARY RC [BODY]
@@ -19,38 +20,38 @@ stub_sensor() {
     echo "exit $7"; } > "$f"
 }
 
-[ -f "$KEEL/skills/build/assets/gate.sh" ]; check "gate.sh exists" $?
-grep -q 'CEILING_SECONDS=30' "$KEEL/skills/build/assets/gate.env" 2>/dev/null && grep -q 'SLOW_CEILING_SECONDS=600' "$KEEL/skills/build/assets/gate.env" 2>/dev/null; check "gate.env defaults" $?
-head -2 "$KEEL/skills/build/assets/gate.sh" 2>/dev/null | grep -q '^# Managed by keel-harness. Edit only between the keel:repo-specific markers - see .agents/README.md.$'; check "gate.sh managed header" $?
+[ -f "$KEEL/assets/core/gate.sh" ]; check "gate.sh exists" $?
+grep -q 'CEILING_SECONDS=30' "$KEEL/assets/core/gate.env" 2>/dev/null && grep -q 'SLOW_CEILING_SECONDS=600' "$KEEL/assets/core/gate.env" 2>/dev/null; check "gate.env defaults" $?
+head -2 "$KEEL/assets/core/gate.sh" 2>/dev/null | qgrep '^# Managed by keel-harness. Edit only between the keel:repo-specific markers - see .agents/README.md.$'; check "gate.sh managed header" $?
 
 r="$(mkrepo)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok a" 0
 stub_sensor "$r" scripts/sensors/b.sh b heuristic pass "ok b" 0
 out="$(cd "$r" && bash scripts/gate.sh 2>&1)"; rc=$?
 [ $rc -eq 0 ]; check "two pass: rc 0" $?
-printf '%s\n' "$out" | grep -qE 'gate: fast - PASSED \(2 of 2\) \| ceiling 30s, spent [0-9.]+m?s \| model cost: US\$0\.00'; check "two pass: verdict line" $?
+printf '%s\n' "$out" | qgrep -E 'gate: fast - PASSED \(2 of 2\) \| ceiling 30s, spent [0-9.]+m?s \| model cost: US\$0\.00'; check "two pass: verdict line" $?
 
 r="$(mkrepo)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
 stub_sensor "$r" scripts/sensors/b.sh b correctness fail "bad" 1 "echo '  detail'; echo '  guidance: do X'"
 out="$(cd "$r" && bash scripts/gate.sh 2>&1)"; rc=$?
 [ $rc -eq 1 ]; check "fail: rc 1" $?
-printf '%s\n' "$out" | grep -q 'FAILED (1 of 2)'; check "fail: verdict" $?
-printf '%s\n' "$out" | grep -q 'guidance: do X'; check "fail: guidance in stdout" $?
+printf '%s\n' "$out" | qgrep 'FAILED (1 of 2)'; check "fail: verdict" $?
+printf '%s\n' "$out" | qgrep 'guidance: do X'; check "fail: guidance in stdout" $?
 
 r="$(mkrepo)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness skip "no tool" 2
 stub_sensor "$r" scripts/sensors/b.sh b correctness pass "ok" 0
 out="$(cd "$r" && bash scripts/gate.sh 2>&1)"
-printf '%s\n' "$out" | grep -qF 'PASSED (1 of 1, 1 skipped)'; check "skip + pass verdict" $?
+printf '%s\n' "$out" | qgrep -F 'PASSED (1 of 1, 1 skipped)'; check "skip + pass verdict" $?
 
 # CRLF gate.env and over ceiling (RF4)
 r="$(mkrepo)"
 printf 'CEILING_SECONDS=1\r\nSLOW_CEILING_SECONDS=600\r\n' > "$r/.agents/gate.env"
 stub_sensor "$r" scripts/sensors/a.sh a correctness pass "slow" 0 "sleep 1.2"
 out="$(cd "$r" && bash scripts/gate.sh 2>&1)"; rc=$?
-printf '%s\n' "$out" | grep -qF 'ceiling 1s,'; check "CRLF env: ceiling parsed" $?
-printf '%s\n' "$out" | grep -qF '(over ceiling)'; check "over ceiling flagged" $?
+printf '%s\n' "$out" | qgrep -F 'ceiling 1s,'; check "CRLF env: ceiling parsed" $?
+printf '%s\n' "$out" | qgrep -F '(over ceiling)'; check "over ceiling flagged" $?
 [ $rc -eq 0 ]; check "over ceiling still rc 0" $?
 
 # stray files (RF3)
@@ -62,7 +63,7 @@ stub_sensor "$r" scripts/sensors/disabled/x.sh x correctness pass "no" 0 "touch 
 mkdir -p "$r/scripts/sensors/stoplists"; echo word > "$r/scripts/sensors/stoplists/pt.txt"
 stub_sensor "$r" scripts/sensors/slow/s.sh s correctness pass "no" 0 "touch \"\$PWD/.marker_slow\""
 out="$(cd "$r" && bash scripts/gate.sh 2>&1)"
-printf '%s\n' "$out" | grep -qF 'PASSED (1 of 1)'; check "only top-level non-underscore .sh run" $?
+printf '%s\n' "$out" | qgrep -F 'PASSED (1 of 1)'; check "only top-level non-underscore .sh run" $?
 [ ! -e "$r/.marker_util" ] && [ ! -e "$r/.marker_disabled" ] && [ ! -e "$r/.marker_slow" ]; check "no marker files written" $?
 
 # slow mode
@@ -70,9 +71,9 @@ r="$(mkrepo)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness pass "fast" 0 "touch \"\$PWD/.marker_fast\""
 stub_sensor "$r" scripts/sensors/slow/s.sh s correctness pass "slow one" 0
 out="$(cd "$r" && bash scripts/gate.sh slow 2>&1)"; rc=$?
-[ $rc -eq 0 ] && printf '%s\n' "$out" | grep -qE 'gate: slow - PASSED \(1 of 1\) \| ceiling 600s'; check "slow verdict and ceiling" $?
+[ $rc -eq 0 ] && printf '%s\n' "$out" | qgrep -E 'gate: slow - PASSED \(1 of 1\) \| ceiling 600s'; check "slow verdict and ceiling" $?
 [ ! -e "$r/.marker_fast" ]; check "slow does not run fast sensors" $?
-[ -f "$r/.agents/last-run-slow.log" ]; check "slow log written" $?
+[ -f "$r/.agents/run/last-run-slow.log" ]; check "slow log written" $?
 (cd "$r" && bash scripts/gate.sh bogus >/dev/null 2>&1); [ $? -eq 64 ]; check "bogus mode rc 64" $?
 (cd /tmp && bash "$r/scripts/gate.sh" >/dev/null 2>&1); [ $? -eq 0 ]; check "runs from any cwd" $?
 
@@ -80,7 +81,7 @@ out="$(cd "$r" && bash scripts/gate.sh slow 2>&1)"; rc=$?
 r="$(mkrepo)"
 echo 1 > "$r/x.ts"; echo 1 > "$r/z.ts"; (cd "$r" && git add x.ts z.ts && git commit -q -m x)
 rm "$r/x.ts"; echo 2 > "$r/y.ts"; echo 2 >> "$r/z.ts"; echo 3 > "$r/my file ação.ts"
-mkdir -p "$r/.agents/.gate-lock"; echo f > "$r/.agents/last-seen"; echo f > "$r/.agents/last-fail"; echo n > "$r/.agents/notes.md"
+mkdir -p "$r/.agents/run/.gate-lock"; echo f > "$r/.agents/run/last-seen"; echo f > "$r/.agents/run/last-fail"; echo n > "$r/.agents/notes.md"
 stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0 "printf '%s\\n' \"\$SCOPE\" > \"\$PWD/scope.out\""
 (cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
 grep -qx 'y.ts' "$r/scope.out" && grep -qx 'z.ts' "$r/scope.out" && ! grep -qx 'x.ts' "$r/scope.out"; check "SCOPE excludes deleted, includes untracked" $?
@@ -92,11 +93,76 @@ r="$(mkrepo --no-commit)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
 echo 1 > "$r/new.ts"
 out="$(cd "$r" && bash scripts/gate.sh 2>&1)"; rc=$?
-[ $rc -eq 0 ] && printf '%s\n' "$out" | grep -q 'scope: whole repository'; check "no commits: whole repo, rc 0" $?
+[ $rc -eq 0 ] && printf '%s\n' "$out" | qgrep 'scope: whole repository'; check "no commits: whole repo, rc 0" $?
 
 # truncation
 r="$(mkrepo)"
 stub_sensor "$r" scripts/sensors/a.sh a correctness fail "many" 1 "for i in \$(seq 1 60); do echo \"  line \$i\"; done"
 out="$(cd "$r" && bash scripts/gate.sh 2>&1)"
-[ "$(printf '%s\n' "$out" | tail -1)" = "output truncated at 40 lines - full log in .agents/last-run.log" ]; check "truncation notice" $?
+[ "$(printf '%s\n' "$out" | tail -1)" = "output truncated at 40 lines - full log in .agents/run/last-run.log" ]; check "truncation notice" $?
+# --- F6: history (.agents/run/history/<mode>.tsv), the last HISTORY_RUNS runs, one line per sensor
+grep -q '^HISTORY_RUNS=50' "$KEEL/assets/core/gate.env" 2>/dev/null; check "gate.env carries HISTORY_RUNS=50" $?
+r="$(mkrepo)"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+stub_sensor "$r" scripts/sensors/b.sh b correctness fail "bad" 1
+stub_sensor "$r" scripts/sensors/c.sh c correctness skip "no tool" 2
+(cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
+h="$r/.agents/run/history/fast.tsv"
+[ "$(wc -l < "$h" 2>/dev/null | tr -d ' ')" = 3 ]; check "history: one line per sensor" $?
+awk -F'\t' 'NF == 4 && $1 ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/ && $4 ~ /^[0-9]+$/' "$h" | wc -l | qgrep -x 3; check "history: <UTC time> <id> <status> <ms>" $?
+[ "$(awk -F'\t' '$2 == "a" { print $3 } $2 == "b" { print $3 } $2 == "c" { print $3 }' "$h" | tr '\n' ' ')" = "pass fail skip " ]; check "history: pass, fail and skip statuses" $?
+[ "$(cut -f1 "$h" | sort -u | wc -l | tr -d ' ')" = 1 ]; check "history: the sensors of one run share one timestamp" $?
+(cd "$r" && bash scripts/gate.sh slow >/dev/null 2>&1)
+[ ! -e "$r/.agents/run/history/slow.tsv" ]; check "history: a slow run with no slow sensors writes nothing to slow.tsv" $?
+stub_sensor "$r" scripts/sensors/slow/s.sh s correctness pass "slow" 0
+(cd "$r" && bash scripts/gate.sh slow >/dev/null 2>&1)
+[ "$(wc -l < "$r/.agents/run/history/slow.tsv" | tr -d ' ')" = 1 ] && [ "$(wc -l < "$h" | tr -d ' ')" = 3 ]; check "history: slow.tsv is separate from fast.tsv" $?
+stub_sensor "$r" scripts/sensors/d.sh d correctness pass "ok" 0 "printf '%s\\n' \"\$SCOPE\" > \"\$PWD/scope.out\""
+(cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
+! grep -q 'history' "$r/scope.out"; check "history: the history files are not in SCOPE" $?
+
+# rotation: only the last HISTORY_RUNS runs are kept; a run is every line sharing a timestamp
+r="$(mkrepo)"
+printf 'HISTORY_RUNS=3\r\nCEILING_SECONDS=30\r\n' > "$r/.agents/gate.env"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+stub_sensor "$r" scripts/sensors/b.sh b correctness pass "ok" 0
+mkdir -p "$r/.agents/run/history"
+for i in 1 2 3 4 5; do
+  printf '2026-01-0%sT00:00:00Z\ta\tpass\t1\n2026-01-0%sT00:00:00Z\tb\tpass\t1\n' "$i" "$i"
+done > "$r/.agents/run/history/fast.tsv"
+(cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
+h="$r/.agents/run/history/fast.tsv"
+[ "$(cut -f1 "$h" | sort -u | wc -l | tr -d ' ')" = 3 ] && [ "$(wc -l < "$h" | tr -d ' ')" = 6 ]; check "rotation: keeps the last 3 runs (CRLF gate.env), 2 lines each" $?
+! grep -q '2026-01-0[123]' "$h" && grep -q '2026-01-05' "$h" && [ "$(tail -2 "$h" | cut -f1 | sort -u | grep -c '^20[0-9-]*T')" = 1 ]; check "rotation: drops the oldest runs and appends the new one last" $?
+r="$(mkrepo)"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+for i in 1 2 3; do (cd "$r" && bash scripts/gate.sh >/dev/null 2>&1); sleep 1; done
+[ "$(wc -l < "$r/.agents/run/history/fast.tsv" | tr -d ' ')" = 3 ]; check "default HISTORY_RUNS (50) keeps three runs" $?
+r="$(mkrepo)"
+printf 'HISTORY_RUNS=0\n' > "$r/.agents/gate.env"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+(cd "$r" && bash scripts/gate.sh >/dev/null 2>&1)
+[ ! -e "$r/.agents/run/history" ]; check "HISTORY_RUNS=0 turns history off" $?
+
+# the verdict never depends on history: byte-identical output and exit code with and without a writable history dir
+norm() { sed -E 's/[0-9.]+m?s/T/g; s/ +/ /g'; }
+for want in 0 1; do
+  r1="$(mkrepo)"; r2="$(mkrepo)"
+  for r in "$r1" "$r2"; do
+    stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+    [ "$want" = 1 ] && stub_sensor "$r" scripts/sensors/b.sh b correctness fail "bad" 1 "echo '  guidance: do X'"
+  done
+  mkdir -p "$r2/.agents/run"; echo blocker > "$r2/.agents/run/history"   # history path is a file: mkdir and append both fail
+  o1="$(cd "$r1" && bash scripts/gate.sh 2>&1 | norm)"
+  (cd "$r1" && bash scripts/gate.sh >/dev/null 2>&1); c1=$?
+  o2="$(cd "$r2" && bash scripts/gate.sh 2>&1 | norm)"
+  (cd "$r2" && bash scripts/gate.sh >/dev/null 2>&1); c2=$?
+  [ "$o1" = "$o2" ] && [ "$c1" = "$c2" ] && [ "$c1" = "$want" ]; check "history unwritable: output and exit code ($want) identical" $?
+done
+# no temp dir at all: still no change in verdict
+r="$(mkrepo)"
+stub_sensor "$r" scripts/sensors/a.sh a correctness pass "ok" 0
+(cd "$r" && TMPDIR=/nonexistent-keel bash scripts/gate.sh >/dev/null 2>&1); [ $? -eq 0 ]; check "history: no usable TMPDIR does not change the exit code" $?
+[ -s "$r/.agents/run/history/fast.tsv" ]; check "history: still appended when TMPDIR is unusable" $?
+! grep -n 'mktemp' "$KEEL/assets/core/gate.sh" | grep -v 'keel_tmpdir()' | qgrep .; check "gate.sh uses mktemp only through keel_tmpdir" $?
 finish

@@ -14,6 +14,9 @@ jobs:
           go-version-file: cli/kh/go.mod
       - name: Build and unit-test kh, the keel harness CLI
         run: make -C cli/kh test build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - name: Run tests
         run: ./tests/run.sh
       - name: Run tests on the kh engine

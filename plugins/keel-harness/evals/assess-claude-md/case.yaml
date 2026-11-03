@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: assess-claude-md
 description: A CLAUDE.md without the AGENTS.md import hides the instructions from Claude Code; assess reports Context as partial and says how to bridge it, writing nothing.
-tags: [assess, context]
+tags: [assess, context, readonly]
 context:
   scaffold_script: scaffold.sh

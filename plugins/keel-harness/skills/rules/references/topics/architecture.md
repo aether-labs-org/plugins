@@ -7,11 +7,15 @@ approved content only. The shape follows matklad's ARCHITECTURE.md
 ```markdown
 # Architecture
 
-{{Bird's-eye overview: at most five lines on what the system does and how it is shaped.}}
+## Code map
 
-## Codemap
-- `{{path/}}`: {{what lives here, one line}}
-- `{{path/}}`: {{...}}
+{{Bird's-eye paragraph: at most five lines on what the system does and how the code is shaped.}}
+
+- `{{path/}}` — {{what lives here, one line}}
+- `{{path/}}` — {{one bullet per important module, not per directory}}
+
+{{Invariants of the map: what each module may rely on, and what it must never reach into. Rules that a
+sensor enforces live as anchored sections under Invariants below; this paragraph only names them.}}
 
 ## Layer boundaries
 {{Style (hexagonal | layered | clean | modular) and which layer may depend on which. The machine
@@ -28,6 +32,20 @@ Rules that hold now. Each is one anchored section (see `rule-section.md`).
 **✓ / ✗.** {{✓ `domain/` imports only `domain/`. ✗ `domain/Order` imports `org.springframework`.}}
 **When it fails.** {{Move the dependency behind a port owned by the inner layer.}}
 **Decision.** [ADR 0002](decisions/0002-architecture-style.md)
+
+## Principles
+Only principles no sensor can check, each with the person who reviews it. Omit the section when there are none.
+
+- {{Principle, one sentence}} → review:{{owner}}
 ```
+
+`## Principles` is where a Spec Kit constitution principle goes when no rule can enforce it (`rules` links the
+others to the rule's `DOC`). A principle a sensor can check is a rule, not a line here. `rules` does not write a
+`constitution.md`.
+
+The `## Code map` is curated, not generated: `rules` drafts it from `measure.sh tree 2`, the user
+confirms or corrects every bullet, and each backticked path in the section must exist
+(`harness-check` warns `codemap-stale` for one that does not). Keep the bullets few: a repository
+overview that lists everything helps the agent no more than none.
 
 Also holds `folder-layout`. Past 300 lines, propose splitting by subtopic.
