@@ -1,7 +1,7 @@
 # second-brain — Design Spec (v0.2)
 
 **Date:** 2026-10-31
-**Status:** proposed — approved scope, plans pending
+**Status:** implemented — milestones A–D shipped as v0.2.0–v0.2.3 and follow-ups as v0.2.4 (current: 0.2.4, on `main`). Still open: kept results of the paid LLM evals (`find-implicit`, `ingest-1ton`, `folder-placement`, `recall-grounding`), the manual desktop/mobile QA of the companion and the manual pdf/docx/pptx ingest. Verified 2026-11-03; see the plans for the per-task record.
 **Supersedes:** nothing; extends `2026-09-30-second-brain-design.md` (v0.1). Where the two differ,
 this document wins.
 **Plans:** one per milestone, `docs/plans/2026-10-31-second-brain-v0.2-{a,b,c,d}-*.md`.

@@ -81,7 +81,7 @@ Run all Python tests with `bash tests/sb_cli_test.sh` from the worktree root (ex
 **Interfaces:**
 - Produces: each `search()` result gains `"hits": list[str]` (the query tokens that match the note, in query order, same matching as today: exact word or, for tokens of ≥ `PREFIX_MIN` characters, a word prefix); `"matched"` stays and equals `len(hits)`. `SearchIndex.doc_freq(tokens: list[str]) -> tuple[dict, int]` returns `({token: number of notes matching it}, total notes indexed)`, after `refresh()`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_result_has_hits_in_query_order(self):
@@ -113,15 +113,15 @@ def test_doc_freq_on_locked_db_uses_memory(self):
     self.assertEqual((df["semana"], total), (3, 4))
 ```
 
-- [ ] **Step 2: Run** `bash tests/sb_cli_test.sh` — Expected: the five tests FAIL (`KeyError: 'hits'`, `AttributeError: doc_freq`).
+- [x] **Step 2: Run** `bash tests/sb_cli_test.sh` — Expected: the five tests FAIL (`KeyError: 'hits'`, `AttributeError: doc_freq`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
   - Replace `_count_matched(tokens, text) -> int` with `_matched_tokens(tokens, text) -> list` and set both `hits` and `matched` in `search()`.
   - `doc_freq`: FTS path runs, per token, `SELECT count(*) FROM notes WHERE notes MATCH ?` with the single-token expression from `_expression([token])` (exact plus `*` prefix for long tokens), and `SELECT count(*) FROM files` for the total, inside `self._db(...)`. On `sqlite3.Error` set `use_fts = False` and use the memory path (same pattern as `search`). Memory path counts entries of `self._mem` whose folded fields contain a word that `_word_matches` the token.
 
-- [ ] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: `ok   second-brain unit tests`.
+- [x] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: `ok   second-brain unit tests`.
 
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 5: Checkpoint.**
 
 ---
 
@@ -135,7 +135,7 @@ def test_doc_freq_on_locked_db_uses_memory(self):
 - Consumes: Task 1 `hits`, `SearchIndex.doc_freq`.
 - Produces: `recall.select(root, prompt: str, index: Optional[SearchIndex] = None) -> list[dict]` — the search results that pass the gate (empty list when the prompt has fewer than `MIN_TOKENS` tokens). `build()` keeps its signature and does vault lookup, the env switch and the `/` check, then calls `select` and `render`. Constants `DISTINCT_MIN_DF = 2`, `DISTINCT_RATIO = 0.10`; `HEADER` as in Global Constraints.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_common_words_do_not_inject(self):
@@ -163,13 +163,13 @@ def test_header_asks_to_mark_general_knowledge(self):
 
 Keep `test_threshold_needs_two_tokens_or_phrase` and the other existing recall tests passing unchanged.
 
-- [ ] **Step 2: Run** `bash tests/sb_cli_test.sh` — Expected: `test_common_words_do_not_inject` and `test_header_asks_to_mark_general_knowledge` FAIL; the others may already pass.
+- [x] **Step 2: Run** `bash tests/sb_cli_test.sh` — Expected: `test_common_words_do_not_inject` and `test_header_asks_to_mark_general_knowledge` FAIL; the others may already pass.
 
-- [ ] **Step 3: Implement `select`**: tokenize as today, `results = index.search(...)`, one `doc_freq` call over the union of all results' `hits`, `limit = max(DISTINCT_MIN_DF, DISTINCT_RATIO * total)`; keep a result when `score > SCORE_FLOOR` and (phrase match **or** at least 2 of its `hits` have `df <= limit`). Update the calibration comment above `SCORE_FLOOR` to describe the new gate and cite Decision R1's numbers.
+- [x] **Step 3: Implement `select`**: tokenize as today, `results = index.search(...)`, one `doc_freq` call over the union of all results' `hits`, `limit = max(DISTINCT_MIN_DF, DISTINCT_RATIO * total)`; keep a result when `score > SCORE_FLOOR` and (phrase match **or** at least 2 of its `hits` have `df <= limit`). Update the calibration comment above `SCORE_FLOOR` to describe the new gate and cite Decision R1's numbers.
 
-- [ ] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: `ok   second-brain unit tests`. (Latency is measured by the main session afterwards on the 1,000-note vault `/tmp/claude-1000/-home-igors-Code-aether-labs-plugins/c31c48cc-4b6d-40f1-8eff-7aa7589caeba/scratchpad/v1000`, 50 hook runs; expected p95 ≤ 124 ms.)
+- [x] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: `ok   second-brain unit tests`. (Latency is measured by the main session afterwards on the 1,000-note vault `/tmp/claude-1000/-home-igors-Code-aether-labs-plugins/c31c48cc-4b6d-40f1-8eff-7aa7589caeba/scratchpad/v1000`, 50 hook runs; expected p95 ≤ 124 ms.)
 
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 5: Checkpoint.**
 
 ---
 
@@ -184,7 +184,7 @@ Keep `test_threshold_needs_two_tokens_or_phrase` and the other existing recall t
 - Consumes: Task 2 `recall.select`.
 - Produces: `evalrun.recall_gate(root, qrels: list) -> dict` = `{"positives": {"n": int, "injected": int, "missed": [id]}, "negatives": {"n": int, "injected": int, "noisy": [id]}}`. A positive counts only when its query has ≥ `recall.MIN_TOKENS` tokens; it is injected when `select` returns any of its relevant notes. A negative is noisy when `select` returns anything. `cmd_eval` adds the dict as `result["recall_gate"]`; `render_table` prints two lines after the negatives line: `recall gate  positives injected <i>/<n>` and `recall gate  negatives with injection <i>/<n>`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_fixture_recall_gate(self):
@@ -200,10 +200,10 @@ def test_cli_prints_recall_gate(self):
 
 Update `test_fixture_shape` for 65 rows and 31 negatives.
 
-- [ ] **Step 2: Run** `bash tests/sb_cli_test.sh` — Expected: FAIL (`recall_gate` missing).
-- [ ] **Step 3: Implement** as in Interfaces; reuse one `SearchIndex` for all queries.
-- [ ] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: `ok   second-brain unit tests`; `test_fixture_meets_the_gate` still passes.
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 2: Run** `bash tests/sb_cli_test.sh` — Expected: FAIL (`recall_gate` missing).
+- [x] **Step 3: Implement** as in Interfaces; reuse one `SearchIndex` for all queries.
+- [x] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: `ok   second-brain unit tests`; `test_fixture_meets_the_gate` still passes.
+- [x] **Step 5: Checkpoint.**
 
 ---
 
@@ -217,7 +217,7 @@ Update `test_fixture_shape` for 65 rows and 31 negatives.
 **Interfaces:**
 - Consumes: Task 2 `HEADER`.
 
-- [ ] **Step 1: Template.** Rule 5 becomes (exact):
+- [x] **Step 1: Template.** Rule 5 becomes (exact):
 
 ```
 5. Search before answering from memory: `sb search "<terms>"`. A `<second-brain-recall>` block
@@ -228,14 +228,14 @@ Update `test_fixture_shape` for 65 rows and 31 negatives.
 
 Add `test_claude_md_rule_5_marks_general_knowledge` asserting the substring `marked "(conhecimento geral)"` in a fresh vault's `CLAUDE.md`; keep `test_vault_claude_md_is_under_200_lines` passing.
 
-- [ ] **Step 2: Eval case** `recall-grounding`, shaped like `evals/find-implicit` (`runs: 3`, `max_turns: 20`, `allowed_tools: [Read, Glob, Grep, Skill, Bash]`, tags `[find, recall]`):
+- [x] **Step 2: Eval case** `recall-grounding`, shaped like `evals/find-implicit` (`runs: 3`, `max_turns: 20`, `allowed_tools: [Read, Glob, Grep, Skill, Bash]`, tags `[find, recall]`):
   - `scaffold.sh`: `sb init --vault . --language pt-BR`, then write `wiki/Resources/Cardinalidade de Métricas.md` (frontmatter `origin: agent`, no `reviewed`; body: the four sentences of the bench note — cardinality is the number of distinct series, unbounded labels such as user id or full URL multiply series and make storage and queries expensive, prefer low-cardinality labels such as normalised route and status code, per-request detail goes to logs or traces), then `sb index --write --vault .`.
   - `prompt.md`: `Por que o meu Prometheus ficou lento depois que eu coloquei o id do usuário como label?`
   - `graders/cites-note.md`: `type: regex`, pattern `\[\[Cardinalidade de Métricas\]\]`, target `last_message`.
   - `graders/marks-general.md`: `type: llm`. PASS if every statement in the reply that the note above does not support is placed after the note-based part and marked "(conhecimento geral)" (or the reply adds nothing beyond the note); FAIL if it states facts the note does not contain (for example memory use, TSDB internals, `metric_relabel_configs`) without that mark. Paste the note body into the grader text so the judge can compare.
 
-- [ ] **Step 3: Run** `bash tests/sb_cli_test.sh` and `bash tests/sb_structure_test.sh` — Expected: both ok.
-- [ ] **Step 4: Checkpoint.** The paid run (3 × Haiku via the manual harness, ≈ US$0.05) is done by the main session after the user approves the budget. Expected: `cites-note` 3/3 and `marks-general` ≥ 2/3; the previous header is the baseline (run once with v0.2.3 for comparison).
+- [x] **Step 3: Run** `bash tests/sb_cli_test.sh` and `bash tests/sb_structure_test.sh` — Expected: both ok.
+- [ ] **Step 4: Checkpoint.** The paid run (3 × Haiku via the manual harness, ≈ US$0.05) is done by the main session after the user approves the budget. Expected: `cites-note` 3/3 and `marks-general` ≥ 2/3; the previous header is the baseline (run once with v0.2.3 for comparison).  _(open: paid `recall-grounding` run (3 x Haiku) not done yet)_
 
 ---
 
@@ -248,14 +248,14 @@ Add `test_claude_md_rule_5_marks_general_knowledge` asserting the substring `mar
 **Interfaces:**
 - Produces: `source.source_value(root, target: str) -> str`: an `http(s)` target → the target as given (stripped); an `_inbox/*.md` item whose `url` (else `source`) field is `http(s)` → that value; any other `_inbox/` item → `"_inbox/_done/<file name>"`; any other file → its path relative to the vault. `sb source add --json` adds `"source"`; the text output adds a line `source: <value>`.
 
-- [ ] **Step 1: Write the failing tests** — `test_source_add_returns_url_for_inbox_clip` (clip with `url: https://example.org/a` → `"source": "https://example.org/a"`), `test_source_add_inbox_without_url_returns_done_path` (→ `"_inbox/_done/2026-11-01-x.md"`), `test_source_add_non_http_url_falls_back_to_path` (`url: obsidian://open?x` → done path), `test_source_add_raw_file_returns_vault_path` (`_raw/a.pdf` → `"_raw/a.pdf"`), `test_source_add_url_target_returns_url`.
-- [ ] **Step 2: Run** — Expected: FAIL (`KeyError: 'source'`).
-- [ ] **Step 3: Implement**, then edit the ingest skill:
+- [x] **Step 1: Write the failing tests** — `test_source_add_returns_url_for_inbox_clip` (clip with `url: https://example.org/a` → `"source": "https://example.org/a"`), `test_source_add_inbox_without_url_returns_done_path` (→ `"_inbox/_done/2026-11-01-x.md"`), `test_source_add_non_http_url_falls_back_to_path` (`url: obsidian://open?x` → done path), `test_source_add_raw_file_returns_vault_path` (`_raw/a.pdf` → `"_raw/a.pdf"`), `test_source_add_url_target_returns_url`.
+- [x] **Step 2: Run** — Expected: FAIL (`KeyError: 'source'`).
+- [x] **Step 3: Implement**, then edit the ingest skill:
   - step 2: "`sb source add "<item>" --json` gives `source_id`, `source`, `kind` and `status`."
   - step 6, *New note* frontmatter: replace `source: <url, or the item path>` and the sentence about the inbox path with "`source: <source>` (the value from step 2, verbatim)"; keep the note that a transient `SB109` is expected until step 8 only for values under `_inbox/_done/`.
   - step 6, first bullet: after "`Name` is unique, atomic, one idea" add "; `title` is exactly `Name`, same case and accents".
-- [ ] **Step 4: Run** `bash tests/sb_cli_test.sh` and `bash tests/sb_structure_test.sh` — Expected: both ok (skill still ≤ 250 lines).
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 4: Run** `bash tests/sb_cli_test.sh` and `bash tests/sb_structure_test.sh` — Expected: both ok (skill still ≤ 250 lines).
+- [x] **Step 5: Checkpoint.**
 
 ---
 
@@ -268,11 +268,11 @@ Add `test_claude_md_rule_5_marks_general_knowledge` asserting the substring `mar
 **Interfaces:**
 - Produces: constant `KEEP_DIRS = ("_inbox/_done", "_raw")`; `run` writes `<dir>/.gitkeep` (empty) through `_write_new`, so it lands in `created`; `upgrade` plans `add <dir>/.gitkeep` when missing.
 
-- [ ] **Step 1: Write the failing tests** — `test_init_writes_gitkeep_in_done_and_raw` (both files exist and are empty, listed in `created`); `test_upgrade_adds_missing_gitkeep` (plan contains `add _inbox/_done/.gitkeep`; after `yes=True` the file exists); `test_gitkeep_is_not_an_inbox_item` (`session._inbox_count` of a fresh vault is `0`).
-- [ ] **Step 2: Run** — Expected: the first two FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: ok.
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 1: Write the failing tests** — `test_init_writes_gitkeep_in_done_and_raw` (both files exist and are empty, listed in `created`); `test_upgrade_adds_missing_gitkeep` (plan contains `add _inbox/_done/.gitkeep`; after `yes=True` the file exists); `test_gitkeep_is_not_an_inbox_item` (`session._inbox_count` of a fresh vault is `0`).
+- [x] **Step 2: Run** — Expected: the first two FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: ok.
+- [x] **Step 5: Checkpoint.**
 
 ---
 
@@ -281,8 +281,8 @@ Add `test_claude_md_rule_5_marks_general_knowledge` asserting the substring `mar
 **Files:**
 - Modify: `plugins/second-brain/.claude-plugin/plugin.json` (`0.2.4`), `tests/sb_structure_test.sh` (version check `0.2.4`)
 
-- [ ] **Step 1: Edit** the two files.
-- [ ] **Step 2: Run** from the worktree root: `bash tests/sb_cli_test.sh`, `bash tests/sb_structure_test.sh`, `bash tests/sb_companion_test.sh`, and `plugins/second-brain/bin/sb eval --qrels tests/fixtures/sb-eval/qrels.jsonl --vault tests/fixtures/sb-eval/vault` — Expected: all ok; eval overall Recall@10 ≥ 0.85, MRR ≥ 0.6; `recall gate  positives injected 21/21`; negatives with injection ≤ 2/31.
-- [ ] **Step 3: Checkpoint** — report `git status --short` and the eval table.
+- [x] **Step 1: Edit** the two files.
+- [x] **Step 2: Run** from the worktree root: `bash tests/sb_cli_test.sh`, `bash tests/sb_structure_test.sh`, `bash tests/sb_companion_test.sh`, and `plugins/second-brain/bin/sb eval --qrels tests/fixtures/sb-eval/qrels.jsonl --vault tests/fixtures/sb-eval/vault` — Expected: all ok; eval overall Recall@10 ≥ 0.85, MRR ≥ 0.6; `recall gate  positives injected 21/21`; negatives with injection ≤ 2/31.
+- [x] **Step 3: Checkpoint** — report `git status --short` and the eval table.
 
 **Main session after the subagent (not part of the subagent's work):** re-run `bench-verify/verify.py` and `recall_rules.py` against the bench vault with the worktree's plugin (expect the bread prompt silent and 60/60 checks, the autocommit check run with a git identity), run the `recall-grounding` case 3× with the harness, then ask the user before committing, pushing and opening the PR.

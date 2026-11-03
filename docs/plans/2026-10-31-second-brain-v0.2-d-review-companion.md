@@ -58,9 +58,9 @@
 
 > **Vectors already authored** by the companion work (16 entries): copy `~/Code/aether-labs/second-brain-companion/test/vectors.json` to `tests/fixtures/review-hash/vectors.json` instead of Step 1. Companion Tasks 3–5 are done there (commits `6e7d3ab`, `95c5584`, `9f5f284`; `trustState` takes an optional third `path` argument; `minAppVersion` 1.4.4).
 
-- [ ] **Step 1: Write the vectors by hand** (`file` and expected `review_body`); generate `hash` with a one-off `python3 -c` using `hashlib.sha256(review_body.encode("utf-8")).hexdigest()[:16]` — the hash is the only computed field.
-- [ ] **Step 2: Test** `test_vectors` iterates the file asserting `review_body(file) == review_body` and `review_hash(file) == hash`; `test_hash_format` asserts `re.fullmatch(r"sha256:[0-9a-f]{16}", ...)`.
-- [ ] **Step 3: Run** `python3 -m unittest tests/python/test_sb_review.py -v` — FAIL. **Step 4: Implement** (reuse `frontmatter.parse` and `trust.AGENT_BLOCK_RE`; a trailing block is a run of lines starting at an `AGENT_BLOCK_RE` line where every following non-blank line starts with `>`, up to the end of the body). **Step 5: Run** — PASS. **Step 6: Checkpoint.**
+- [x] **Step 1: Write the vectors by hand** (`file` and expected `review_body`); generate `hash` with a one-off `python3 -c` using `hashlib.sha256(review_body.encode("utf-8")).hexdigest()[:16]` — the hash is the only computed field.
+- [x] **Step 2: Test** `test_vectors` iterates the file asserting `review_body(file) == review_body` and `review_hash(file) == hash`; `test_hash_format` asserts `re.fullmatch(r"sha256:[0-9a-f]{16}", ...)`.
+- [x] **Step 3: Run** `python3 -m unittest tests/python/test_sb_review.py -v` — FAIL. **Step 4: Implement** (reuse `frontmatter.parse` and `trust.AGENT_BLOCK_RE`; a trailing block is a run of lines starting at an `AGENT_BLOCK_RE` line where every following non-blank line starts with `>`, up to the end of the body). **Step 5: Run** — PASS. **Step 6: Checkpoint.**
 
 ---
 
@@ -73,7 +73,7 @@
 **Interfaces:**
 - Produces: `frontmatter.set_keys(text: str, updates: dict) -> str` (replaces the line of an existing scalar key in place, appends new keys before the closing `---`, leaves every other line byte-identical); CLI `sb review NOTE [--json]` → sets `reviewed: <today>` and `reviewed_hash`, prints the hash; exit `2` if the note is missing. `lint.INFO_CODES` gains `SB112`.
 
-- [ ] **Step 1: Tests**
+- [x] **Step 1: Tests**
 
 ```python
 def test_set_keys_preserves_other_lines(self):
@@ -87,8 +87,8 @@ def test_reviewed_without_hash_is_not_sb110(self): ...
 def test_guard_still_denies_agent_sb_review(self): ...       # regression of milestone B
 ```
 
-- [ ] **Step 2: Run** — FAIL. **Step 3: Implement.** `SB110` message: `reviewed text changed since <reviewed>; review again (Obsidian: "Mark as reviewed", or sb review)`. `SB112`: `<n> agent block(s) waiting for review`. `lint` skill: list both codes and say the agent never runs `sb review`.
-- [ ] **Step 4: Run** `bash tests/sb_cli_test.sh` — PASS. **Step 5: Checkpoint.**
+- [x] **Step 2: Run** — FAIL. **Step 3: Implement.** `SB110` message: `reviewed text changed since <reviewed>; review again (Obsidian: "Mark as reviewed", or sb review)`. `SB112`: `<n> agent block(s) waiting for review`. `lint` skill: list both codes and say the agent never runs `sb review`.
+- [x] **Step 4: Run** `bash tests/sb_cli_test.sh` — PASS. **Step 5: Checkpoint.**
 
 ---
 
@@ -97,10 +97,10 @@ def test_guard_still_denies_agent_sb_review(self): ...       # regression of mil
 **Files (new repository `~/Code/aether-labs/second-brain-companion`):**
 - Create: from `obsidianmd/obsidian-sample-plugin` (shallow clone, `.git` removed, `git init`), then edit `manifest.json`, `package.json`, `README.md`, `LICENSE`; add `vitest` as a dev dependency and `"test": "vitest run"`.
 
-- [ ] **Step 1: Scaffold** and set `manifest.json`: `"id": "second-brain-companion"`, `"name": "Second Brain Companion"`, `"description": "Review notes written by the second-brain Claude Code plugin: mark reviewed, accept agent blocks, see trust status."`, `"author": "Aether Labs"`, `"isDesktopOnly": false`, `"minAppVersion"`: the sample plugin's current value. `versions.json` maps `0.1.0` to it.
-- [ ] **Step 2: Copy** `tests/fixtures/review-hash/vectors.json` from the plugins repo to `test/vectors.json`; README states the plugins repo copy is the source of truth and both must change together.
-- [ ] **Step 3: Verify:** `npm install && npm run build && npm test` — Expected: build emits `main.js`; Vitest reports no test files or passes the sample.
-- [ ] **Step 4: Checkpoint** (local repository only; creating `aether-labs-org/second-brain-companion` on GitHub and the first push are the user's call).
+- [x] **Step 1: Scaffold** and set `manifest.json`: `"id": "second-brain-companion"`, `"name": "Second Brain Companion"`, `"description": "Review notes written by the second-brain Claude Code plugin: mark reviewed, accept agent blocks, see trust status."`, `"author": "Aether Labs"`, `"isDesktopOnly": false`, `"minAppVersion"`: the sample plugin's current value. `versions.json` maps `0.1.0` to it.
+- [x] **Step 2: Copy** `tests/fixtures/review-hash/vectors.json` from the plugins repo to `test/vectors.json`; README states the plugins repo copy is the source of truth and both must change together.
+- [x] **Step 3: Verify:** `npm install && npm run build && npm test` — Expected: build emits `main.js`; Vitest reports no test files or passes the sample.
+- [x] **Step 4: Checkpoint** (local repository only; creating `aether-labs-org/second-brain-companion` on GitHub and the first push are the user's call).
 
 ---
 
@@ -114,7 +114,7 @@ def test_guard_still_denies_agent_sb_review(self): ...       # regression of mil
 - Produces: `splitFrontmatter(text: string): { frontmatter: string; body: string }` (same rules as Python `parse`: strip BOM, CRLF → LF, body = lines after the closing `---`); `reviewBody(text: string): string`; `reviewHash(text: string): Promise<string>` (`crypto.subtle.digest("SHA-256", new TextEncoder().encode(body))`, first 16 hex, `"sha256:"` prefix); `splitTrailingAgentBlocks(body: string): { kept: string; blocks: string[] }`; `unwrapAgentBlocks(text: string): string` (drops each trailing block's header line and the `> ` prefix of its other lines, keeps a blank line between blocks; returns `text` unchanged when there are none).
 - Commands (ids prefixed by the plugin id): `mark-reviewed` — `reviewHash` of the current file, then `app.fileManager.processFrontMatter(file, fm => { fm.reviewed = <today YYYY-MM-DD>; fm.reviewed_hash = hash; })`; `accept-agent-blocks` — `app.vault.process(file, unwrapAgentBlocks)` then `mark-reviewed`; Notice `No agent blocks in this note.` when none; `toggle-protected` — flips `fm.protected` between `true` and absent.
 
-- [ ] **Step 1: Tests**
+- [x] **Step 1: Tests**
 
 ```ts
 it.each(vectors)("$name", async (v) => {
@@ -129,7 +129,7 @@ it("marks reviewed without touching the body", async () => {
 });
 ```
 
-- [ ] **Step 2: Run** `npm test` — FAIL. **Step 3: Implement** `hash.ts`, `blocks.ts`, then wire commands in `main.ts`. **Step 4: Run** `npm test && npm run build` — PASS. **Step 5: Checkpoint.**
+- [x] **Step 2: Run** `npm test` — FAIL. **Step 3: Implement** `hash.ts`, `blocks.ts`, then wire commands in `main.ts`. **Step 4: Run** `npm test && npm run build` — PASS. **Step 5: Checkpoint.**
 
 ---
 
@@ -143,7 +143,7 @@ it("marks reviewed without touching the body", async () => {
 - Status bar text: `SB: unreviewed` · `SB: reviewed` · `SB: changed since review` · `SB: agent blocks pending`; updated on `active-leaf-change` and `metadataCache.on("changed")`. On mobile Obsidian hides the status bar; there, each command's Notice reports the resulting state (e.g. `Marked as reviewed (sha256:…)`).
 - `styles.css`: `.callout[data-callout="agent"] { --callout-color: <a neutral blue RGB>; --callout-icon: lucide-bot; }`.
 
-- [ ] **Step 1: Tests** for `trustState` covering each state. **Step 2: Run** — FAIL. **Step 3: Implement.** **Step 4: Run** `npm test && npm run build` — PASS. **Step 5: Checkpoint.**
+- [x] **Step 1: Tests** for `trustState` covering each state. **Step 2: Run** — FAIL. **Step 3: Implement.** **Step 4: Run** `npm test && npm run build` — PASS. **Step 5: Checkpoint.**
 
 ---
 
@@ -153,11 +153,11 @@ it("marks reviewed without touching the body", async () => {
 - Companion: `README.md` (BRAT install: add `aether-labs-org/second-brain-companion` in BRAT), `versions.json`
 - Plugins repo: `plugins/second-brain/README.md`, `plugins/second-brain/templates/CLAUDE.md`, `plugins/second-brain/lib/sb/doctor.py` (recommendation text), `plugins/second-brain/.claude-plugin/plugin.json` (`0.2.3`), `tests/sb_structure_test.sh`
 
-- [ ] **Step 1: Manual QA** in a scratch vault with the built plugin copied to `.obsidian/plugins/second-brain-companion/`, on desktop and on a phone (sync the scratch vault or install via BRAT after the user publishes): each command, each badge state, a note whose frontmatter Obsidian reformats; then `sb lint` agrees with the badge for every note (no `SB110` after "Mark as reviewed"; `SB110` after a body edit). Record results.
-- [ ] **Step 2: Plugin docs:** README "Reviewing" section (Bases view → open note → "Mark as reviewed" or "Accept agent blocks"; CLI alternative `sb review` run by the human); template rule: "`reviewed`/`reviewed_hash` are set by the human through the companion or `sb review`"; doctor recommendation row for the companion.
-- [ ] **Step 3: Verify** `make check`, `make validate` in the plugins repo; `npm test && npm run build` in the companion.
-- [ ] **Step 4: Release (user's go-ahead required):** the user creates `aether-labs-org/second-brain-companion`; on approval push, tag `0.1.0`, and create a GitHub release with `main.js`, `manifest.json`, `styles.css`. Exit criteria (spec §7): all shared vectors equal in Python and TypeScript; manual QA passes on desktop and mobile; BRAT install works from the release.
-- [ ] **Step 5: Checkpoint** — ask the user whether to commit milestone D in the plugins repo.
+- [ ] **Step 1: Manual QA** in a scratch vault with the built plugin copied to `.obsidian/plugins/second-brain-companion/`, on desktop and on a phone (sync the scratch vault or install via BRAT after the user publishes): each command, each badge state, a note whose frontmatter Obsidian reformats; then `sb lint` agrees with the badge for every note (no `SB110` after "Mark as reviewed"; `SB110` after a body edit). Record results.  _(open: manual QA on desktop and mobile not recorded)_
+- [x] **Step 2: Plugin docs:** README "Reviewing" section (Bases view → open note → "Mark as reviewed" or "Accept agent blocks"; CLI alternative `sb review` run by the human); template rule: "`reviewed`/`reviewed_hash` are set by the human through the companion or `sb review`"; doctor recommendation row for the companion.
+- [x] **Step 3: Verify** `make check`, `make validate` in the plugins repo; `npm test && npm run build` in the companion.
+- [ ] **Step 4: Release (user's go-ahead required):** the user creates `aether-labs-org/second-brain-companion`; on approval push, tag `0.1.0`, and create a GitHub release with `main.js`, `manifest.json`, `styles.css`. Exit criteria (spec §7): all shared vectors equal in Python and TypeScript; manual QA passes on desktop and mobile; BRAT install works from the release.  _(open: superseded by D19: the companion is bundled in this repo, not a separate repository)_
+- [x] **Step 5: Checkpoint** — ask the user whether to commit milestone D in the plugins repo.
 
 ## Self-Review notes
 

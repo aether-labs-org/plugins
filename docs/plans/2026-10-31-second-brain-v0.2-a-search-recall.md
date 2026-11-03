@@ -69,7 +69,7 @@
 **Interfaces:**
 - Produces: `parse(text) -> Parsed` unchanged in shape; a key with an empty value followed by indented or unindented `- item` lines now yields `list[str]`.
 
-- [ ] **Step 1: Replace `test_block_list_is_rejected` and add tests**
+- [x] **Step 1: Replace `test_block_list_is_rejected` and add tests**
 
 ```python
 def test_block_list(self):
@@ -102,15 +102,15 @@ def test_obsidian_properties_sample(self):
 
 Keep `test_nested_mapping_is_rejected_with_line_number` (`  nested: 1` is still an error at line 3).
 
-- [ ] **Step 2: Run** `python3 -m unittest tests/python/test_sb_frontmatter.py -v` from the repo root — Expected: the four new block-list tests FAIL.
+- [x] **Step 2: Run** `python3 -m unittest tests/python/test_sb_frontmatter.py -v` from the repo root — Expected: the four new block-list tests FAIL.
 
-- [ ] **Step 3: Implement in `parse`**
+- [x] **Step 3: Implement in `parse`**
 
 Iterate with an index instead of `enumerate`. When `KEY_RE` matches with an empty value, consume following lines matching `^\s*-\s+(.*)$` as list items (unquote each, strip trailing ` # comment`); stop at the first line that does not match. A `- item` line that is not consumed this way is the existing "unsupported frontmatter syntax" error. Line numbers stay 1-based.
 
-- [ ] **Step 4: Run** the same command — Expected: all frontmatter tests PASS. Then `bash tests/sb_cli_test.sh` — Expected: `ok   second-brain unit tests`.
+- [x] **Step 4: Run** the same command — Expected: all frontmatter tests PASS. Then `bash tests/sb_cli_test.sh` — Expected: `ok   second-brain unit tests`.
 
-- [ ] **Step 5: Checkpoint** (no commit; see Global Constraints).
+- [x] **Step 5: Checkpoint** (no commit; see Global Constraints).
 
 ---
 
@@ -123,7 +123,7 @@ Iterate with an index instead of `enumerate`. When `KEY_RE` matches with an empt
 **Interfaces:**
 - Produces: `vault.is_note_rel(rel_to_wiki: str) -> bool`; `vault.asset_names(root) -> set` (basenames of every non-`.md` file under the vault, skipping `.git`, `.sb`, `.obsidian`, `.trash`); `links.is_asset(target: str) -> bool` (has a suffix other than `.md`); `lint.render_text(findings, verbose=False) -> str`; `sb lint --verbose`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # test_sb_vault.py
@@ -168,13 +168,13 @@ def test_render_text_aggregates_codes_over_20(self):
 
 `is_asset` treats a suffix as an extension only if it matches `^\.[A-Za-z0-9]{1,8}$`.
 
-- [ ] **Step 2: Run** `bash tests/sb_cli_test.sh` — Expected: FAIL on the new tests.
+- [x] **Step 2: Run** `bash tests/sb_cli_test.sh` — Expected: FAIL on the new tests.
 
-- [ ] **Step 3: Implement** the interfaces above. `load_notes` uses `is_note_rel` (any part starting with `_` or `.`, or name ending `.excalidraw.md`, is excluded). In `lint`, a target with `is_asset` is checked against `asset_names(root)` (computed once) instead of note names and never counts as an inbound link. `cmd_lint` text output uses `render_text(findings, args.verbose)`; `--json` is unchanged. Aggregated line format: `<CODE> <message of the first finding>: <n> notes (run with --verbose)`.
+- [x] **Step 3: Implement** the interfaces above. `load_notes` uses `is_note_rel` (any part starting with `_` or `.`, or name ending `.excalidraw.md`, is excluded). In `lint`, a target with `is_asset` is checked against `asset_names(root)` (computed once) instead of note names and never counts as an inbound link. `cmd_lint` text output uses `render_text(findings, args.verbose)`; `--json` is unchanged. Aggregated line format: `<CODE> <message of the first finding>: <n> notes (run with --verbose)`.
 
-- [ ] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: PASS.
+- [x] **Step 4: Run** `bash tests/sb_cli_test.sh` — Expected: PASS.
 
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 5: Checkpoint.**
 
 ---
 
@@ -187,7 +187,7 @@ def test_render_text_aggregates_codes_over_20(self):
 **Interfaces:**
 - Produces: `trust.AGENT_BLOCK_RE` (matches a line `> [!agent]` at line start, case-insensitive on `agent`); `trust.label(data: dict, body: str) -> str` returning `"reviewed" | "unreviewed" | "has-agent-blocks"`; `sanitize.clean_inline(text: str, limit: int) -> str`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_labels(self):
@@ -204,13 +204,13 @@ def test_clean_inline(self):
     self.assertEqual(clean_inline("ok\x07", 160), "ok")
 ```
 
-- [ ] **Step 2: Run** `python3 -m unittest tests/python/test_sb_trust.py -v` — Expected: FAIL (modules missing).
+- [x] **Step 2: Run** `python3 -m unittest tests/python/test_sb_trust.py -v` — Expected: FAIL (modules missing).
 
-- [ ] **Step 3: Implement.** `clean_inline` drops Unicode categories `Cc`, `Cf` (covers zero-width and bidi controls) except that newline/tab become spaces, collapses whitespace, and truncates to `limit` characters with a trailing `…` (the ellipsis counts towards the limit).
+- [x] **Step 3: Implement.** `clean_inline` drops Unicode categories `Cc`, `Cf` (covers zero-width and bidi controls) except that newline/tab become spaces, collapses whitespace, and truncates to `limit` characters with a trailing `…` (the ellipsis counts towards the limit).
 
-- [ ] **Step 4: Run** — Expected: PASS.
+- [x] **Step 4: Run** — Expected: PASS.
 
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 5: Checkpoint.**
 
 ---
 
@@ -231,7 +231,7 @@ def test_clean_inline(self):
   - `matched` = number of distinct query tokens found in the folded title, aliases, summary, headings or body (a token of 5+ characters also matches as a prefix of a word).
   - CLI: `sb search QUERY [--limit N] [--folder-boost FOLDER=WEIGHT ...] [--json]`; text mode prints `<rel>  [<trust>]  <summary>` per line; exit `0` with results, `1` with none.
 
-- [ ] **Step 1: Write the failing tests** (vault built with `make_vault`; `note()` from `sb_helpers`)
+- [x] **Step 1: Write the failing tests** (vault built with `make_vault`; `note()` from `sb_helpers`)
 
 ```python
 def test_accent_folding_both_directions(self):
@@ -296,20 +296,20 @@ def test_cli_json_and_exit_codes(self):
     # a query with no hits -> 1
 ```
 
-- [ ] **Step 2: Run** `python3 -m unittest tests/python/test_sb_search.py -v` — Expected: FAIL (module missing).
+- [x] **Step 2: Run** `python3 -m unittest tests/python/test_sb_search.py -v` — Expected: FAIL (module missing).
 
-- [ ] **Step 3: Implement `search.py`.**
+- [x] **Step 3: Implement `search.py`.**
   - DB `<root>/.sb/search.db`; create `.sb/` and `.sb/.gitignore` (`*\n`) if absent. Tables: `meta(key, value)` with `schema = "1"`; `files(rel PRIMARY KEY, mtime_ns, size)`; FTS5 `notes(rel UNINDEXED, name, title, aliases, summary, headings, body, tokenize = 'unicode61 remove_diacritics 2')`. Any `sqlite3.DatabaseError` on open or a schema mismatch → delete the file and rebuild.
   - `refresh()` stats `wiki/**/*.md` through `load_notes` rules (reuse `vault.is_note_rel`), compares `(mtime_ns, size)` with `files`, and re-inserts only differences inside one transaction.
   - Query: `tokenize(query)`; empty → `[]`. FTS expression: tokens joined by ` OR `, each as `"tok"` and, when `len(tok) >= 5`, `"tok"*`. Rank: `bm25(notes, 0, 10, 10, 8, 5, 3, 1)` (first weight for the unindexed `rel`); `score = -bm25 * (1 + folder_boost.get(folder, 0))`. Fetch `limit * 3` rows, compute `matched` in Python, re-sort, cut to `limit`.
   - `use_fts=None` probes FTS5 once (`CREATE VIRTUAL TABLE temp.t USING fts5(x)`); without it, score in memory with the same field weights (term frequency per field × weight) and print `sb: FTS5 unavailable, using slow search` to stderr once.
   - `folder` = first path part under `wiki/`; `summary` = `clean_inline(summary, 160)` or `""`.
 
-- [ ] **Step 4: Run** the search tests and `bash tests/sb_cli_test.sh` — Expected: PASS.
+- [x] **Step 4: Run** the search tests and `bash tests/sb_cli_test.sh` — Expected: PASS.
 
-- [ ] **Step 5: Measure** with a throw-away script in the scratchpad that builds 1,000 synthetic notes (as in the v0.2 review) and times 50 `sb search` calls of 3–6 words after one warm-up — Expected: p95 ≤ 300 ms. Record the number in the task report.
+- [x] **Step 5: Measure** with a throw-away script in the scratchpad that builds 1,000 synthetic notes (as in the v0.2 review) and times 50 `sb search` calls of 3–6 words after one warm-up — Expected: p95 ≤ 300 ms. Record the number in the task report.
 
-- [ ] **Step 6: Checkpoint.**
+- [x] **Step 6: Checkpoint.**
 
 ---
 
@@ -324,7 +324,7 @@ def test_cli_json_and_exit_codes(self):
 - Consumes: `SearchIndex`, `search.tokenize`, `search.fold`, `sanitize.clean_inline`.
 - Produces: `recall.build(event: dict, cwd: str, env: dict) -> Optional[dict]` returning `{"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": str}}` or `None`. Constants `LIMIT = 5`, `MAX_CHARS = 2000`, `MIN_TOKENS = 3`, `SCORE_FLOOR = 0.0` (calibrated in Task 7). Setting `userConfig.recall` (boolean, default `true`) → env `CLAUDE_PLUGIN_OPTION_RECALL`.
 
-- [ ] **Step 1: Write the failing tests** (fixture: the three notes of `plugins/second-brain/evals/_fixtures/notes/`, copied into a `make_vault`)
+- [x] **Step 1: Write the failing tests** (fixture: the three notes of `plugins/second-brain/evals/_fixtures/notes/`, copied into a `make_vault`)
 
 ```python
 def test_injects_relevant_notes(self):
@@ -371,11 +371,11 @@ Read before answering; cite as [[Name]]; say "(não revisada)" for unreviewed on
 
 followed by one `- [[Name]] (Folder) [trust]: summary` line per note and `</second-brain-recall>`. Lines are dropped from the end until the block fits `MAX_CHARS`.
 
-- [ ] **Step 2: Run** `python3 -m unittest tests/python/test_sb_recall.py -v` — Expected: FAIL.
+- [x] **Step 2: Run** `python3 -m unittest tests/python/test_sb_recall.py -v` — Expected: FAIL.
 
-- [ ] **Step 3: Implement `recall.build`.** Order: vault check → recall switch → prompt starts with `/` → `tokenize(prompt, cap=64)` has fewer than `MIN_TOKENS` → `SearchIndex(root).search(prompt_tokens_joined, limit=LIMIT)` → keep results with `score > SCORE_FLOOR` and (`matched >= 2` or the folded title or any folded alias occurs as a phrase in the folded prompt) → render. `hooks/recall.py` mirrors `hooks/validate_note.py` (exit 0 always).
+- [x] **Step 3: Implement `recall.build`.** Order: vault check → recall switch → prompt starts with `/` → `tokenize(prompt, cap=64)` has fewer than `MIN_TOKENS` → `SearchIndex(root).search(prompt_tokens_joined, limit=LIMIT)` → keep results with `score > SCORE_FLOOR` and (`matched >= 2` or the folded title or any folded alias occurs as a phrase in the folded prompt) → render. `hooks/recall.py` mirrors `hooks/validate_note.py` (exit 0 always).
 
-- [ ] **Step 4: Register the hook** in `hooks/hooks.json`:
+- [x] **Step 4: Register the hook** in `hooks/hooks.json`:
 
 ```json
 "UserPromptSubmit": [
@@ -385,9 +385,9 @@ followed by one `- [[Name]] (Folder) [trust]: summary` line per note and `</seco
 
 and in `plugin.json` set `"version": "0.2.0"` and add `userConfig.recall` (`type: boolean`, `title: "Recall vault notes on each prompt"`, `description: "Before each prompt, search the vault and add up to five possibly relevant note summaries to the context."`, `default: true`).
 
-- [ ] **Step 5: Run** `bash tests/sb_cli_test.sh` and `claude plugin validate ./plugins/second-brain --strict` — Expected: PASS / `✔ Validation passed`. Time 50 hook runs (`echo '{"prompt": "...", "cwd": "<1k vault>"}' | python3 hooks/recall.py`) on the 1,000-note vault from Task 4 — Expected: p95 ≤ 500 ms.
+- [x] **Step 5: Run** `bash tests/sb_cli_test.sh` and `claude plugin validate ./plugins/second-brain --strict` — Expected: PASS / `✔ Validation passed`. Time 50 hook runs (`echo '{"prompt": "...", "cwd": "<1k vault>"}' | python3 hooks/recall.py`) on the 1,000-note vault from Task 4 — Expected: p95 ≤ 500 ms.
 
-- [ ] **Step 6: Checkpoint.**
+- [x] **Step 6: Checkpoint.**
 
 ---
 
@@ -397,15 +397,15 @@ and in `plugin.json` set `"version": "0.2.0"` and add `userConfig.recall` (`type
 - Modify: `plugins/second-brain/skills/find/SKILL.md`, `plugins/second-brain/templates/CLAUDE.md`
 - Test: `tests/sb_structure_test.sh` (existing checks)
 
-- [ ] **Step 1: Rewrite `find/SKILL.md`.** Description (150–400 chars) must name both explicit ("what do I know about X", "find my notes on Y") and implicit triggers ("a question the user may have answered in their notes before, e.g. 'how did I do X again?'"). `allowed-tools: Read Grep Glob Bash(sb *)`. Procedure:
+- [x] **Step 1: Rewrite `find/SKILL.md`.** Description (150–400 chars) must name both explicit ("what do I know about X", "find my notes on Y") and implicit triggers ("a question the user may have answered in their notes before, e.g. 'how did I do X again?'"). `allowed-tools: Read Grep Glob Bash(sb *)`. Procedure:
   1. Use the `<second-brain-recall>` block if present; else run `sb search "<question>" --json --limit 8`.
   2. Open at most five notes with `Read`, best score first.
   3. Answer only from the notes; cite `[[Name]]` per claim; append ` (não revisada)` — in the vault language, from `.second-brain.json` — after every citation whose `trust` is `unreviewed`, and say "(bloco do agente, não revisado)" when the claim comes from a `> [!agent]` block.
   4. No hit: say the vault has nothing on it; suggest `/second-brain:capture`.
   5. `_raw/` only to verify a cited source. Never edit.
-- [ ] **Step 2: Template.** Rule 5 becomes: "Search before answering from memory: `sb search \"<terms>\"`. A `<second-brain-recall>` block lists candidate notes; open them before answering. Mark unreviewed notes in answers." Note format: `aliases` as an optional list; "Frontmatter is a restricted subset: `key: value` scalars, inline `[a, b]` lists and block lists (`- item`)." Keep the file under 200 lines.
-- [ ] **Step 3: Run** `bash tests/sb_structure_test.sh` — Expected: all `ok` except `plugin version 0.1.0` (fixed in Task 9).
-- [ ] **Step 4: Checkpoint.**
+- [x] **Step 2: Template.** Rule 5 becomes: "Search before answering from memory: `sb search \"<terms>\"`. A `<second-brain-recall>` block lists candidate notes; open them before answering. Mark unreviewed notes in answers." Note format: `aliases` as an optional list; "Frontmatter is a restricted subset: `key: value` scalars, inline `[a, b]` lists and block lists (`- item`)." Keep the file under 200 lines.
+- [x] **Step 3: Run** `bash tests/sb_structure_test.sh` — Expected: all `ok` except `plugin version 0.1.0` (fixed in Task 9).
+- [x] **Step 4: Checkpoint.**
 
 ---
 
@@ -419,7 +419,7 @@ and in `plugin.json` set `"version": "0.2.0"` and add `userConfig.recall` (`type
 - Produces: `evalrun.load_qrels(path) -> list` (JSONL rows `{"id": str, "type": str, "query": str, "relevant": {"<Note name>": 1|2}}`; `relevant` empty for negatives); `evalrun.evaluate(index: SearchIndex, qrels: list, ks=(5, 10)) -> dict` → `{"overall": {"recall@5", "recall@10", "mrr", "n"}, "by_type": {type: {...}}, "negatives": {"n", "max_top_score", "scores": [...]}}`; CLI `sb eval --qrels FILE [--vault DIR] [--json]` (exit `0`; metrics printed as a table).
 - Recall@k = |relevant ∩ top-k| / |relevant| per query, averaged; MRR = 1/rank of the first relevant hit (0 if none in top 10). Negatives are excluded from recall/MRR.
 
-- [ ] **Step 1: Write `test_sb_eval.py`**
+- [x] **Step 1: Write `test_sb_eval.py`**
 
 ```python
 def test_metrics_on_a_toy_index(self):
@@ -434,11 +434,11 @@ def test_fixture_meets_the_gate(self):
 
 `test_fixture_meets_the_gate` copies the fixture vault to a temp dir first (the index writes `.sb/`).
 
-- [ ] **Step 2: Build the fixture.** `tests/fixtures/sb-eval/vault/` is a valid vault (`.second-brain.json`, `wiki/`): ~60 notes over `Projects`, `Areas`, `Resources`, `Archive`; ≥ 40% in pt-BR with accents; ≥ 10 with `aliases`; ≥ 10 with block-list `tags`; ≥ 5 `origin: agent`. `qrels.jsonl` has 40 rows: 12 `lexical`, 8 `accent`, 8 `alias`, 6 `implicit` (a question phrased the way a person asks, sharing ≥ 2 content words with the note), 6 `negative`. Write the notes as plausible study/work notes; no real personal data.
-- [ ] **Step 3: Implement `evalrun.py` and the CLI;** run `python3 -m unittest tests/python/test_sb_eval.py -v` — Expected: PASS. If the gate fails, fix ranking (weights, prefix length), not the qrels.
-- [ ] **Step 4: Calibrate `SCORE_FLOOR`.** Run the six negative queries through `recall.build` against the fixture. Set `SCORE_FLOOR` to the smallest value that keeps negatives injecting nothing while every `implicit` query still injects its relevant note; write the chosen value and the two measured numbers as a comment next to the constant. Add `test_negatives_do_not_inject` and `test_implicit_queries_inject` to `test_sb_recall.py` over the fixture.
-- [ ] **Step 5: Hand-off note for the user:** list `qrels.jsonl` for review (~1 h) in the task report; the milestone cannot close until the user has reviewed it.
-- [ ] **Step 6: Checkpoint.**
+- [x] **Step 2: Build the fixture.** `tests/fixtures/sb-eval/vault/` is a valid vault (`.second-brain.json`, `wiki/`): ~60 notes over `Projects`, `Areas`, `Resources`, `Archive`; ≥ 40% in pt-BR with accents; ≥ 10 with `aliases`; ≥ 10 with block-list `tags`; ≥ 5 `origin: agent`. `qrels.jsonl` has 40 rows: 12 `lexical`, 8 `accent`, 8 `alias`, 6 `implicit` (a question phrased the way a person asks, sharing ≥ 2 content words with the note), 6 `negative`. Write the notes as plausible study/work notes; no real personal data.
+- [x] **Step 3: Implement `evalrun.py` and the CLI;** run `python3 -m unittest tests/python/test_sb_eval.py -v` — Expected: PASS. If the gate fails, fix ranking (weights, prefix length), not the qrels.
+- [x] **Step 4: Calibrate `SCORE_FLOOR`.** Run the six negative queries through `recall.build` against the fixture. Set `SCORE_FLOOR` to the smallest value that keeps negatives injecting nothing while every `implicit` query still injects its relevant note; write the chosen value and the two measured numbers as a comment next to the constant. Add `test_negatives_do_not_inject` and `test_implicit_queries_inject` to `test_sb_recall.py` over the fixture.
+- [x] **Step 5: Hand-off note for the user:** list `qrels.jsonl` for review (~1 h) in the task report; the milestone cannot close until the user has reviewed it.
+- [x] **Step 6: Checkpoint.**
 
 ---
 
@@ -447,13 +447,13 @@ def test_fixture_meets_the_gate(self):
 **Files:**
 - Create: `plugins/second-brain/evals/find-implicit/{case.yaml,prompt.md,scaffold.sh,graders/read-note.md,graders/cites-note.md}`
 
-- [ ] **Step 1: Write the case** following `evals/find-trigger/` (`schema_version: "1.1"`, `scaffold_script: scaffold.sh`, same fixture notes).
+- [x] **Step 1: Write the case** following `evals/find-trigger/` (`schema_version: "1.1"`, `scaffold_script: scaffold.sh`, same fixture notes).
   - `prompt.md`: `Tô estudando pra prova e esqueço tudo depois de uma semana. Como era mesmo aquele jeito de revisar que eu tinha anotado?` (no mention of notes or the vault).
   - `graders/read-note.md`: `type: tool_used`, `tool: Read`, `input_match: 'Spaced Repetition\.md'`.
   - `graders/cites-note.md`: copy of `find-trigger/graders/cites-note.md` (`type: regex`, `pattern: '\[\[Spaced Repetition\]\]'`, `target: last_message`).
   - `prompt.md` front matter as in `ingest-twice/prompt.md`: `runs: 3`, `max_turns: 20`, `allowed_tools: [Read, Glob, Grep, Skill, Bash]`.
-- [ ] **Step 2: Run** (the main session asks the user before spending): `claude plugin eval ./plugins/second-brain --case find-implicit --ablation with-without --model haiku --scaffold --allow-tools Bash --max-cost-usd 1`. Expected: with plugin, both graders pass in ≥ 2 of 3 runs; the report notes the without-plugin score.
-- [ ] **Step 3: Checkpoint.**
+- [ ] **Step 2: Run** (the main session asks the user before spending): `claude plugin eval ./plugins/second-brain --case find-implicit --ablation with-without --model haiku --scaffold --allow-tools Bash --max-cost-usd 1`. Expected: with plugin, both graders pass in ≥ 2 of 3 runs; the report notes the without-plugin score.  _(open: paid `find-implicit` run: no result kept (`evals/results/` is gitignored))_
+- [x] **Step 3: Checkpoint.**
 
 ---
 
@@ -462,11 +462,11 @@ def test_fixture_meets_the_gate(self):
 **Files:**
 - Modify: `tests/sb_structure_test.sh`, `plugins/second-brain/README.md`
 
-- [ ] **Step 1:** `sb_structure_test.sh`: version check → `0.2.0`; add `jq -e '.hooks.UserPromptSubmit' hooks.json` and `jq -e '.userConfig.recall.default == true' plugin.json` checks.
-- [ ] **Step 2:** README: replace the "deterministic first: ripgrep" paragraph with the v0.2 search description; add `sb search`, `sb eval`, `sb lint --verbose` to the CLI table; add a "Recall" section (what it injects, the 2,000-character cap, how to turn it off with the `recall` setting); link the v0.2 spec.
-- [ ] **Step 3: Verify:** `make check` and `make validate` — Expected: all suites `ok`, `✔ Validation passed` for second-brain. Then on a copy of the v0.1 eval fixture vault: `sb lint` shows no `SB108` for block lists and no `SB101` for embeds.
-- [ ] **Step 4: Exit criteria** (spec §4, §8) — report each with its measured value: Recall@10 ≥ 0.85, MRR ≥ 0.6; search p95 ≤ 300 ms and hook p95 ≤ 500 ms at 1,000 notes; `find-implicit` ≥ 2/3 with plugin; qrels reviewed by the user.
-- [ ] **Step 5: Checkpoint** — ask the user whether to commit milestone A.
+- [x] **Step 1:** `sb_structure_test.sh`: version check → `0.2.0`; add `jq -e '.hooks.UserPromptSubmit' hooks.json` and `jq -e '.userConfig.recall.default == true' plugin.json` checks.
+- [x] **Step 2:** README: replace the "deterministic first: ripgrep" paragraph with the v0.2 search description; add `sb search`, `sb eval`, `sb lint --verbose` to the CLI table; add a "Recall" section (what it injects, the 2,000-character cap, how to turn it off with the `recall` setting); link the v0.2 spec.
+- [x] **Step 3: Verify:** `make check` and `make validate` — Expected: all suites `ok`, `✔ Validation passed` for second-brain. Then on a copy of the v0.1 eval fixture vault: `sb lint` shows no `SB108` for block lists and no `SB101` for embeds.
+- [ ] **Step 4: Exit criteria** (spec §4, §8) — report each with its measured value: Recall@10 ≥ 0.85, MRR ≥ 0.6; search p95 ≤ 300 ms and hook p95 ≤ 500 ms at 1,000 notes; `find-implicit` ≥ 2/3 with plugin; qrels reviewed by the user.  _(open: measured 2026-11-03: Recall@10 1.000, MRR 1.000, search p95 123 ms and hook p95 100 ms at 1,000 synthetic notes; still open: `find-implicit` >= 2/3 and user review of the qrels)_
+- [x] **Step 5: Checkpoint** — ask the user whether to commit milestone A.
 
 ## Self-Review notes
 
