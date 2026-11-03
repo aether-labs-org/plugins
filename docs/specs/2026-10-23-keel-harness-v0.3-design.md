@@ -1,8 +1,7 @@
 # keel-harness — Design Spec (v0.3)
 
 **Date:** 2026-10-23
-**Status:** proposed — not implemented. The incremental plan is
-`docs/plans/2026-10-23-keel-harness-v0.3-plan.md`.
+**Status:** release candidate 0.3.0-rc.1 (2026-10-29): implemented, not yet measured; 0.3.0 after E3 and E4 (see the master plan).
 **Supersedes:** parts of `2026-10-20-keel-harness-v0.2-design.md`. Decisions D5, D6 and D7 are revised
 in §3; every v0.2 decision not mentioned here stays.
 **Origin:** a harness-engineering review of v0.2.0 against an evaluation criterion agreed with the
@@ -101,10 +100,14 @@ of scope. The core is agent-agnostic; agent-specific parts are adapters.
 | D42 | Context: `build` proposes the stack's official LSP plugin; the codemap is curated in `docs/architecture.md` (matklad's ARCHITECTURE.md shape) and `harness-check` warns on paths it cites that no longer exist. No generated file tree is loaded by default, and there is no aggregate context-budget check | owner |
 | D43 | `ENFORCEMENT_LEVEL=mandatory\|ratchet` in every rule env file (default `ratchet`). `mandatory`: a computational sensor is required; legacy violations only as an exception list with a deadline that can only shrink; `guard` rejects loosening even when an added ADR names the file — only a superseding ADR approved through CODEOWNERS changes it; PreToolUse protects its files; CI check is required. `mandatory` rules come first in `AGENTS.md`. No `constitution.md`: principles without a sensor go in `docs/architecture.md` with `→ review:<owner>`; an existing Spec Kit `.specify/memory/constitution.md` is read and each principle linked to a rule; a single document for audit is only ever generated from the rules | owner |
 | D44 | Catalog additions: `comments`, `spelling`, `code-style`, `naming`, `suppressions`, `dependencies`, `type-strictness`, `error-handling`, `logging`, `test-conventions`. keel proposes an entry only when the measurement shows a problem or the user asks for it, and each entry must pass a with/without ablation | owner |
-| D45 | ADR folder: `rules` detects an existing one (`docs/adr/`, `doc/adr/`, `docs/decisions/`, `docs/architecture/decisions/`) and records it as `ADR_DIR=` in `.agents/state.yml`; with none, it creates `docs/adr/`. Every path keel writes or checks (`DECISION=`, the folders `guard` reads, sensor guidance) uses `ADR_DIR`. A v0.2 install keeps `docs/decisions/` — nothing is moved | owner |
+| D45 | ADR folder: `rules` detects an existing one (`docs/adr/`, `doc/adr/`, `docs/decisions/`, `docs/architecture/decisions/`) and records it as `adr_dir: <folder>` in `.agents/state.yml`; with none, it creates `docs/adr/`. Every path keel writes or checks (`DECISION=`, the folders `guard` reads, sensor guidance) uses `adr_dir`. A v0.2 install keeps `docs/decisions/` — nothing is moved | owner |
 | D46 | SDD is spec-anchored, never spec-as-source. keel writes no specs: it reads them from `docs/specs/` or an existing Spec Kit layout, and a traceability check warns when an acceptance criterion names no test. Plans (`.agents/plans/`) carry the how; specs carry the what and why | owner |
 | D47 | Autonomous execution is composed, not orchestrated by keel. keel supplies the rails (gate, `guard`, plan Acceptance, protection, evaluator sensors) and documents a recipe — one planner pass, one main loop owning state with stateless subagents for read-heavy work, an inferential evaluator at the end — run by superpowers' `executing-plans` / `subagent-driven-development`, the Agent SDK or a `claude -p` loop. Plans stay files only; no GitHub Issues backend | owner |
 | D48 | The installed engine stays copied bash for v0.3. A declarative CLI is specified separately (`docs/specs/2026-10-24-keel-cli-design.md`) and not scheduled | owner |
+| D49 | **Superseded by D50 (2026-10-28).** The 10 tool eval cases (`build-*`, `gate-catches-defect`, `rules-*`) are not run: the owner's host blocks the nested sandbox (AppArmor) and a cloud container running as root mounts the workspace read-only (F1, F1b). Only the read-only cases run (`assess-*`, `doctor-*`, `should-not-trigger`). **Consequence for C9:** "the plugin proves" holds for the read-only skills only. `build`, `rules`, `rules-effect` and every catalog entry have deterministic tests but no with/without evidence, and are marked *unproven* where the plan asked for an ablation. The decision is reversible: a non-root host with a working nested sandbox (e.g. a GitHub Actions runner) re-enables them | owner, 2026-10-28 |
+| D50 | The 10 tool eval cases are measured after all (E3), on the owner's Linux machine, through a temporary AppArmor profile that lets only `/usr/bin/bwrap` create user namespaces; it is removed after the run, and the global `sysctl` is never changed. That this suffices for Claude Code's nested sandbox is a hypothesis that E3 tests before any paid run. Eval cases are run by grant group (`--tag readonly | bash | tools | effect`), and "writes nothing" is graded from tool calls, not with `file_exists` (E2). Until E3 reports, the items D49 marked *unproven* stay so | owner, 2026-10-28 |
+| D51 | `doctor` is folded into `assess` in F2c. E1 measured little added value (`doctor-finds-drift` Δ −0.22, `doctor-validator-drift` Δ +0.13): a model without the plugin finds most drift on its own. With an installed harness, `assess` runs the plugin's own `harness-check.sh`, compares it with the repository's copy and explains each warning; the validator, its checks and their tests stay unchanged. The `doctor-*` eval cases move to `assess`, and the merged skill must score no worse than E2 on them and no worse than F1 on `assess-*`. Removing `/keel-harness:doctor` is a breaking change, named in the v0.3.0 release notes. Where D36, D41 and F6 say `doctor`, read `assess` | owner, 2026-10-28 |
+| D52 | Profile L ships in v0.3 only with evidence: each F5 component needs a with/without measurement (read-only, or a tool case run as in E3) with Δ > 0. A component without it moves to v0.4, and §2.1 marks profile L as partial in the release | owner, 2026-10-28 |
 
 ## 4. Plugin layout (v0.3)
 
@@ -115,8 +118,7 @@ plugins/keel-harness/
 ├── skills/                       # judgment only; each SKILL.md under 20 KB
 │   ├── assess/   SKILL.md + references/   # disallowed-tools: Write Edit NotebookEdit
 │   ├── build/    SKILL.md + references/
-│   ├── rules/    SKILL.md + references/
-│   └── doctor/   SKILL.md + references/   # disallowed-tools: Write Edit NotebookEdit
+│   └── rules/    SKILL.md + references/   # doctor folded into assess (D51)
 ├── scripts/                      # runs from the plugin
 │   ├── keel                      # phase CLI: plan | approve | apply | verify | measure | check
 │   └── lib/                      # KEY=value parser, JSON helpers, flow state
@@ -136,7 +138,10 @@ plugins/keel-harness/
 ```
 
 - **`assets/` vs `scripts/`** makes visible what goes into the target repository and what runs from
-  the plugin. Today the boundary is only the "Managed by keel" header.
+  the plugin. F2a keeps v0.2's internal layout inside `assets/core/` (`gate.sh`, `harness-check.sh`,
+  `lib/`, `sensors/<stack>/`, `sensors/common/`, with the rule sensors under `sensors/rules/`) instead
+  of the `gate/`, `check/` and `templates/` subfolders drawn above. That keeps the move a set of
+  prefix rewrites; `contracts/` and the templates arrive with F2c. Today the boundary is only the "Managed by keel" header.
 - **`contracts/` at the root** removes the two cross-skill paths
   (`${CLAUDE_SKILL_DIR}/../build/assets`). The plugin reference places shared resources at the
   plugin root, reached through `${CLAUDE_PLUGIN_ROOT}`.
@@ -194,7 +199,7 @@ self-verify checklists (today `build/SKILL.md` §10) and exits non-zero on any u
 
 ### 5.2 Tools are removed, not just pre-approved
 
-`assess` and `doctor` declare `disallowed-tools: Write Edit NotebookEdit`. `allowed-tools` only
+`assess` (with `doctor` folded in, D51) declares `disallowed-tools: Write Edit NotebookEdit`. `allowed-tools` only
 pre-approves; it does not restrict (§9.4).
 
 ### 5.3 The target repository enforces what the agent touches
@@ -284,8 +289,8 @@ installed core runs without the plugin; the README states eval confounders hones
 
 | Risk | Mitigation |
 | --- | --- |
-| The F1 baseline needs eval budget and a host without the nested-sandbox restriction | Run it before F2; without it, F2–F5 have no "did not get worse" ruler |
-| The F2 refactor is large | One skill at a time (doctor → assess → build → rules), evals after each |
+| The F1 baseline needs eval budget and a host without the nested-sandbox restriction | Read-only cases measured in F1 and E2; tool cases in E3 on the owner's machine (D50). Until E3 reports, F2–F5 have a ruler only for the read-only skills |
+| The F2 refactor is large | One skill at a time (assess with doctor folded in → build → rules), evals after each |
 | `guard` blocks a legitimate loosening | It never blocks a recorded one; the record is one file in the same diff |
 | PreToolUse protection adds friction | Scoped to paths the consequence map marks; the deny reason names the approved route |
 | Inferential sensors (F5) are costly and non-deterministic | Optional, budgeted, and removed when the ablation shows Δ ≤ 0 |

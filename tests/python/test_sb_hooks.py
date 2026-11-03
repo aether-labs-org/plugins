@@ -31,6 +31,25 @@ class PostCheckTests(unittest.TestCase):
         self.assertIn("SB102", context)
         self.assertIn("wiki/Resources/Bad.md", context)
 
+    def test_postcheck_regenerates_index(self):
+        from sb import index
+        from sb.vault import load_notes
+        new = self.root / "wiki" / "Resources" / "New.md"
+        new.write_text(note("New", summary="Brand new."), encoding="utf-8")
+        self.assertNotEqual(index.drift(self.root, load_notes(self.root)), "")
+        check(self.event(str(new)), str(self.root))
+        self.assertEqual(index.drift(self.root, load_notes(self.root)), "")
+        self.assertIn("[[New]]: Brand new.", (self.root / "_index.md").read_text(encoding="utf-8"))
+
+    def test_postcheck_ignores_non_notes(self):
+        about = self.root / "wiki" / "Resources" / "_about.md"
+        about.write_text("---\ndescription: x\n---\n", encoding="utf-8")
+        (self.root / "wiki" / "Resources" / "New.md").write_text(note("New"), encoding="utf-8")
+        before = (self.root / "_index.md").read_text(encoding="utf-8")
+        self.assertIsNone(check(self.event(str(about)), str(self.root)))
+        self.assertIsNone(check(self.event("_inbox/x.md"), str(self.root)))
+        self.assertEqual((self.root / "_index.md").read_text(encoding="utf-8"), before)
+
     def test_silent_for_valid_notes_other_files_and_non_vaults(self):
         self.assertIsNone(check(self.event("wiki/Resources/A.md"), str(self.root)))
         self.assertIsNone(check(self.event("_inbox/x.md"), str(self.root)))
@@ -109,8 +128,10 @@ class AutoCommitTests(unittest.TestCase):
         self.addCleanup(lambda: (os.environ.clear(), os.environ.update(old)))
         self.assertTrue(autocommit.run(str(self.root), env={}).startswith("skipped: git commit failed"))
 
-    def test_source_never_pushes(self):
-        self.assertNotIn("push", inspect.getsource(autocommit))
+    def test_source_never_runs_git_push_itself(self):
+        source = inspect.getsource(autocommit)
+        self.assertNotIn('"push"', source)           # no git push argument of its own
+        self.assertNotIn("--force", source)
 
 
 class HookScriptTests(unittest.TestCase):
@@ -131,16 +152,49 @@ class HookScriptTests(unittest.TestCase):
         done = self.run_script("validate_note.py", "garbage", tempfile.gettempdir())
         self.assertEqual((done.returncode, done.stdout), (0, ""))
 
+    def test_recall_hook_entry_point_is_silent_on_garbage(self):
+        done = self.run_script("recall.py", "not json", tempfile.gettempdir())
+        self.assertEqual((done.returncode, done.stdout), (0, ""))
+
+    def test_recall_hook_entry_point_outputs_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp, {"Resources/Quokka.md": note("Quokka", body="wombat marsupiais")})
+            event = json.dumps({"cwd": str(root), "prompt": "o que sei sobre quokka wombat?"})
+            done = self.run_script("recall.py", event, root)
+            off = self.run_script("recall.py", event, root,
+                                  env=dict(os.environ, CLAUDE_PLUGIN_OPTION_RECALL="false"))
+        self.assertEqual(done.returncode, 0)
+        out = json.loads(done.stdout)["hookSpecificOutput"]
+        self.assertEqual(out["hookEventName"], "UserPromptSubmit")
+        self.assertIn("[[Quokka]]", out["additionalContext"])
+        self.assertEqual((off.returncode, off.stdout), (0, ""))
+
+    def test_guard_hook_fails_closed_inside_a_vault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            done = self.run_script("guard.py", "not json", root)
+        self.assertEqual(done.returncode, 2)
+        self.assertIn("second-brain", done.stderr)
+
+    def test_guard_hook_is_silent_outside_a_vault(self):
+        done = self.run_script("guard.py", "not json", tempfile.gettempdir())
+        self.assertEqual((done.returncode, done.stdout), (0, ""))
+
+    def test_guard_hook_blocks_on_failure(self):
+        spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+        self.assertEqual(spec["PreToolUse"][0]["hooks"][0]["onFailure"], "block")
+
     def test_autocommit_script_always_exits_zero(self):
         done = self.run_script("autocommit.py", "{}", tempfile.gettempdir())
         self.assertEqual(done.returncode, 0)
 
-    def test_hooks_json_wires_the_three_events(self):
+    def test_hooks_json_wires_the_five_events(self):
         spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-        self.assertEqual(sorted(spec), ["PostToolUse", "PreToolUse", "SessionEnd"])
+        self.assertEqual(sorted(spec), ["PostToolUse", "PreToolUse", "SessionEnd", "SessionStart", "UserPromptSubmit"])
         self.assertEqual(spec["PreToolUse"][0]["matcher"], "Write|Edit|MultiEdit|NotebookEdit|Bash")
         self.assertEqual(spec["PostToolUse"][0]["matcher"], "Write|Edit|MultiEdit")
         self.assertNotIn("matcher", spec["SessionEnd"][0])
+        self.assertNotIn("matcher", spec["UserPromptSubmit"][0])
         for event in spec.values():
             for hook in event[0]["hooks"]:
                 self.assertIn("${CLAUDE_PLUGIN_ROOT}/hooks/", hook["command"])

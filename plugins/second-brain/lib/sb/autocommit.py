@@ -4,6 +4,7 @@ import subprocess
 from datetime import date
 from pathlib import Path
 
+from . import sync
 from .vault import find_vault
 
 OFF_VALUES = {"false", "0", "no", "off"}
@@ -19,8 +20,16 @@ def _git(vault, *args):
                           timeout=30)
 
 
-def run(cwd, env=None, today=None):
-    """Return 'committed: <message>' or 'skipped: <reason>'. Never raises."""
+def _push_note(vault):
+    return "; push: %s" % sync.push(vault)
+
+
+def run(cwd, env=None, today=None, session_id="", message=None, push=True):
+    """Return 'committed: <message>' or 'skipped: <reason>'. Never raises.
+
+    In a squad vault (sync.enabled) a push follows the commit when `push` is true, and its
+    outcome is appended: `committed: <message>; push: ok|pending: <why>`.
+    """
     env = os.environ if env is None else env
     vault = find_vault(cwd)
     if vault is None:
@@ -40,15 +49,20 @@ def run(cwd, env=None, today=None):
             return "skipped: git status failed: %s" % status.stderr.strip()
         changed = [line for line in status.stdout.splitlines() if line.strip()]
         if not changed:
+            if push and sync.enabled(vault) and (sync.pending(vault) or sync.ahead(vault)):
+                return "skipped: no changes" + _push_note(vault)
             return "skipped: no changes"
         added = _git(vault, "add", "-A")
         if added.returncode != 0:
             return "skipped: git add failed: %s" % added.stderr.strip()
-        message = "sb: session %s (%d files)" % (today or date.today().isoformat(), len(changed))
-        committed = _git(vault, "commit", "-q", "-m", message)
+        message = message or "sb: session %s (%d files)" % (
+            today or date.today().isoformat(), len(changed))
+        trailers = "Sb-Session: %s\nSb-Files: %d" % (session_id or "unknown", len(changed))
+        committed = _git(vault, "commit", "-q", "-m", message, "-m", trailers)
         if committed.returncode != 0:
             return "skipped: git commit failed: %s" % (committed.stderr.strip()
                                                        or committed.stdout.strip())
-        return "committed: %s" % message
+        pushed = _push_note(vault) if push and sync.enabled(vault) else ""
+        return "committed: %s%s" % (message, pushed)
     except (OSError, subprocess.SubprocessError) as exc:
         return "skipped: %s" % exc

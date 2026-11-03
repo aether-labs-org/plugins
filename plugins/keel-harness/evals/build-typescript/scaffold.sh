@@ -55,7 +55,7 @@ export const config = { stripeKey: STRIPE_KEY };
 TS
 cat > .gitignore <<'GITIGNORE'
 node_modules/
-.agents/last-run.log
+.agents/run/
 GITIGNORE
 
 npm install --no-audit --no-fund --silent

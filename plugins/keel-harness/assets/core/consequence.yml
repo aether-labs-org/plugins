@@ -1,0 +1,29 @@
+# Managed by keel-harness - the consequence map. Edit it through /keel-harness:build; see .agents/README.md.
+# One `category: glob` per line. `!glob` removes matches from the category declared above it. Globs are
+# matched against repository-relative paths: `*` stays inside one directory, `**` crosses directories,
+# and a pattern ending in `/**` covers everything under that directory.
+#
+# harness: the Claude Code protect hook denies edits unless a build or rules flow was approved.
+harness: .agents/**
+!.agents/run/**
+!.agents/plans/**
+!.agents/progress.md
+harness: scripts/gate.sh
+harness: scripts/harness-check.sh
+harness: scripts/sensors/**
+harness: scripts/lib/**
+harness: scripts/hooks/**
+harness: .github/workflows/keel.yml
+# agent-config: the hook asks - the user may change their own settings, a human confirms each edit.
+agent-config: .claude/settings.json
+# secrets: permissions.deny blocks Read and Edit (.claude/settings.json); the hook asks as a fallback.
+secrets: **/.env
+secrets: **/.env.*
+!**/.env.example
+secrets: **/*.pem
+secrets: **/*.key
+# Discovered by /keel-harness:build; only paths that exist in this repository. The hook asks.
+# auth: **/auth/**
+# data: **/migrations/**
+# infra: terraform/**
+# public-contract: openapi*.y*ml

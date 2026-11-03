@@ -49,10 +49,22 @@
         "knowledge-base",
         "markdown",
         "local-first"
+      ],
+      "dependencies": [
+        {
+          "name": "document-skills",
+          "marketplace": "anthropic-agent-skills"
+        },
+        {
+          "name": "obsidian",
+          "marketplace": "obsidian-skills"
+        }
       ]
     }
   ],
   "allowCrossMarketplaceDependenciesOn": [
-    "claude-plugins-official"
+    "claude-plugins-official",
+    "anthropic-agent-skills",
+    "obsidian-skills"
   ]
 }

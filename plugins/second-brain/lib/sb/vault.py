@@ -1,12 +1,14 @@
 """Vault discovery and note loading."""
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from .frontmatter import parse
 
 MARKER = ".second-brain.json"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+ASSET_SKIP_DIRS = {".git", ".sb", ".obsidian", ".trash"}
 
 
 class VaultError(Exception):
@@ -54,6 +56,24 @@ def load_note(root, path):
     return Note(path, rel, path.stem, parsed.data, parsed.body, parsed.body_line, parsed.errors)
 
 
+def is_note_rel(rel):
+    """True when a path relative to `wiki/` is a note (not `_about.md`, `_assets/`, dot paths,
+    or an Excalidraw drawing)."""
+    parts = rel.split("/")
+    if any(part.startswith(("_", ".")) for part in parts):
+        return False
+    return not parts[-1].endswith(".excalidraw.md")
+
+
+def asset_names(root):
+    """Basenames of every non-Markdown file in the vault (Obsidian resolves embeds by name)."""
+    names = set()
+    for _, dirs, files in os.walk(str(root)):
+        dirs[:] = [d for d in dirs if d not in ASSET_SKIP_DIRS]
+        names.update(f for f in files if not f.endswith(".md") and not f.startswith("."))
+    return names
+
+
 def load_notes(root):
     root = Path(root)
     wiki = root / "wiki"
@@ -61,7 +81,7 @@ def load_notes(root):
         return []
     notes = []
     for path in sorted(wiki.rglob("*.md")):
-        if any(part.startswith(".") for part in path.relative_to(wiki).parts):
+        if not is_note_rel(path.relative_to(wiki).as_posix()):
             continue
         notes.append(load_note(root, path))
     return notes

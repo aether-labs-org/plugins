@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: folder-placement
+description: An inbox clip that records a decision is filed under wiki/Decisions/, following the folder descriptions the SessionStart hook shows, not under Resources or Projects.
+tags: [ingest, folders]
+context:
+  scaffold_script: scaffold.sh
