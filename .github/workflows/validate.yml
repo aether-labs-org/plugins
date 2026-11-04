@@ -12,6 +12,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/kh/go.mod
       - name: Run tests
         run: ./tests/run.sh
       - name: Install Claude Code
