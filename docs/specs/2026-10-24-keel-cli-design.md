@@ -1,8 +1,7 @@
 # keel CLI — Design Spec (exploratory)
 
 **Date:** 2026-10-24
-**Status:** proposed — exploratory, not scheduled. v0.3 keeps the copied bash engine
-(`2026-10-23-keel-harness-v0.3-design.md`, D48).
+**Status:** superseded by `2026-11-03-keel-cli-v0.4-design.md` (2026-11-03). Kept for history.
 **Origin:** owner question, 2026-10-24: could the installed scripts be replaced by a CLI that reads
 a declarative configuration file?
 
