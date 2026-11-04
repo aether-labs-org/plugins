@@ -1,0 +1,7 @@
+# keel.lock - kh pin; written by keel, do not edit by hand
+# TEST LOCK: generated from a local `make -C cli/kh dist VERSION=0.5.0-rc.1`, not from a published release. Replace it with the lock made from the published SHA256SUMS (owner step A16.6).
+version=0.5.0-rc.1
+linux-amd64=7a4de24136b8a3e661582a4ed0b966b32b5dbe02a5cf85fc1a9dd7e24d98eb15
+linux-arm64=394eb525aa1fb7f58d9c4f01ca4f31d9037d4e91bd44c66a1110cc8432dfd8f7
+darwin-amd64=7867fb554481886c442f11942ca07c42242a6ce04568419000f705fdbaf0c5b5
+darwin-arm64=34c5fa3959b37cae56cc59074475756d7b1c6613b98d48756ea2f77a2b982a8c

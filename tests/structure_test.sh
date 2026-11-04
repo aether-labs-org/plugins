@@ -18,22 +18,22 @@ jq -e . "$mp" >/dev/null 2>&1; check "marketplace.json is valid JSON" $?
 
 jq -e . "$pj" >/dev/null 2>&1; check "plugin.json is valid JSON" $?
 [ "$(jq -r .name "$pj" 2>/dev/null)" = "keel-harness" ]; check "plugin name is keel-harness" $?
-[ "$(jq -r .version "$pj" 2>/dev/null)" = "0.3.0-rc.1" ]; check "plugin version is 0.3.0-rc.1" $?
-grep -q "project.s own rules" "$root/.claude-plugin/marketplace.json" && grep -q "project.s own rules" "$root/README.md"; check "marketplace and root README carry the v0.2 description" $?
-grep -q "implemented in v0.2.0" "$root/docs/specs/2026-10-20-keel-harness-v0.2-design.md"; check "spec status is implemented in v0.2.0" $?
-grep -q "release candidate 0.3.0-rc.1" "$root/docs/specs/2026-10-23-keel-harness-v0.3-design.md"; check "v0.3 spec status is release candidate 0.3.0-rc.1" $?
+[ "$(jq -r .version "$pj" 2>/dev/null)" = "0.5.0-rc.1" ]; check "plugin version is 0.5.0-rc.1" $?
+desc="$(jq -r .description "$pj" 2>/dev/null)"
+[ -n "$desc" ] && [ "$(jq -r '.plugins[0].description' "$mp" 2>/dev/null)" = "$desc" ] && grep -qF "$desc" "$root/README.md"; check "plugin.json, marketplace.json and the root README carry the same description" $?
 
 for forbidden in hooks .mcp.json bin commands; do
   [ ! -e "$root/plugins/keel-harness/$forbidden" ]
   check "plugin has no $forbidden (spec 9)" $?
 done
 
-for s in assess build rules; do
+for s in harness; do
   f="$root/plugins/keel-harness/skills/$s/SKILL.md"
   [ -f "$f" ]; check "skills/$s/SKILL.md exists" $?
   grep -q "^name: $s$" "$f" 2>/dev/null; check "skills/$s frontmatter name" $?
-  grep -q "^description: >" "$f" 2>/dev/null; check "skills/$s frontmatter description" $?
+  grep -q "^description: " "$f" 2>/dev/null; check "skills/$s frontmatter description" $?
 done
+[ "$(ls "$root/plugins/keel-harness/skills" | tr '\n' ' ')" = "harness " ]; check "the plugin has one skill" $?
 
 # The plugin must not reference anything outside its own directory.
 ! grep -rn '\.\./\.\.' "$root/plugins/keel-harness" --include='*.md' --include='*.json' >/dev/null 2>&1

@@ -1,4 +1,0 @@
-schema_version: "1.1"
-name: trigger-build-not
-description: A near-miss that sounds close to the build skill must not load any keel-harness skill.
-tags: [trigger, readonly]

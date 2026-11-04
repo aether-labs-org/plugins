@@ -1,0 +1,3 @@
+# keel: local execution state (evidence, gate history, handoff notes, lessons inbox) is never committed
+.agents/run/
+.claude/settings.local.json

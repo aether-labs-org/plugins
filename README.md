@@ -6,7 +6,7 @@ A collection of Claude Code plugins by Aether Labs.
 
 | Plugin | Description | Install |
 |--------|-------------|---------|
-| keel-harness | Assess, install and maintain an AI-agent harness and the project's own rules — architecture, testing strategy, conventions — in a repository. | `/plugin install keel-harness@aether-labs` |
+| keel-harness | Create, review and keep the AI-agent harness of a repository: one skill diagnoses, measures, asks in rounds and writes only what you confirm; the pinned kh engine runs the gates. | `/plugin install keel-harness@aether-labs` |
 | solutions-architect | Turn the agent into an AWS solutions architect: requirements, decisions, draw.io views, list-price FinOps, Terraform gate, docs and review - read-only. | `/plugin install solutions-architect@aether-labs` |
 | second-brain | Local-first Second Brain: capture, ingest, find, link, update and lint a plain-markdown vault, with a deterministic CLI and protective hooks. | `/plugin install second-brain@aether-labs` |
 

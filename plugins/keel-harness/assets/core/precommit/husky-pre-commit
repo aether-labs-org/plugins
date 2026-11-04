@@ -1,2 +1,0 @@
-# keel-harness: add this line to .husky/pre-commit.
-make gate-fast

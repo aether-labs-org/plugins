@@ -1,9 +1,0 @@
-schema_version: 3
-installed_at: 2026-10-20
-harness_review_by: 2027-04-20
-mode: brownfield
-layers: { bootstrap: installed, guides: installed, fast_gate: installed, slow_gate: not_installed, hook: not_installed, rules: not_installed }
-not_installed:
-  slow_gate: "no mutation or coverage tool configured"
-  hook: "this eval fixture drives the gate by hand"
-  rules: "run /keel-harness:rules to define project rules"

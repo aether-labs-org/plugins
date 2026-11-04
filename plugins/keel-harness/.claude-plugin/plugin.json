@@ -1,9 +1,17 @@
 {
   "name": "keel-harness",
-  "description": "Assess, install and maintain an AI-agent harness and the project's own rules — architecture, testing strategy, conventions — in a repository.",
-  "version": "0.3.0-rc.1",
-  "author": { "name": "Aether Labs" },
+  "description": "Create, review and keep the AI-agent harness of a repository: one skill diagnoses, measures, asks in rounds and writes only what you confirm; the pinned kh engine runs the gates.",
+  "version": "0.5.0-rc.1",
+  "author": {
+    "name": "Aether Labs"
+  },
   "license": "Apache-2.0",
   "repository": "https://github.com/aether-labs-org/plugins",
-  "keywords": ["harness", "agents", "agents-md", "quality-gate", "sensors"]
+  "keywords": [
+    "harness",
+    "agents",
+    "agents-md",
+    "quality-gate",
+    "kh"
+  ]
 }
