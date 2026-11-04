@@ -1,0 +1,10 @@
+[
+  {
+    "file": "layers.domain",
+    "line": 1,
+    "col": 0,
+    "rule": "",
+    "severity": "error",
+    "message": "layers.adapters"
+  }
+]

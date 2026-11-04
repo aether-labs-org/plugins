@@ -1,0 +1,10 @@
+[
+  {
+    "file": "src/type-error.ts",
+    "line": 1,
+    "col": 14,
+    "rule": "TS2322",
+    "severity": "error",
+    "message": "Type 'string' is not assignable to type 'number'."
+  }
+]

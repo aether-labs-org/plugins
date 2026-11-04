@@ -171,3 +171,17 @@ type closeWatcher struct {
 
 func (c *closeWatcher) Write(p []byte) (int, error) { return c.buf.Write(p) }
 func (c *closeWatcher) Close() error                { c.closed = true; return nil }
+
+func TestContains(t *testing.T) {
+	tok := "ghp_" + strings.Repeat("a1B2", 9)
+	for _, in := range []string{tok, "key AKIAABCDEFGHIJKLMNOP end", "-----BEGIN RSA PRIVATE KEY-----", "eyJhbGciOiJI.eyJzdWIiOiIx.SflKxwRJSMeKKF2QT4"} {
+		if !redact.Contains(in) {
+			t.Errorf("Contains(%q) = false", in)
+		}
+	}
+	for _, in := range []string{"plain text", "ghp_short", "an ordinary sentence about keys"} {
+		if redact.Contains(in) {
+			t.Errorf("Contains(%q) = true", in)
+		}
+	}
+}

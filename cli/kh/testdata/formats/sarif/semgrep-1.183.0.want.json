@@ -1,0 +1,10 @@
+[
+  {
+    "file": "danger.py",
+    "line": 2,
+    "col": 10,
+    "rule": "no-eval",
+    "severity": "error",
+    "message": "Avoid eval on dynamic input"
+  }
+]

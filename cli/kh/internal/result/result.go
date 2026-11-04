@@ -76,6 +76,7 @@ type Result struct {
 	Script     string    `json:"script"`
 	Command    string    `json:"command"`
 	Gate       string    `json:"gate"`
+	Class      string    `json:"class"`
 	Status     Status    `json:"status"`
 	ExitCode   *int      `json:"exit_code"`
 	Attempts   int       `json:"attempts"`
@@ -118,7 +119,7 @@ func (r Result) MarshalJSON() ([]byte, error) {
 func Classify(o run.Outcome, argv0 string, timeout time.Duration) (Status, string, *int) {
 	switch {
 	case o.NotFound:
-		return Skip, argv0 + " not found - run: make bootstrap", nil
+		return Skip, argv0 + " not found - install it (see AGENTS.md)", nil
 	case o.StartErr != nil:
 		return Error, "cannot start: " + o.StartErr.Error(), nil
 	case o.TimedOut:

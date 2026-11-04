@@ -1,0 +1,6 @@
+version: 1
+scripts:
+  lint: eslint
+gates:
+  fast: { scripts: [guard, lint] }
+  slow: { scripts: [guard, lint], changes: branch }

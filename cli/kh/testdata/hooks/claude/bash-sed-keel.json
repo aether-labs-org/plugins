@@ -1,0 +1,13 @@
+{
+  "session_id": "s-1234",
+  "transcript_path": "/work/transcript.jsonl",
+  "cwd": "__ROOT__",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "sed -i '/guard/d' .agents/keel.yml",
+    "description": "drop guard"
+  },
+  "tool_use_id": "toolu_01"
+}

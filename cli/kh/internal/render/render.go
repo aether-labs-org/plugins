@@ -6,9 +6,11 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/aether-labs-org/plugins/cli/kh/internal/gate"
 	"github.com/aether-labs-org/plugins/cli/kh/internal/reduce"
 	"github.com/aether-labs-org/plugins/cli/kh/internal/result"
 )
@@ -77,19 +79,62 @@ func clean(s string) string {
 	return b.String()
 }
 
-// Run renders the compact text of a run.
+// MaxFindings is the most findings printed for one script.
+const MaxFindings = 5
+
+// findingLine renders "file:line  rule  message", leaving out what is empty.
+func findingLine(f result.Finding) string {
+	loc := f.File
+	if loc != "" && f.Line > 0 {
+		loc = fmt.Sprintf("%s:%d", loc, f.Line)
+	}
+	var parts []string
+	for _, p := range []string{loc, f.Rule, f.Message} {
+		if p != "" {
+			parts = append(parts, clean(p))
+		}
+	}
+	return strings.Join(parts, "  ")
+}
+
+// Run renders the compact text of a run: the header, for a script that did not
+// pass at most MaxFindings findings (most severe first) or else the generic
+// reduction, the guidance, and where the evidence is.
 func Run(res result.Result, red reduce.Reduction) string {
 	var b strings.Builder
 	b.WriteString(header(res) + "\n")
 	if res.Status != result.Pass {
-		for _, l := range red.Matches {
-			b.WriteString("  " + clean(l.Text) + "\n")
-		}
-		if len(red.Tail) > 0 {
-			fmt.Fprintf(&b, "  --- last %d lines ---\n", len(red.Tail))
-			for _, l := range red.Tail {
+		switch {
+		case res.Baseline != nil && len(res.Baseline.Over) > 0:
+			over := res.Baseline.Over
+			more := ""
+			if len(over) > MaxFindings {
+				more = fmt.Sprintf(" (+%d more)", len(over)-MaxFindings)
+				over = over[:MaxFindings]
+			}
+			fmt.Fprintf(&b, "  over baseline %s: %s%s\n", res.Baseline.File, strings.Join(over, ", "), more)
+			fallthrough
+		case len(res.Findings) > 0:
+			for i, f := range res.Findings {
+				if i == MaxFindings {
+					fmt.Fprintf(&b, "  … and %d more\n", len(res.Findings)-MaxFindings)
+					break
+				}
+				b.WriteString("  " + findingLine(f) + "\n")
+			}
+		default:
+			for _, l := range red.Matches {
 				b.WriteString("  " + clean(l.Text) + "\n")
 			}
+			if len(red.Tail) > 0 {
+				fmt.Fprintf(&b, "  --- last %d lines ---\n", len(red.Tail))
+				for _, l := range red.Tail {
+					b.WriteString("  " + clean(l.Text) + "\n")
+				}
+			}
+		}
+		if res.Guidance != "" && res.Status == result.Fail {
+			b.WriteString("  guidance: " + clean(res.Guidance) + "\n")
 		}
 	}
 	fmt.Fprintf(&b, "evidence: kh show %s [--failures | --full]\n", res.ID)
@@ -110,4 +155,65 @@ func Failures(res result.Result, ctx []reduce.Line) string {
 		prev = l.N
 	}
 	return b.String()
+}
+
+// MaxGateLines caps the text of a gate.
+const MaxGateLines = 40
+
+// shortDuration renders a duration without trailing zero units: 30s, 10m, 1h.
+func shortDuration(d time.Duration) string {
+	s := d.String()
+	if strings.HasSuffix(s, "m0s") {
+		s = s[:len(s)-2]
+	}
+	if strings.HasSuffix(s, "h0m") {
+		s = s[:len(s)-2]
+	}
+	return s
+}
+
+// GateVerdict is the verdict line of a gate.
+func GateVerdict(r gate.Result) string {
+	n, p, f, sk := r.Counts()
+	word, counts := "PASSED", fmt.Sprintf("%d of %d", p, n)
+	if sk > 0 {
+		counts += fmt.Sprintf(", %d skipped", sk)
+	}
+	if r.Status != result.Pass {
+		word, counts = "FAILED", fmt.Sprintf("%d of %d", f, n)
+	}
+	timing := "spent " + Duration(r.Spent.Milliseconds())
+	if r.Ceiling > 0 {
+		timing = "ceiling " + shortDuration(r.Ceiling) + ", " + timing
+	}
+	line := fmt.Sprintf("gate: %s - %s (%s) | %s | run %s", r.Name, word, counts, timing, r.ID)
+	if r.OverCeiling {
+		line += " | over ceiling"
+	}
+	return line
+}
+
+// Gate renders the compact text of a gate: one line per passing script, one
+// block per other script, then the verdict line. The text is capped at
+// MaxGateLines; the cap is announced and the verdict is always kept.
+func Gate(r gate.Result) string {
+	var body []string
+	for i, sr := range r.Scripts {
+		if sr.Status == result.Pass {
+			body = append(body, header(sr))
+			continue
+		}
+		var red reduce.Reduction
+		if i < len(r.Reductions) {
+			red = r.Reductions[i]
+		}
+		block := strings.TrimRight(Run(sr, red), "\n")
+		body = append(body, strings.Split(block, "\n")...)
+	}
+	verdict := GateVerdict(r)
+	if len(body)+1 > MaxGateLines {
+		body = body[:MaxGateLines-2]
+		body = append(body, fmt.Sprintf("… output capped at %d lines - kh show %s", MaxGateLines, r.ID))
+	}
+	return strings.Join(append(body, verdict), "\n") + "\n"
 }

@@ -1,6 +1,7 @@
 package render_test
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -167,5 +168,56 @@ func TestFailures(t *testing.T) {
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("got:\n%s", strings.Join(got, "\n"))
+	}
+}
+
+func goldenResult() result.Result {
+	code := 1
+	var fs []result.Finding
+	for i := 1; i <= 7; i++ {
+		fs = append(fs, result.Finding{File: "src/a.ts", Line: i * 10, Rule: "no-var", Severity: "error", Message: "Unexpected var"})
+	}
+	fs[6] = result.Finding{File: "src/b.ts", Rule: "", Severity: "warning", Message: "a warning without a rule or line"}
+	return result.Result{
+		ID: "20261104-120000-ab12", Script: "lint", Status: result.Fail, ExitCode: &code, DurationMS: 4200,
+		Summary: "6 errors, 1 warning", Findings: fs, Parsed: true,
+		Guidance: "Fix the errors above; do not add an eslint-disable comment.",
+	}
+}
+
+func TestTextBlockGolden(t *testing.T) {
+	got := render.Run(goldenResult(), reduce.Reduction{})
+	path := "../../testdata/render/fail.txt"
+	if os.Getenv("KH_UPDATE_FIXTURES") == "1" {
+		os.WriteFile(path, []byte(got), 0o644)
+	}
+	want, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != string(want) {
+		t.Errorf("text block differs from %s:\n%s", path, got)
+	}
+	if n := strings.Count(got, "\n"); n > 9 {
+		t.Errorf("a failing script takes %d lines", n)
+	}
+}
+
+func TestPassingScriptIsOneLineAndEvidence(t *testing.T) {
+	code := 0
+	res := result.Result{ID: "20261104-120000-ab12", Script: "lint", Status: result.Pass, ExitCode: &code, Summary: "completed"}
+	got := render.Run(res, reduce.Reduction{})
+	if strings.Count(got, "\n") != 2 || !strings.HasPrefix(got, "lint  PASS  exit=0") {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestBaselineOverLine(t *testing.T) {
+	res := goldenResult()
+	res.Findings = nil
+	res.Baseline = &result.Baseline{File: ".agents/baselines/lint.tsv", Over: []string{"a.ts 4>3", "b.ts 1>0"}}
+	got := render.Run(res, reduce.Reduction{})
+	if !strings.Contains(got, "  over baseline .agents/baselines/lint.tsv: a.ts 4>3, b.ts 1>0\n") {
+		t.Errorf("got %q", got)
 	}
 }

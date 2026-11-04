@@ -7,7 +7,7 @@ import (
 	"github.com/aether-labs-org/plugins/cli/kh/internal/cli"
 )
 
-var version = "0.4.0-dev"
+var version = "0.5.0-dev"
 
 func main() {
 	cli.Version = version

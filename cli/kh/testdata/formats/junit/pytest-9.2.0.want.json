@@ -1,0 +1,10 @@
+[
+  {
+    "file": "tests.test_math",
+    "line": 0,
+    "col": 0,
+    "rule": "test_fails_on_purpose",
+    "severity": "error",
+    "message": "assert (2 + 2) == 5"
+  }
+]

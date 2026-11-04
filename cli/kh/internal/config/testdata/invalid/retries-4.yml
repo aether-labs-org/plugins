@@ -1,0 +1,7 @@
+version: 1
+scripts:
+  lint: { run: eslint, retries: 4 }
+gates:
+  fast: { scripts: [guard, lint], changes: worktree }
+  commit: { scripts: [guard, lint], changes: staged }
+  slow: { scripts: [guard, lint], changes: branch }

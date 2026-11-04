@@ -1,0 +1,51 @@
+version: 1
+adr_dir: docs/adr                               # default
+review_due: 2027-05-04
+guides: [AGENTS.md, CLAUDE.md, docs/architecture.md, docs/conventions.md, docs/testing.md, docs/review.md]
+githooks: { mode: native, pre-commit: commit, pre-push: slow, commit-msg: commit-message }
+scripts:
+  test:
+    run: npx vitest run --reporter=junit --outputFile={report}
+    format: junit
+    reports: "{report}"
+    class: correctness
+    timeout: 10m
+    retries: 1
+    guidance: >-
+      Read the failing assertion; do not change the expectation to the new value without an ADR.
+  lint:
+    run: npx eslint -f json
+    files: "*.{ts,tsx}"
+    format: eslint-json
+    class: heuristic
+    baseline: .agents/baselines/lint.tsv        # baseline present = ratchet
+    config: [eslint.config.js]                  # changing these files is a loosening (§8.3)
+  typecheck:
+    run: npx tsc --noEmit
+    files: "*.{ts,tsx}"
+    pass_files: false
+    format: errorformat
+    pattern: '^(?P<file>[^(]+)\((?P<line>\d+),(?P<col>\d+)\): error (?P<rule>TS\d+): (?P<message>.*)$'
+    class: correctness
+  architecture:
+    run: npx depcruise src --config .dependency-cruiser.cjs --output-type err
+    format: errorformat
+    pattern: '^error (?P<rule>[a-z-]+): (?P<file>\S+) → (?P<message>.*)$'
+    class: correctness
+    config: [.dependency-cruiser.cjs]
+    decision: docs/adr/0002-hexagonal.md
+    doc: docs/architecture.md#layers
+  file-size:
+    builtin: file-size
+    with: { limit: 300, include: ["src/**"] }
+    class: heuristic
+    baseline: .agents/baselines/file-size.tsv
+    decision: docs/adr/0003-file-size.md
+  secrets: { run: "gitleaks detect --no-banner --report-format sarif --report-path {report}", format: sarif, reports: "{report}", class: security, requires: [gitleaks] }
+  memory: { builtin: memory, class: correctness }
+  merge-check: { builtin: merge-check }
+  commit-message: { builtin: commit-message, with: { pattern: '^(feat|fix|docs|refactor|test|chore)(\(.+\))?!?: .+' } }
+gates:
+  fast:   { scripts: [guard, secrets, typecheck, lint, file-size, architecture], changes: worktree, ceiling: 30s }
+  commit: { scripts: [guard, secrets, memory, lint], changes: staged, ceiling: 30s }
+  slow:   { scripts: [guard, test, merge-check], changes: branch, ceiling: 10m }

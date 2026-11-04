@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="3" failures="1" errors="0" time="0.008834858">
+    <testsuite name="tests-vitest/math.test.ts" timestamp="2026-11-04T18:54:24.143Z" hostname="host" tests="3" failures="1" errors="0" skipped="1" time="0.008834858">
+        <testcase classname="tests-vitest/math.test.ts" name="adds" time="0.001524298">
+        </testcase>
+        <testcase classname="tests-vitest/math.test.ts" name="fails on purpose" time="0.005955222">
+            <failure message="expected 4 to be 5 // Object.is equality" type="AssertionError">
+AssertionError: expected 4 to be 5 // Object.is equality
+
+- Expected
++ Received
+
+- 5
++ 4
+
+ ❯ tests-vitest/math.test.ts:8:17
+            </failure>
+        </testcase>
+        <testcase classname="tests-vitest/math.test.ts" name="skipped one" time="0">
+            <skipped/>
+        </testcase>
+    </testsuite>
+</testsuites>

@@ -1,0 +1,26 @@
+[
+  {
+    "file": "app/bad.py",
+    "line": 1,
+    "col": 0,
+    "rule": "",
+    "severity": "error",
+    "message": "unused import 'os' (90% confidence)"
+  },
+  {
+    "file": "app/bad.py",
+    "line": 5,
+    "col": 0,
+    "rule": "",
+    "severity": "error",
+    "message": "unused function 'typed' (60% confidence)"
+  },
+  {
+    "file": "app/bad.py",
+    "line": 9,
+    "col": 0,
+    "rule": "",
+    "severity": "error",
+    "message": "unused function 'unused_function' (60% confidence)"
+  }
+]

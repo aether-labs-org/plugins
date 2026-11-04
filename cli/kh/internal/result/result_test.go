@@ -22,7 +22,7 @@ func TestClassify(t *testing.T) {
 		summary string
 		code    *int
 	}{
-		{"not found", run.Outcome{NotFound: true, ExitCode: -1}, "gradle", time.Minute, result.Skip, "gradle not found - run: make bootstrap", nil},
+		{"not found", run.Outcome{NotFound: true, ExitCode: -1}, "gradle", time.Minute, result.Skip, "gradle not found - install it (see AGENTS.md)", nil},
 		{"start error", run.Outcome{StartErr: errString("boom"), ExitCode: -1}, "x", time.Minute, result.Error, "cannot start: boom", nil},
 		{"timeout", run.Outcome{TimedOut: true, ExitCode: 137}, "x", 10 * time.Minute, result.Error, "timed out after 10m0s", nil},
 		{"timeout short", run.Outcome{TimedOut: true, ExitCode: 137}, "x", 300 * time.Millisecond, result.Error, "timed out after 300ms", nil},

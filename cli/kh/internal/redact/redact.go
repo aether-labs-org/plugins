@@ -151,3 +151,15 @@ func (w *writer) emit(line string, newline bool) error {
 	_, err := io.WriteString(w.dst, out)
 	return err
 }
+
+// Contains reports whether s holds a well-known token pattern or a private key
+// header (the same set Redactor.String removes; environment values are not
+// part of it).
+func Contains(s string) bool {
+	for _, re := range patterns {
+		if re.MatchString(s) {
+			return true
+		}
+	}
+	return beginKey.MatchString(s)
+}

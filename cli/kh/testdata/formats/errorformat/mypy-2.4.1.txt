@@ -1,0 +1,2 @@
+app/bad.py:6:12: error: Incompatible return value type (got "int", expected "str")  [return-value]
+app/bad.py:13:14: error: Incompatible types in assignment (expression has type "str", variable has type "int")  [assignment]

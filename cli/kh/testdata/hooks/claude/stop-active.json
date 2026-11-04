@@ -1,0 +1,8 @@
+{
+  "session_id": "s-1234",
+  "transcript_path": "/work/transcript.jsonl",
+  "cwd": "__ROOT__",
+  "permission_mode": "default",
+  "hook_event_name": "Stop",
+  "stop_hook_active": true
+}

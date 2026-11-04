@@ -1,0 +1,34 @@
+[
+  {
+    "file": "/work/ts/src/lint-me.js",
+    "line": 1,
+    "col": 1,
+    "rule": "no-var",
+    "severity": "warning",
+    "message": "Unexpected var, use let or const instead."
+  },
+  {
+    "file": "/work/ts/src/lint-me.js",
+    "line": 2,
+    "col": 7,
+    "rule": "eqeqeq",
+    "severity": "error",
+    "message": "Expected '===' and instead saw '=='."
+  },
+  {
+    "file": "/work/ts/src/lint-me.js",
+    "line": 2,
+    "col": 15,
+    "rule": "no-undef",
+    "severity": "error",
+    "message": "'console' is not defined."
+  },
+  {
+    "file": "/work/ts/src/lint-me.js",
+    "line": 3,
+    "col": 10,
+    "rule": "no-unused-vars",
+    "severity": "error",
+    "message": "'unusedFn' is defined but never used."
+  }
+]

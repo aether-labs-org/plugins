@@ -50,9 +50,9 @@ SECRET='wJalrXUtnFEMI/K7MDENG'
 
 # ------------------------------------------------------------------ version and usage
 r="$(krepo)"
-k "$r" version; [ "$rc" -eq 0 ] && [ "$out" = "kh 0.4.0-dev" ]; check "kh version prints kh 0.4.0-dev" $?
+k "$r" version; [ "$rc" -eq 0 ] && [ "$out" = "kh 0.5.0-dev" ]; check "kh version prints kh 0.5.0-dev" $?
 k "$r"; [ "$rc" -eq 64 ]; check "kh with no arguments exits 64" $?
-k "$r" run true; [ "$rc" -eq 64 ]; check "usage: kh run without -- exits 64" $?
+k "$r" run a b; [ "$rc" -eq 64 ]; check "usage: kh run <script> <extra> without -- exits 64" $?
 k "$r" run --timeout x -- true; [ "$rc" -eq 64 ]; check "usage: kh run with a bad --timeout exits 64" $?
 k "$r" run --; [ "$rc" -eq 64 ]; check "usage: kh run -- with no command exits 64" $?
 
@@ -76,7 +76,7 @@ done
 # ------------------------------------------------------------------ not found
 r="$(krepo)"
 k "$r" run -- kh-no-such-cmd
-[ "$rc" -eq 2 ] && has "$out" "SKIP" && has "$out" "not found - run: make bootstrap"; check "not found: rc 2, SKIP, bootstrap hint" $?
+[ "$rc" -eq 2 ] && has "$out" "SKIP" && has "$out" "not found - install it (see AGENTS.md)"; check "not found: rc 2, SKIP, install hint" $?
 
 # ------------------------------------------------------------------ timeout
 r="$(krepo)"; u="$RANDOM$RANDOM"
@@ -139,8 +139,119 @@ k "$r" show 20000101-000000-dead; [ "$rc" -eq 64 ] && has "$out" "no run"; check
 k "$r" show ../x; [ "$rc" -eq 64 ] && has "$out" "no run"; check "show: malformed id exits 64 with 'no run'" $?
 
 # ------------------------------------------------------------------ no keel.yml
-n="$(mktemp -d "$W/plain.XXXXXX")"
+n="$(mktemp -d "$W/plain.XXXXXX")"; git init -q "$n"
 k "$n" run -- true; [ "$rc" -eq 3 ] && has "$out" "no .agents/keel.yml"; check "no keel.yml: run exits 3" $?
 k "$n" show 20000101-000000-dead; [ "$rc" -eq 3 ] && has "$out" "no .agents/keel.yml"; check "no keel.yml: show exits 3" $?
+ng="$(mktemp -d "$W/nogit.XXXXXX")"
+k "$ng" run -- true; [ "$rc" -eq 3 ] && has "$out" "not a git repository"; check "not a git repository: run exits 3" $?
+
+# ------------------------------------------------------------------ v0.5: config, scripts, gates, hooks (end to end)
+# harness [extra-yml] -> a committed git repository with a v0.5 harness: scripts ok/bad/lint(files), gates fast/commit/slow
+harness() {
+  local d
+  d="$(mktemp -d "$W/h.XXXXXX")"
+  (cd "$d" && git init -q . && git config user.email t@t && git config user.name t && mkdir -p .agents docs/adr src \
+    && printf '.agents/run/\n' > .gitignore \
+    && cat > .agents/keel.yml <<YML
+version: 1
+guides: [AGENTS.md]
+githooks: { mode: native, pre-commit: commit, commit-msg: cm }
+scripts:
+  ok: "true"
+  bad: "false"
+  test: { run: "./gradlew test" }
+  check: { run: "test ! -e FAIL" }
+  cm: { builtin: commit-message, with: { pattern: '^(feat|fix): .+' } }
+gates:
+  fast: { scripts: [guard, check] }
+  commit: { scripts: [guard, ok], changes: staged }
+  slow: { scripts: [guard, ok], changes: branch }
+  broken: { scripts: [ok, bad] }
+YML
+    printf '# agents\n' > AGENTS.md && printf 'package main\n' > src/main.go && git add -A && git commit -q -m seed)
+  printf '%s\n' "$d"
+}
+h="$(harness)"
+k "$h" validate; [ "$rc" -eq 0 ] && [ -z "$out" ]; check "validate: a valid keel.yml is silent, exit 0" $?
+k "$h" schema keel; [ "$rc" -eq 0 ] && printf '%s' "$out" | python3 -I -c 'import json,sys; json.load(sys.stdin)'; check "schema keel: valid JSON" $?
+k "$h" schema nope; [ "$rc" -eq 64 ]; check "schema: unknown name exits 64" $?
+k "$h" run ok; [ "$rc" -eq 0 ] && has "$out" "ok  PASS"; check "run <script>: pass" $?
+k "$h" run bad; [ "$rc" -eq 1 ] && has "$out" "bad  FAIL"; check "run <script>: fail exits 1" $?
+k "$h" run nope; [ "$rc" -eq 64 ] && has "$out" "unknown script"; check "run <script>: unknown script exits 64" $?
+k "$h" gate fast; [ "$rc" -eq 0 ] && has "$out" "gate: fast - PASSED"; check "gate: PASSED exits 0 with the verdict line" $?
+k "$h" gate broken; [ "$rc" -eq 1 ] && has "$out" "gate: broken - FAILED (1 of 2)"; check "gate: FAILED exits 1" $?
+k "$h" gate broken --json; printf '%s' "$out" | python3 -I -c 'import json,sys; d=json.load(sys.stdin); assert d["status"]=="fail" and len(d["scripts"])==2'; check "gate --json parses" $?
+printf 'version: 2\n' > "$h/.agents/keel.yml"
+k "$h" validate; [ "$rc" -eq 3 ] && has "$out" "keel.yml: version: unsupported version 2"; check "validate: an invalid keel.yml exits 3 with one line per issue" $?
+printf 'version: 1\nscripts: { a: "true" }\ngates: { fast: { scripts: [a] } }\n' > "$h/.agents/keel.yml"
+k "$h" validate; [ "$rc" -eq 3 ] && has "$out" 'required gate "commit" is missing' && has "$out" 'gate "fast" must list guard'; check "validate: required gates and guard in them" $?
+nested="$(harness)"; mkdir -p "$nested/pkg/.agents"; cp "$nested/.agents/keel.yml" "$nested/pkg/.agents/keel.yml"
+k "$nested/pkg" validate; [ "$rc" -eq 3 ] && has "$out" "nested .agents/keel.yml at pkg"; check "a nested keel.yml is rejected" $?
+
+# pin check: a lock for another version stops run/gate/measure/guard, not run -- / show / validate
+h="$(harness)"
+printf 'version=9.9.9\nlinux-amd64=%s\nlinux-arm64=%s\ndarwin-amd64=%s\ndarwin-arm64=%s\n' $(printf 'a%.0s' $(seq 64)) $(printf 'a%.0s' $(seq 64)) $(printf 'a%.0s' $(seq 64)) $(printf 'a%.0s' $(seq 64)) > "$h/.agents/keel.lock"
+k "$h" run ok; [ "$rc" -eq 3 ] && has "$out" "pin mismatch: keel.lock pins 9.9.9"; check "pin: run <script> refuses a mismatch" $?
+k "$h" gate fast; [ "$rc" -eq 3 ] && has "$out" "pin mismatch"; check "pin: gate refuses a mismatch" $?
+k "$h" run -- true; [ "$rc" -eq 0 ]; check "pin: run -- <cmd> is exempt" $?
+k "$h" validate; [ "$rc" -eq 0 ]; check "pin: validate is exempt" $?
+
+# hooks: payloads piped into the built binary, answers read with python
+hk() { # hk REPO FILE... -> out (stdout), rc ; the payload is $PAYLOAD
+  out="$(cd "$1" && printf '%s' "$PAYLOAD" | "$KH" hook "${@:2}" 2>"$W/hk.err")"; rc=$?
+}
+jq_() { printf '%s' "$out" | python3 -I -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1]))' "$1"; }
+h="$(harness)"; phys="$(cd "$h" && pwd -P)"
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$phys"'","permission_mode":"default","tool_input":{"file_path":"'"$phys"'/AGENTS.md","content":"x"}}'
+hk "$h" pre-tool-use; [ "$rc" -eq 0 ] && [ "$(jq_ 'd["hookSpecificOutput"]["permissionDecision"]')" = ask ] && [ "$(jq_ 'd["permissionDecision"]')" = ask ] && [ "$(jq_ 'd["hookSpecificOutput"]["hookEventName"]')" = PreToolUse ]; check "hook pre-tool-use: protected Write asks, in both shapes" $?
+has "$out" "AGENTS.md" && has "$out" "guides"; check "hook pre-tool-use: the reason names the file and its class" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$phys"'","permission_mode":"bypassPermissions","tool_input":{"file_path":"AGENTS.md"}}'
+hk "$h" pre-tool-use; [ "$(jq_ 'd["permissionDecision"]')" = deny ]; check "hook pre-tool-use: bypassPermissions denies" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"NotebookEdit","cwd":"'"$phys"'","permission_mode":"default","tool_input":{"notebook_path":"docs/../AGENTS.md"}}'
+hk "$h" pre-tool-use; [ "$(jq_ 'd["permissionDecision"]')" = ask ]; check "hook pre-tool-use: notebook_path with .. resolves to the protected file" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$phys"'","permission_mode":"default","tool_input":{"file_path":"src/main.go"}}'
+hk "$h" pre-tool-use; [ "$rc" -eq 0 ] && [ -z "$out" ]; check "hook pre-tool-use: an unprotected path prints nothing" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$phys"'","permission_mode":"default","tool_input":{"command":"sed -i '"'"'/guard/d'"'"' .agents/keel.yml"}}'
+hk "$h" pre-tool-use; [ "$(jq_ 'd["permissionDecision"]')" = deny ]; check "hook pre-tool-use: the P-1 shell edit of keel.yml is denied" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$phys"'","permission_mode":"default","tool_input":{"command":"git commit --no-verify -m x"}}'
+hk "$h" pre-tool-use; [ "$(jq_ 'd["permissionDecision"]')" = deny ]; check "hook pre-tool-use: --no-verify is denied" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$phys"'","permission_mode":"default","tool_input":{"command":"cd app && ./gradlew test | tail"}}'
+hk "$h" pre-tool-use; [ "$(jq_ 'd["permissionDecision"]')" = deny ] && has "$out" "kh run test" && has "$out" "do not pipe its output"; check "hook pre-tool-use: a declared script is intercepted" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$phys"'","permission_mode":"default","tool_input":{"command":"make foo"}}'
+hk "$h" pre-tool-use; [ "$rc" -eq 0 ] && [ -z "$out" ]; check "hook pre-tool-use: an undeclared command is allowed" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$phys"'","permission_mode":"default","tool_input":{"file_path":"AGENTS.md"}}'
+mkdir -p "$h/sub dir"; hk "$h/sub dir" pre-tool-use; [ "$(jq_ 'd["permissionDecision"]')" = ask ]; check "hook pre-tool-use: works from a subdirectory (root from the payload cwd)" $?
+nog="$(mktemp -d "$W/nogit.XXXXXX")"
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$nog"'","permission_mode":"default","tool_input":{"command":"ls"}}'
+hk "$nog" pre-tool-use; [ "$rc" -eq 0 ] && [ "$(jq_ 'd["permissionDecision"]')" = ask ] && has "$out" "kh unavailable"; check "hook pre-tool-use: outside a repository fails safe (ask)" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$nog"'","permission_mode":"default","tool_input":{"file_path":"AGENTS.md"}}'
+hk "$nog" pre-tool-use --setup; [ "$rc" -eq 0 ] && [ "$(jq_ 'd["permissionDecision"]')" = ask ] && has "$out" "kh unavailable"; check "hook pre-tool-use --setup: outside a repository fails safe too" $?
+sr="$(mktemp -d "$W/setup.XXXXXX")"; git init -q "$sr"; srp="$(cd "$sr" && pwd -P)"
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$srp"'","permission_mode":"default","tool_input":{"file_path":"'"$srp"'/AGENTS.md"}}'
+hk "$sr" pre-tool-use --setup; [ "$(jq_ 'd["permissionDecision"]')" = ask ] && ! has "$out" "unavailable"; check "hook pre-tool-use --setup: a repository without keel.yml still protects the guides" $?
+
+# stop: silent on green, blocks once on a failure, lets the agent stop on the same failure, silent again when fixed
+h="$(harness)"; phys="$(cd "$h" && pwd -P)"
+PAYLOAD='{"hook_event_name":"Stop","cwd":"'"$phys"'","stop_hook_active":false}'
+hk "$h" stop; [ "$rc" -eq 0 ] && [ -z "$out" ]; check "hook stop: green tree is silent" $?
+: > "$h/FAIL"
+hk "$h" stop; [ "$(jq_ 'd["decision"]')" = block ] && has "$out" "gate: fast - FAILED"; check "hook stop: a failure blocks with the gate result" $?
+PAYLOAD='{"hook_event_name":"Stop","cwd":"'"$phys"'","stop_hook_active":true}'
+hk "$h" stop; [ "$rc" -eq 0 ] && ! has "$out" '"decision"' && has "$out" "the agent stopped with this failure"; check "hook stop: the same failure with stop_hook_active lets the agent stop" $?
+rm "$h/FAIL"; PAYLOAD='{"hook_event_name":"Stop","cwd":"'"$phys"'","stop_hook_active":false}'
+hk "$h" stop; [ -z "$out" ]; check "hook stop: silent again once fixed" $?
+
+# commit-msg
+h="$(harness)"; echo 'feat: ok' > "$h/MSG"; k "$h" hook commit-msg MSG; [ "$rc" -eq 0 ]; check "hook commit-msg: a matching message passes" $?
+echo 'wip' > "$h/MSG"; k "$h" hook commit-msg MSG; [ "$rc" -eq 1 ] && has "$out" "^(feat|fix): .+"; check "hook commit-msg: a message that does not match exits 1 with the pattern" $?
+
+# guard through the binary: a baseline row appended without an ADR (the D1 reproduction)
+h="$(harness)"
+(cd "$h" && mkdir -p .agents/baselines && printf '# measured_at: 2026-11-01 review_by: 2027-05-01\nsrc/main.go\t1\n' > .agents/baselines/x.tsv && git add -A && git commit -q -m base)
+printf 'src/huge.go\t900\n' >> "$h/.agents/baselines/x.tsv"
+k "$h" guard; [ "$rc" -eq 1 ] && has "$out" "baseline row added src/huge.go"; check "guard: a baseline row appended without an ADR fails" $?
+printf 'ADR: we baseline .agents/baselines/x.tsv for the migration.\n' > "$h/docs/adr/0001-x.md"
+k "$h" guard; [ "$rc" -eq 0 ]; check "guard: an ADR added in the change that names the file releases it" $?
+
 
 finish

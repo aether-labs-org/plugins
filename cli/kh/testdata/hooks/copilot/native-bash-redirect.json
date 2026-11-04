@@ -1,0 +1,6 @@
+{
+  "timestamp": 1730000000000,
+  "cwd": "__ROOT__",
+  "toolName": "bash",
+  "toolArgs": "{\"command\": \"echo x > AGENTS.md\"}"
+}

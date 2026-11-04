@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/aether-labs-org/plugins/memory.json",
+  "title": "keel memory files, version 1",
+  "description": "The shape of the Markdown memory files kh checks (the memory builtin and kh check). The files are Markdown, not JSON: this schema describes the fields each one must carry, in the order shown by the examples.",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "description": ".agents/plans/<slug>.md, one per multi-step task; deleted when the task is closed.",
+      "type": "object",
+      "required": ["title", "Status", "Scope", "Acceptance"],
+      "properties": {
+        "title": { "description": "line 1: # <title>", "type": "string", "minLength": 1 },
+        "Status": { "description": "a line: Status: active", "const": "active" },
+        "Scope": { "description": "a line: Scope: <glob>[, <glob>...]; files outside every active plan's Scope are reported by the scope builtin", "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "Acceptance": { "description": "the heading ## Acceptance followed by at least one checklist item, - [ ] or - [x]", "type": "integer", "minimum": 1 },
+        "Notes": { "description": "optional heading ## Notes", "type": "string" }
+      }
+    },
+    "progress": {
+      "description": ".agents/progress.md, one line per closed task; an optional first heading # Progress.",
+      "type": "string",
+      "pattern": "^- \\d{4}-\\d{2}-\\d{2} [a-z0-9][a-z0-9-]*: (done|partial|abandoned) — .+$"
+    },
+    "lesson": {
+      "description": ".agents/lessons.md, one entry per triaged lesson, starting with the heading ## YYYY-MM-DD <title>.",
+      "type": "object",
+      "required": ["Problem", "Solution", "Destination"],
+      "properties": {
+        "Problem": { "description": "a line: Problem: <what went wrong>", "type": "string", "minLength": 1 },
+        "Solution": { "description": "a line: Solution: <what fixed it>", "type": "string", "minLength": 1 },
+        "Destination": { "description": "a line: Destination: where it lives now", "type": "string", "pattern": "^(rule [a-z0-9-]+|ADR \\d{4}|guide \\S+|none)$" }
+      }
+    },
+    "forbidden": {
+      "description": "Never in versioned memory: absolute user paths, references to local evidence, secrets.",
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["/home/<user>/", "/Users/<user>/", ".agents/run/", "a run id (YYYYMMDD-HHMMSS-xxxx)", "a token or private key (the redaction set)"]
+    }
+  }
+}

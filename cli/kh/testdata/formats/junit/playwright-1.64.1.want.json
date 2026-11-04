@@ -1,0 +1,10 @@
+[
+  {
+    "file": "math.spec.ts",
+    "line": 0,
+    "col": 0,
+    "rule": "fails on purpose",
+    "severity": "error",
+    "message": "expect(received).toBe(expected) // Object.is equality"
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "file": "src/Bad.java",
+    "line": 4,
+    "col": 0,
+    "rule": "",
+    "severity": "error",
+    "message": "incompatible types: String cannot be converted to int int count = \"text\";"
+  },
+  {
+    "file": "src/Bad.java",
+    "line": 5,
+    "col": 0,
+    "rule": "",
+    "severity": "error",
+    "message": "incompatible types: int cannot be converted to String String name() { return 1; }"
+  },
+  {
+    "file": "src/Bad.java",
+    "line": 6,
+    "col": 0,
+    "rule": "",
+    "severity": "error",
+    "message": "cannot find symbol void call() { missing(); } symbol:   method missing() location: class Bad"
+  }
+]

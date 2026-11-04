@@ -1,0 +1,8 @@
+version: 1
+scripts:
+  tc: { run: tsc, format: errorformat, pattern: '^(?P<file>.*)$', class: correctness, baseline: .agents/baselines/tc.tsv }
+  lint: eslint
+gates:
+  fast: { scripts: [guard, lint], changes: worktree }
+  commit: { scripts: [guard, lint], changes: staged }
+  slow: { scripts: [guard, lint], changes: branch }

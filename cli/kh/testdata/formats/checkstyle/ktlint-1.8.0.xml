@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<checkstyle version="8.0">
+    <file name="/work/kt/src/Bad.kt">
+        <error line="3" column="9" severity="error" message="Newline expected after opening parenthesis" source="standard:function-signature" />
+        <error line="3" column="10" severity="error" message="Whitespace after &apos;:&apos; is missing" source="standard:parameter-list-spacing" />
+        <error line="3" column="11" severity="error" message="Missing spacing after &quot;:&quot;" source="standard:colon-spacing" />
+        <error line="3" column="14" severity="error" message="Whitespace after &apos;,&apos; is missing" source="standard:parameter-list-spacing" />
+        <error line="3" column="15" severity="error" message="Missing spacing after &quot;,&quot;" source="standard:comma-spacing" />
+        <error line="3" column="15" severity="error" message="Parameter should start on a newline" source="standard:function-signature" />
+        <error line="3" column="16" severity="error" message="Whitespace after &apos;:&apos; is missing" source="standard:parameter-list-spacing" />
+        <error line="3" column="17" severity="error" message="Missing spacing after &quot;:&quot;" source="standard:colon-spacing" />
+        <error line="3" column="20" severity="error" message="Newline expected before closing parenthesis" source="standard:function-signature" />
+        <error line="3" column="21" severity="error" message="Single space expected between colon and return type" source="standard:function-return-type-spacing" />
+        <error line="3" column="22" severity="error" message="Missing spacing after &quot;:&quot;" source="standard:colon-spacing" />
+        <error line="3" column="25" severity="error" message="Missing spacing before &quot;{&quot;" source="standard:curly-spacing" />
+        <error line="3" column="25" severity="error" message="Expected a single white space before start of function body" source="standard:function-start-of-body-spacing" />
+        <error line="3" column="25" severity="error" message="Expected a single space before body block" source="standard:function-signature" />
+        <error line="5" column="13" severity="error" message="Missing spacing around &quot;+&quot;" source="standard:op-spacing" />
+        <error line="8" column="7" severity="error" message="Class or object name should start with an uppercase letter and use camel case" source="standard:class-naming" />
+        <error line="9" column="9" severity="error" message="Function name should start with a lowercase letter (except factory methods) and use camel case" source="standard:function-naming" />
+        <error line="10" column="20" severity="error" message="Unexpected spacing before &quot;)&quot;" source="standard:paren-spacing" />
+    </file>
+</checkstyle>

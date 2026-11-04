@@ -1,0 +1,18 @@
+[
+  {
+    "file": "/work/py/app/bad.py",
+    "line": 6,
+    "col": 12,
+    "rule": "",
+    "severity": "error",
+    "message": "Type \"int\" is not assignable to return type \"str\" \"int\" is not assignable to \"str\" (reportReturnType)"
+  },
+  {
+    "file": "/work/py/app/bad.py",
+    "line": 13,
+    "col": 14,
+    "rule": "",
+    "severity": "error",
+    "message": "Type \"Literal['text']\" is not assignable to declared type \"int\" \"Literal['text']\" is not assignable to \"int\" (reportAssignmentType)"
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "file": "/work/py/app/bad.py",
+    "line": 1,
+    "col": 8,
+    "rule": "F401",
+    "severity": "error",
+    "message": "`os` imported but unused"
+  },
+  {
+    "file": "/work/py/app/bad.py",
+    "line": 14,
+    "col": 13,
+    "rule": "E711",
+    "severity": "error",
+    "message": "Comparison to `None` should be `cond is None`"
+  }
+]
