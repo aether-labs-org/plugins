@@ -89,6 +89,9 @@ for st in hexagonal layered clean modular; do grep -qF "$st" "$REF/rounds.md" ||
 n_arch="$(find "$TPL/architecture" -type f | wc -l | tr -d ' ')"
 [ "$n_arch" -eq 12 ] || miss="$miss architecture-count-$n_arch"
 [ -z "$miss" ]; check "every template is referenced by rounds.md or SKILL.md${miss:+ (missing:$miss)}" $?
+first_kh="$(grep -n 'kh/bin/kh" version' "$SK" | head -1 | cut -d: -f1)"; first_disc="$(grep -n 'discover.sh' "$SK" | head -1 | cut -d: -f1)"
+{ [ -n "$first_kh" ] && [ -n "$first_disc" ] && [ "$first_kh" -lt "$first_disc" ]; }; check "SKILL.md: the first action is the plugin's kh version (before discover.sh)" $?
+grep -qi 'until .kh. is cached' "$SK" && grep -q 'asks the human to confirm every' "$SK"; check "SKILL.md says why: until kh is cached the setup hook asks for every call" $?
 grep -q '/keel-harness:harness' "$SK"; check "SKILL.md names its own invocation" $?
 if command -v claude >/dev/null 2>&1; then
   claude plugin validate "$P" --strict >/dev/null 2>&1; check "claude plugin validate ./plugins/keel-harness --strict passes" $?
@@ -124,6 +127,7 @@ dead="$(git grep -nE --untracked '2026-09-19-keel-harness-design|2026-10-20-keel
 [ -z "$dead" ] || printf '%s\n' "$dead" | head -10
 for ev in keel-v0.3-e1 keel-v0.3-e2 keel-v0.3-f0; do [ ! -e "$REPO_ROOT/docs/evals/$ev" ]; check "docs/evals/$ev (v0.3 eval results of the removed skills) is removed" $?; done
 sed -n 4p "$SPEC" | grep -q '^\*\*Status:\*\* approved by the owner on 2026-11-04'; check "spec header: approved by the owner on 2026-11-04" $?
+grep -qF 'tracked or untracked, not ignored, match' "$SPEC"; check "spec: --all passes every tracked or untracked, not ignored, match" $?
 grep -qF 'secrets: { run: "gitleaks detect --no-banner --report-format sarif --report-path {report}",' "$SPEC"; check "spec section 6: the secrets run: is quoted (valid YAML)" $?
 grep -qF '  merge-check: { builtin: merge-check }' "$SPEC"; check "spec section 6: merge-check is declared" $?
 if python3 -I -c 'import yaml' 2>/dev/null; then

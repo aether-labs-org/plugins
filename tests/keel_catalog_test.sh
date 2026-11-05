@@ -49,14 +49,21 @@ unverified_rows = []
 exitcode_unrun = []
 for s in STACKS:
     text = open(f"{R}/stack-{s}.md").read()
-    rows = [l for l in text.splitlines() if l.startswith("| ") and not l.startswith("| Topic") and not l.startswith("| ---")]
+    # the first table is the profile (one row per topic id); later tables are alternatives (checked, not counted)
+    rows, extra_rows, table = [], [], -1
+    for l in text.splitlines():
+        if l.startswith("| Topic"):
+            table += 1
+        elif l.startswith("| ") and not l.startswith("| ---"):
+            (rows if table == 0 else extra_rows).append(l)
     ids = []
-    for l in rows:
+    for l in rows + extra_rows:
         cells = [c.strip() for c in re.split(r"(?<!\\)\|", l.strip().strip("|"))]
         if len(cells) != 9:
             ok(False, f"{s}: row has {len(cells)} cells: {l[:60]}"); continue
         tid, tool, alt, cmd, fmt, base, pit, docs, fx = cells
-        ids.append(tid)
+        if l in rows:
+            ids.append(tid)
         ok(docs.startswith("https://"), f"{s}/{tid}: Docs is an https:// link")
         if fx == "unverified":
             unverified_rows.append(f"{s}/{tid}")
@@ -81,6 +88,9 @@ ok(len(exitcode_unrun) >= 25, f"external exit-code rows that were not run say so
 # the unverified rows equal the Unverified list of the fixtures README (tool names are compared by the README line prefix)
 if readme_unverified is not None:
     ok(len(unverified_rows) == len(readme_unverified), f"unverified rows ({unverified_rows}) match the README Unverified list ({readme_unverified})")
+ts = open(f"{R}/stack-typescript.md").read()
+ok("biome-2.6.5" in ts and "preset" in ts and "deprecated" in ts, "stack-typescript has the Biome rows and the Biome 2 preset pitfall")
+ok("minimum" in ts.lower() and "pnpm-workspace.yaml" in ts and "engines" in ts and "node --version" in ts, "stack-typescript has the pnpm exec and Node engines pitfalls")
 for l in out:
     print(l)
 PY

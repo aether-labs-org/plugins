@@ -23,7 +23,16 @@ lock="$self_dir/../keel.lock"
 hook_mode=0
 [ "${1:-}" = hook ] && hook_mode=1
 
-unavailable_msg='kh unavailable: run sh .agents/bin/kh setup'
+# What to tell the human to run. In a repository the wrapper is .agents/bin/kh; the plugin carries its own copy
+# elsewhere (kh/bin/kh), where .agents/bin does not exist, so name this wrapper's own path.
+case "$self_dir" in
+  */.agents/bin) setup_cmd='sh .agents/bin/kh setup' ;;
+  *) setup_cmd="sh $self_dir/$(basename "$0") version" ;;
+esac
+# the message goes into JSON: escape backslashes and double quotes
+setup_cmd_json=$(printf '%s' "$setup_cmd" | sed 's/\\/\\\\/g; s/"/\\"/g')
+unavailable_msg="kh unavailable: run $setup_cmd"
+unavailable_msg_json="kh unavailable: run $setup_cmd_json"
 
 # answer_unavailable: hook mode without a verified kh (spec section 9.5).
 answer_unavailable() {
@@ -35,10 +44,10 @@ answer_unavailable() {
         kind=deny
       fi
       printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"%s"},"permissionDecision":"%s","permissionDecisionReason":"%s"}\n' \
-        "$kind" "$unavailable_msg" "$kind" "$unavailable_msg"
+        "$kind" "$unavailable_msg_json" "$kind" "$unavailable_msg_json"
       ;;
     stop)
-      printf '{"systemMessage":"kh unavailable: the gates did not run - run sh .agents/bin/kh setup"}\n'
+      printf '{"systemMessage":"kh unavailable: the gates did not run - run %s"}\n' "$setup_cmd_json"
       ;;
     *)
       printf 'kh: %s\n' "$unavailable_msg" >&2

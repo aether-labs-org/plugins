@@ -28,6 +28,7 @@ recording is not detected by these tests (spec section 17).
 | checkstyle | `checkstyle/checkstyle-14.4.0` | Checkstyle 14.4.0 with `sun_checks.xml` |
 | checkstyle | `checkstyle/detekt-1.23.8` | detekt 1.23.8 `--report xml:` |
 | checkstyle | `checkstyle/ktlint-1.8.0` | ktlint 1.8.0 `--reporter=checkstyle` |
+| checkstyle | `checkstyle/biome-2.6.5` | Biome 2.6.5 `check --reporter=checkstyle` (lint, format and import findings; a format difference is `source="format"` at line 0) |
 | sarif | `sarif/eslint-10.14.0` | eslint 10.14.0 with `@microsoft/eslint-formatter-sarif` 3.1.0 |
 | sarif | `sarif/ruff-0.17.3` | ruff 0.17.3 `--output-format sarif` (`--select E,F`) |
 | sarif | `sarif/gitleaks-8.30.1` | gitleaks 8.30.1 `--report-format sarif --redact` (fake keys; the report holds none) |

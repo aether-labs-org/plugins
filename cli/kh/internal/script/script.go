@@ -194,7 +194,7 @@ func (e Exec) Script(ctx context.Context, id string, extra []string) (result.Res
 		var all []string
 		var err error
 		if e.All {
-			all, err = scope.Tracked(e.Root)
+			all, err = scope.Candidates(e.Root) // tracked and untracked-not-ignored: a greenfield repository has nothing tracked
 		} else {
 			all, err = scope.Changed(e.Root, e.Changes)
 		}

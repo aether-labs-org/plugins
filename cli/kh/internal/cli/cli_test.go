@@ -292,9 +292,9 @@ func TestValidateFullExampleWithRealBuiltins(t *testing.T) {
 func TestGuardCommand(t *testing.T) {
 	r := repo(t)
 	writeKeel(t, r, minimalKeel)
-	// no commit yet: skip (exit 2), never a silent pass
+	// no commit yet: nothing to loosen, the harness is installed in this change (a skip would fail the gate)
 	out, _, rc := run("guard")
-	if rc != 2 || !strings.Contains(out, "no base commit yet") {
+	if rc != 0 || !strings.Contains(out, "no base commit yet: the harness is installed in this change") {
 		t.Fatalf("unborn: rc=%d out=%q", rc, out)
 	}
 	if _, _, rc := run("guard", "--bogus"); rc != cli.ExitUsage {
@@ -436,5 +436,33 @@ func TestCheckCommand(t *testing.T) {
 	}
 	if _, _, rc := run("check", "--nope"); rc != cli.ExitUsage {
 		t.Fatalf("usage rc=%d", rc)
+	}
+}
+
+func TestUnbornRepositoryGatesPass(t *testing.T) {
+	r := repo(t)
+	writeKeel(t, r, minimalKeel)
+	for _, g := range []string{"fast", "commit"} {
+		out, errb, rc := run("gate", g)
+		if rc != 0 || !strings.Contains(out, "gate: "+g+" - PASSED") {
+			t.Fatalf("%s gate in a repository with no commit: rc=%d out=%q err=%q", g, rc, out, errb)
+		}
+	}
+}
+
+func TestSchemaKeelDescribesBuiltinWith(t *testing.T) {
+	out, _, rc := run("schema", "keel")
+	var doc map[string]any
+	if rc != 0 || json.Unmarshal([]byte(out), &doc) != nil {
+		t.Fatalf("rc=%d", rc)
+	}
+	with := doc["$defs"].(map[string]any)["with"].(map[string]any)
+	for _, n := range []string{"file-size", "code-language", "test-presence", "folder-layout", "pattern", "architecture-grep", "dependencies", "guard", "memory", "scope", "merge-check", "commit-message", "branch-name"} {
+		if with[n] == nil {
+			t.Errorf("kh schema keel does not describe the with: block of %s", n)
+		}
+	}
+	if !strings.Contains(out, `"mappings"`) || !strings.Contains(out, "$1") {
+		t.Error("the test-presence mapping syntax is not in the schema")
 	}
 }

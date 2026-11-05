@@ -274,3 +274,21 @@ func TestUnder(t *testing.T) {
 		t.Error("under")
 	}
 }
+
+func TestTestPresenceMappingDollarSyntax(t *testing.T) {
+	d := newRepo(t)
+	write(t, d, "src/a/b.ts", "x\n")
+	write(t, d, "src/a/c.ts", "x\n")
+	write(t, d, "test/a/b.test.ts", "x\n")
+	commit(t, d)
+	with := map[string]any{"include": []any{"src"}, "mappings": []any{`^src/(.*)\.ts$|test/$1.test.ts`}}
+	out := run(t, "test-presence", ctxAll(t, d), with)
+	if len(out.Counts) != 1 || out.Counts["src/a/c.ts"] != 1 || !strings.Contains(out.Findings[0].Message, "test/a/c.test.ts") {
+		t.Fatalf("%v %v", out.Counts, out.Findings)
+	}
+	// the v0.3 \1 spelling still works
+	with["mappings"] = []any{`^src/(.*)\.ts$|test/\1.test.ts`}
+	if out := run(t, "test-presence", ctxAll(t, d), with); out.Counts["src/a/c.ts"] != 1 || len(out.Counts) != 1 {
+		t.Fatalf("\\1: %v", out.Counts)
+	}
+}

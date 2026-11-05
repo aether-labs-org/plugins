@@ -592,3 +592,67 @@ func TestInterceptionThroughJSLaunchers(t *testing.T) {
 		}
 	}
 }
+
+// ------------------------------------------------------- validation round 2
+
+func TestStopSameFailureOnANewTurnDoesNotBlockAgain(t *testing.T) {
+	d, _ := project(t)
+	write(t, d, "FAIL", "x")
+	out, _ := runStop(t, d, false)
+	var got map[string]any
+	json.Unmarshal([]byte(out), &got)
+	if got["decision"] != "block" {
+		t.Fatalf("first: %q", out)
+	}
+	// three more user turns with the identical failure: stop_hook_active is false at the start of each
+	for i := 0; i < 3; i++ {
+		out, errb := runStop(t, d, false)
+		got = nil
+		json.Unmarshal([]byte(out), &got)
+		if _, blocks := got["decision"]; blocks || !strings.Contains(got["systemMessage"].(string), "the agent stopped with this failure") {
+			t.Fatalf("turn %d: the same failure was relayed again: %q", i+2, out)
+		}
+		if !strings.Contains(errb, "the agent stopped with this failure") {
+			t.Errorf("stderr = %q", errb)
+		}
+		if st := loadState(d); st.Green != "" || st.Relayed == "" {
+			t.Errorf("state after the message path: %+v (not green, failure remembered)", st)
+		}
+	}
+}
+
+func TestStopNewFailureBlocksOnANewTurn(t *testing.T) {
+	d, _ := project(t)
+	write(t, d, "FAIL", "x")
+	runStop(t, d, false)
+	y := strings.Replace(keelYML, "scripts:\n  test:", "scripts:\n  other: { run: \"false\" }\n  test:", 1)
+	y = strings.Replace(y, "fast: { scripts: [guard, check] }", "fast: { scripts: [guard, check, other] }", 1)
+	write(t, d, ".agents/keel.yml", y)
+	out, _ := runStop(t, d, false)
+	var got map[string]any
+	json.Unmarshal([]byte(out), &got)
+	if got["decision"] != "block" {
+		t.Fatalf("a different failure must block: %q", out)
+	}
+}
+
+func TestStopFailureAfterGreenBlocksAgain(t *testing.T) {
+	d, _ := project(t)
+	write(t, d, "FAIL", "x")
+	runStop(t, d, false) // blocks, remembers the failure
+	os.Remove(filepath.Join(d, "FAIL"))
+	if out, _ := runStop(t, d, false); out != "" {
+		t.Fatalf("green: %q", out)
+	}
+	st := loadState(d)
+	if st.Green == "" || st.Relayed != "" {
+		t.Fatalf("green must store the tree and forget the relayed failure: %+v", st)
+	}
+	write(t, d, "FAIL", "x") // the very same failure comes back after a green
+	out, _ := runStop(t, d, false)
+	var got map[string]any
+	json.Unmarshal([]byte(out), &got)
+	if got["decision"] != "block" {
+		t.Fatalf("a failure after a green is a new occurrence: %q", out)
+	}
+}

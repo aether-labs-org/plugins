@@ -32,9 +32,15 @@ you do here runs at gate time, and the harness works without this plugin afterwa
 8. **The user chooses the tool.** Offer the recommended one and its alternatives; any tool that emits a supported format, or only
    an exit code, is accepted.
 
+## First action
+
+Before anything else run `sh "${CLAUDE_PLUGIN_ROOT}/kh/bin/kh" version`. It downloads and verifies the pinned `kh` into the
+per-user cache (once). Until `kh` is cached, this skill's setup hook cannot decide anything and asks the human to confirm every
+Write, Edit and Bash call, so run it first, and tell the human why if it asks about this call.
+
 ## Pick the mode
 
-Run `bash "${CLAUDE_SKILL_DIR}/scripts/discover.sh"` first; its `keel` line decides.
+Then run `bash "${CLAUDE_SKILL_DIR}/scripts/discover.sh"`; its `keel` line decides.
 
 - `keel absent` (no `.agents/keel.yml`): **create**.
 - `keel installed <version>`: **review or update**; also run `sh .agents/bin/kh validate` and `sh .agents/bin/kh check`, and

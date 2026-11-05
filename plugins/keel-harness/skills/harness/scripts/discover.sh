@@ -4,7 +4,7 @@
 # Prints key<TAB>value[<TAB>detail] lines on stdout and writes nothing: no file in the repository is created,
 # changed or deleted. It reads the tree with git (tracked files plus untracked files that are not ignored).
 #
-# Keys: language, package-manager, test-runner, linter, formatter, type-checker, arch-tool, githook-manager,
+# Keys: language, runtime, package-manager, test-runner, linter, formatter, type-checker, arch-tool, githook-manager,
 #       instructions, agent-hooks, commit-convention, branch-pattern, ci (informational), agents-dir, keel.
 set -uo pipefail
 
@@ -60,6 +60,17 @@ lang rust 'rs'
 lang ruby 'rb'
 lang csharp 'cs'
 lang php 'php'
+
+# ---------------------------------------------------------------- runtime (Node: some tools exclude odd versions in their engines)
+if have '(^|/)package\.json$'; then
+  nv="not installed"
+  command -v node >/dev/null 2>&1 && nv="$(node --version 2>/dev/null || echo unknown)"
+  pin="no pin"
+  if have '(^|/)\.nvmrc$|(^|/)\.node-version$'; then pin="$(first '(^|/)(\.nvmrc|\.node-version)$')"
+  elif in_package_json '"engines"'; then pin="package.json engines"
+  fi
+  emit runtime node "$nv, $pin"
+fi
 
 # ---------------------------------------------------------------- package manager
 have '(^|/)pnpm-lock\.yaml$' && emit package-manager pnpm "$(first '(^|/)pnpm-lock\.yaml$')"

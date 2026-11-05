@@ -18,6 +18,14 @@ Before any question, gather facts. Everything here is read-only; nothing is writ
 In review or update mode (an `.agents/keel.yml` exists) also run `sh .agents/bin/kh validate` and `sh .agents/bin/kh check`; their
 output is the drift report. Explain each warning and propose the fix; do not repeat the check's logic.
 
+## Runtime and install side effects
+
+`discover.sh` prints `runtime node <version> <pin>`. Some tools exclude odd Node versions in their `engines` (dependency-cruiser:
+`^22 || ^24 || >=26`), so compare the version with the `engines` of every tool you are about to propose and, when no `.nvmrc` or
+`engines.node` pins a version, propose one. Recent pnpm installs dependencies by itself on `pnpm exec` and may write
+`pnpm-workspace.yaml` (a real run added a supply-chain exemption nobody chose): say so in the proposal and check `git diff` after
+the first run.
+
 ## What to read besides the scripts
 
 - The build files and the Makefile: the real commands (read them, do not run an install).

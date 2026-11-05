@@ -22,7 +22,7 @@ exit code, a parser or a baseline, never from a model.
 | --- | --- |
 | `kh run <script> [-- extra args]` | One declared script. Extra arguments are appended, each as one word. |
 | `kh run [--timeout D] [--json] -- <command...>` | Any command: capture, verdict from the exit code, generic reduction. |
-| `kh gate <name> [--all] [--json]` | The gate's scripts, in order, under a lock. `--all` passes every tracked file instead of the changed ones. |
+| `kh gate <name> [--all] [--json]` | The gate's scripts, in order, under a lock. `--all` passes every tracked or untracked (not ignored) file instead of the changed ones. |
 | `kh show <id> [--failures \| --full \| --json]` | A stored run or gate. |
 | `kh measure <script>` | Per-file counts as a TSV baseline on stdout. Never writes a file. |
 | `kh validate` | Strict validation of `keel.yml`. Silent and exit 0 when valid; one line per issue and exit 3 otherwise. |

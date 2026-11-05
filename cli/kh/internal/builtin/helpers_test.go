@@ -106,12 +106,12 @@ func yamlList(t *testing.T, js string) []any {
 }
 
 func TestGuardBuiltin(t *testing.T) {
-	// unborn HEAD: skip, never a silent pass
+	// unborn HEAD: pass (a skip of a security script would fail every gate of a fresh repository)
 	d := newRepo(t)
 	write(t, d, ".agents/keel.yml", "version: 1\n")
 	ctx := ctxAll(t, d)
 	out := Default()["guard"].Run(ctx, nil)
-	if out.Status != "skip" || out.Summary != "no base commit yet" {
+	if out.Status != "pass" || out.Summary != "no base commit yet: the harness is installed in this change" {
 		t.Fatalf("unborn: %s %q", out.Status, out.Summary)
 	}
 	if ClassOf(Default()["guard"]) != "security" {

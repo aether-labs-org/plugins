@@ -449,6 +449,15 @@ func cmdSchema(args []string, stdout, stderr io.Writer) int {
 	if !ok {
 		return usageErr(stderr, "schema: unknown schema %q (keel, result, memory)", args[0])
 	}
+	if args[0] == "keel" {
+		// the with: block of every builtin, generated from the same definitions Decode uses
+		full, err := builtin.Default().KeelSchema(b)
+		if err != nil {
+			fmt.Fprintf(stderr, "kh: %v\n", err)
+			return ExitError
+		}
+		b = append(full, '\n')
+	}
 	stdout.Write(b)
 	return ExitPass
 }

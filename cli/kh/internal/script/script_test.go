@@ -578,3 +578,31 @@ func TestBuiltinClassDefaults(t *testing.T) {
 		}
 	}
 }
+
+func TestAllIncludesUntrackedNotIgnored(t *testing.T) {
+	e, d := newExec(t, "version: 1\nscripts:\n  show: { run: \"printf '%s\\\\n'\", files: \"*.ts\" }\n")
+	write(t, d, "tracked.ts", "1")
+	git(t, d, "add", "tracked.ts")
+	git(t, d, "commit", "-q", "-m", "tracked")
+	write(t, d, "untracked.ts", "1") // greenfield: nothing committed yet
+	write(t, d, ".gitignore", ".agents/run/\nignored.ts\n")
+	write(t, d, "ignored.ts", "1")
+	e.All = true
+	r := runScript(t, e, "show")
+	if r.Status != result.Pass {
+		t.Fatalf("%s: %s", r.Status, r.Summary)
+	}
+	if got := logOf(t, d, r); got != "tracked.ts\nuntracked.ts\n" {
+		t.Errorf("--all passed %q: want the tracked and the untracked file, not the ignored one", got)
+	}
+}
+
+func TestAllInAGreenfieldRepository(t *testing.T) {
+	// nothing tracked besides the seed: --all must not skip with "no changed files in scope"
+	e, d := newExec(t, "version: 1\nscripts:\n  lint: { run: \"true\", files: \"*.ts\" }\n")
+	write(t, d, "src/new.ts", "1")
+	e.All = true
+	if r := runScript(t, e, "lint"); r.Status != result.Pass {
+		t.Fatalf("%s: %s", r.Status, r.Summary)
+	}
+}

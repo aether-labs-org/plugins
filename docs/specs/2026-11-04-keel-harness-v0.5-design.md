@@ -255,7 +255,7 @@ Rules (v0.4 rules kept unless stated):
 - `run:` is a shell string run with `bash -o pipefail -c` from the repository root; `{report}` expands to
   a fresh path under the run's evidence directory.
 - **Change scoping** (pre-commit model): `files:` globs changed files; matches are appended as
-  arguments (`pass_files: true` by default); `kh gate <name> --all` passes every tracked match, batched
+  arguments (`pass_files: true` by default); `kh gate <name> --all` passes every tracked or untracked, not ignored, match, batched
   under `ARG_MAX`, one merged verdict; no match → `skip` "no changed files in scope", never a silent pass.
 - **Change base per gate:** `worktree` (tracked diff vs `HEAD` + untracked), `staged` (files in the
   index), `branch` (vs `KEEL_GUARD_BASE`, else merge-base with `origin/HEAD`, else `HEAD`). `staged`

@@ -238,8 +238,14 @@ hk "$h" stop; [ "$rc" -eq 0 ] && [ -z "$out" ]; check "hook stop: green tree is 
 hk "$h" stop; [ "$(jq_ 'd["decision"]')" = block ] && has "$out" "gate: fast - FAILED"; check "hook stop: a failure blocks with the gate result" $?
 PAYLOAD='{"hook_event_name":"Stop","cwd":"'"$phys"'","stop_hook_active":true}'
 hk "$h" stop; [ "$rc" -eq 0 ] && ! has "$out" '"decision"' && has "$out" "the agent stopped with this failure"; check "hook stop: the same failure with stop_hook_active lets the agent stop" $?
+PAYLOAD='{"hook_event_name":"Stop","cwd":"'"$phys"'","stop_hook_active":false}'
+hk "$h" stop; [ "$rc" -eq 0 ] && ! has "$out" '"decision"' && has "$out" "the agent stopped with this failure"; check "hook stop: the same failure on a new turn (stop_hook_active false) is not relayed again" $?
+hk "$h" stop; ! has "$out" '"decision"'; check "hook stop: ... nor on the turn after that" $?
 rm "$h/FAIL"; PAYLOAD='{"hook_event_name":"Stop","cwd":"'"$phys"'","stop_hook_active":false}'
 hk "$h" stop; [ -z "$out" ]; check "hook stop: silent again once fixed" $?
+: > "$h/FAIL"
+hk "$h" stop; [ "$(jq_ 'd["decision"]')" = block ]; check "hook stop: the same failure after a green blocks again (a new occurrence)" $?
+rm "$h/FAIL"
 
 # commit-msg
 h="$(harness)"; echo 'feat: ok' > "$h/MSG"; k "$h" hook commit-msg MSG; [ "$rc" -eq 0 ]; check "hook commit-msg: a matching message passes" $?

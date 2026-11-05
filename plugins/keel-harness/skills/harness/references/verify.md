@@ -7,7 +7,7 @@ Run these after the last write. Report every result as measured; if something wa
 2. `sh .agents/bin/kh check`: read every `warn <id>: <message>`. Expected right after setup: `githooks-inactive` until
    `kh setup` runs, and `script-unavailable` for tools that are not installed. Anything else is a gap to explain or close. Add
    `--strict` only if a clean result is the goal.
-3. `sh .agents/bin/kh gate fast --all`: the fast gate over every tracked file, not just the changes. This is where a pattern that
+3. `sh .agents/bin/kh gate fast --all`: the fast gate over every tracked or untracked (not ignored) file, not just the changes: in a greenfield repository nothing is tracked yet. This is where a pattern that
    matches nothing, a report that is never found, or a tool that does not run shows up. Read the verdict line
    (`gate: fast - PASSED (P of N, S skipped) | ceiling ..., spent ...`) and every skipped script: a skip names the missing tool.
 4. If the user accepts the cost: `sh .agents/bin/kh gate slow --all`. A script that times out or errors is a finding of its own.

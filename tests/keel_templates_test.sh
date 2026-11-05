@@ -63,6 +63,24 @@ KH="$W/kh"
 [ "${PIPESTATUS[0]}" -eq 0 ]; check "kh builds" $?
 [ -x "$KH" ] || finish
 
+# every builtin kh knows is described in references/gates.md with its with: keys (kh schema keel is the source)
+GATES_MD="$REPO_ROOT/plugins/keel-harness/skills/harness/references/gates.md"
+"$KH" schema keel > "$W/keel.schema.json"
+python3 -I - "$W/keel.schema.json" "$GATES_MD" <<'PY'
+import json, sys
+schema = json.load(open(sys.argv[1]))
+text = open(sys.argv[2]).read()
+with_ = schema["$defs"]["with"]
+assert len(with_) >= 13, sorted(with_)
+for name, w in sorted(with_.items()):
+    row = next((l for l in text.splitlines() if l.startswith("| `" + name + "` |")), None)
+    assert row, "gates.md has no row for builtin " + name
+    for key in w["properties"]:
+        assert key in row, f"gates.md row of {name} lacks the key {key}"
+    assert w["description"] and w["examples"], name
+PY
+check "kh schema keel describes every builtin's with:, and references/gates.md has a row naming each builtin and its keys" $?
+
 for stack in typescript python jvm; do
   r="$W/$stack"; mkdir -p "$r"; cp -R "$FX/$stack/." "$r/"
   mkdir -p "$r/.agents" "$r/docs" "$r/.claude/agents" "$r/.github/agents"

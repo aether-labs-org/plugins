@@ -72,8 +72,8 @@ func failureFingerprint(r gate.Result) string {
 
 // Stop runs the fast gate at the end of an agent turn when the tree changed
 // since the last green result. A failure is handed to the agent once ({"decision":
-// "block"}); the same failure relayed again lets the agent stop and tells the
-// human. An invalid config or a gate that cannot run never blocks. The return
+// "block"}); the same failure (same fingerprint) is not relayed again, on this turn
+// or a later one: the agent may stop and the human is told. An invalid config or a gate that cannot run never blocks. The return
 // value is the exit code of the hook (always 0).
 func Stop(ctx context.Context, root string, p Payload, w, errw io.Writer) int {
 	cfg, err := config.LoadValid(root, builtin.Default().Validator())
@@ -97,15 +97,18 @@ func Stop(ctx context.Context, root string, p Payload, w, errw io.Writer) int {
 		return 0
 	}
 	if r.Status == result.Pass {
-		saveState(root, stopState{Green: fp, Relayed: st.Relayed})
+		// green: remember the tree, forget the relayed failure (a recurrence after a fix is a new occurrence)
+		saveState(root, stopState{Green: fp})
 		return 0
 	}
 	ff := failureFingerprint(r)
-	if p.StopHookActive && ff == st.Relayed {
+	// at most one forced continuation per DISTINCT failure: the same failure is never relayed twice,
+	// whatever stop_hook_active says (it is false at the start of every new user turn)
+	if ff == st.Relayed {
 		msg := render.GateVerdict(r) + " - the agent stopped with this failure"
 		writeSystemMessage(w, msg)
 		fmt.Fprintln(errw, msg)
-		saveState(root, stopState{Relayed: st.Relayed})
+		saveState(root, stopState{Relayed: ff}) // not green, the failure stays remembered
 		return 0
 	}
 	writeStopBlock(w, render.Gate(r))

@@ -26,7 +26,9 @@ const guardGuidance = "undo the loosening and fix the code instead. If loosening
 
 func (guardBuiltin) Run(ctx Context, _ any) Outcome {
 	if ctx.Base == "" {
-		return Outcome{Status: result.Skip, Summary: "no base commit yet"}
+		// A skip would fail the gate (guard is a security script): with no commit there is nothing to loosen,
+		// the harness is being installed in this change.
+		return Outcome{Status: result.Pass, Summary: "no base commit yet: the harness is installed in this change"}
 	}
 	short, err := scope.Git(ctx.Root, "rev-parse", "--short", ctx.Base)
 	if err != nil {

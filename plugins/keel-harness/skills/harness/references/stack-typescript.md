@@ -29,7 +29,7 @@ One row per topic id of the area files. The **Command** column emits a format kh
 | code-language | `code-language` builtin | - | builtin `code-language` (stop-list `pt`) | none | TSV (heuristic) | A stop-list heuristic: it catches Portuguese words, not every language. | https://eslint.org/docs/latest/rules/camelcase | n/a (exit code) |
 | comments | `pattern` builtin | linter TODO rules | builtin `pattern` for markers without a reference | none | TSV (heuristic) | Matches one line at a time. | https://eslint.org/docs/latest/rules/no-warning-comments | n/a (exit code) |
 | spelling | cspell | codespell | `npx cspell --no-progress "src/**"` | none | n/a | Needs a project dictionary for domain terms. | https://cspell.org/ | unverified (exit code, not run) |
-| architecture | dependency-cruiser | - | `npx depcruise src --config .dependency-cruiser.cjs --output-type err` | errorformat | native (`depcruise-baseline`, `--ignore-known`) | It cruised nothing under TypeScript 7 (native); recorded with TypeScript 5.9.3. Protect the config with `config:`. | https://github.com/sverweij/dependency-cruiser | errorformat/dependency-cruiser-17.4.3 |
+| architecture | dependency-cruiser | - | `npx depcruise src --config .dependency-cruiser.cjs --output-type err` | errorformat | native (`depcruise-baseline`, `--ignore-known`) | It cruised nothing under TypeScript 7 (native); recorded with TypeScript 5.9.3. Its `engines` exclude odd Node versions (^22 \|\| ^24 \|\| >=26 at the version recorded): check `node --version` and pin Node (.nvmrc, engines). Protect the config with `config:`. | https://github.com/sverweij/dependency-cruiser | errorformat/dependency-cruiser-17.4.3 |
 | dependencies | `dependencies` builtin | - | builtin `dependencies` | none | none (security) | Reads package.json, pyproject.toml, pom.xml and build.gradle* only. | https://adr.github.io/madr/ | n/a (exit code) |
 | folder-layout | `folder-layout` builtin | - | builtin `folder-layout` with `allowed` patterns | none | TSV (heuristic) | `*` crosses `/` in an allowed pattern. | https://matklad.github.io/2021/02/06/ARCHITECTURE.md.html | n/a (exit code) |
 | exemplars | `exemplar:` / `legacy:` fields | nested AGENTS.md | fields of the enforcing script; `kh check` verifies the file | none | none | Update the field when the file moves; `exemplar-missing` warns. | https://agents.md/ | n/a (exit code) |
@@ -46,3 +46,19 @@ One row per topic id of the area files. The **Command** column emits a format kh
 | agents-md | `kh check` | - | `sh .agents/bin/kh check` | none | none | Warnings are advice, never a gate verdict. | https://agents.md/ | n/a (exit code) |
 | topic-files | `kh check` | - | `sh .agents/bin/kh check` | none | none | A topic file missing from `guides:` is unprotected (`guide-unlisted`). | https://agents.md/ | n/a (exit code) |
 | adr | `guard` + MADR template | - | `guard` runs in every gate | none | none (security) | An ADR must name the script or file it loosens. | https://adr.github.io/madr/ | n/a (exit code) |
+
+## Alternative: Biome (lint and format in one tool)
+
+Biome replaces ESLint and Prettier with one tool. Same columns as the table above; these rows replace the `lint` and `formatting` rows when the user picks Biome. Everything about Biome here was checked against `@biomejs/biome` 2.6.5 in a scratch project.
+
+| Topic | Tool | Alternatives | Command | Format | Baseline | Pitfall | Docs | Fixture |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| lint | Biome | ESLint | `npx biome check --reporter=checkstyle` | checkstyle | TSV (heuristic) | `biome check` runs the linter, the formatter and the import organiser together; a formatting difference is a finding with `source="format"` and line 0. Biome 2 configuration: `linter.rules.recommended` is deprecated (a warning in 2.6.5, to be removed in the next major version); use `"rules": { "preset": "recommended" }` as `biome init` writes it, and run `biome migrate` to convert an old file. Protect `biome.json` with `config:`. | https://biomejs.dev/reference/cli/#--reporter | checkstyle/biome-2.6.5 |
+| formatting | Biome | Prettier | the same `biome check` command (the format findings come out as `source="format"`); `npx biome format --write` to fix | checkstyle | TSV (heuristic) | Format the repository once, in its own commit, instead of baselining. | https://biomejs.dev/formatter/ | checkstyle/biome-2.6.5 |
+
+Biome also emits SARIF (`--reporter=sarif`), JUnit and JSON reporters; only the checkstyle output was recorded.
+
+## Pitfalls seen in a real run
+
+- **`pnpm exec` and recent pnpm install by themselves.** A recent pnpm may install dependencies when you run `pnpm exec` (or a bare `pnpm <bin>`) and may write `pnpm-workspace.yaml`; in a real run it added a `minimumReleaseAgeExclude` supply-chain exemption nobody chose. A proposal that uses pnpm must say so, and the agent checks `git diff` for `pnpm-workspace.yaml` after the first run. Prefer a committed lockfile and `pnpm install --frozen-lockfile` as the explicit install step.
+- **Node versions.** dependency-cruiser's `engines` exclude odd Node versions (`^22 || ^24 || >=26` at the version the real run pulled), so a machine on Node 23 or 25 fails or warns. Discovery reports `runtime node <version>` and whether `.nvmrc` or `engines.node` pins one; propose `.nvmrc` and `engines` when they are missing, and check the tools' `engines` before proposing them.

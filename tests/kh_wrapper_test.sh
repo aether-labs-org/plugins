@@ -123,6 +123,23 @@ out="$(cd "$r4" && $SH .agents/bin/kh version 2>&1)"; rc=$?
 [ "$rc" -eq 3 ] && printf '%s' "$out" | grep -q 'no keel.lock'; check "wrapper: a missing keel.lock is an error outside hook mode" $?
 export XDG_CACHE_HOME="$W/cache"
 
+
+# the plugin's own wrapper (not .agents/bin/kh): the fail-safe names the wrapper's path, not a repository command
+pl="$W/plug dir"; mkdir -p "$pl/kh/bin"; cp "$WRAPPER" "$pl/kh/bin/kh"; lock_of "$V1" "$W/d1" > "$pl/kh/keel.lock"
+export XDG_CACHE_HOME="$W/emptycache2"
+out="$(cd "$W" && printf '%s' "$PAYLOAD" | KH_RELEASE_URL="file://$W/missing" $SH "$pl/kh/bin/kh" hook pre-tool-use 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | PL="$pl/kh/bin/kh" python3 -I -c 'import json,os,sys; d=json.load(sys.stdin); assert d["permissionDecisionReason"] == "kh unavailable: run sh " + os.environ["PL"] + " version", d["permissionDecisionReason"]; assert d["hookSpecificOutput"]["permissionDecisionReason"] == d["permissionDecisionReason"]'; check "plugin wrapper, hook mode: the ask names the wrapper's own path (a path with a space stays valid JSON)" $?
+printf '%s' "$out" | grep -q '.agents/bin/kh setup'; [ $? -ne 0 ]; check "plugin wrapper, hook mode: no .agents/bin/kh setup advice where .agents/bin does not exist" $?
+out="$(cd "$W" && printf '{}' | $SH "$pl/kh/bin/kh" hook stop 2>&1)"
+printf '%s' "$out" | PL="$pl/kh/bin/kh" python3 -I -c 'import json,os,sys; d=json.load(sys.stdin); assert os.environ["PL"] + " version" in d["systemMessage"] and "decision" not in d'; check "plugin wrapper, hook mode: stop names the wrapper's path too" $?
+out="$(cd "$W" && PL="$pl/kh/bin/kh" $SH "$pl/kh/bin/kh" hook commit-msg MSG 2>&1)"
+printf '%s' "$out" | grep -qF "kh unavailable: run sh $pl/kh/bin/kh version"; check "plugin wrapper, hook mode: commit-msg notice names the wrapper's path" $?
+out="$(cd "$W" && KH_RELEASE_URL="$MIRROR1" $SH "$pl/kh/bin/kh" version 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$out" = "kh $V1" ]; check "plugin wrapper: 'version' downloads and verifies the pinned kh (the first action of the skill)" $?
+out="$(cd "$W" && printf '%s' "$PAYLOAD" | KH_RELEASE_URL="file://$W/missing" $SH "$pl/kh/bin/kh" hook pre-tool-use 2>&1)"
+printf '%s' "$out" | grep -qF "$pl/kh/bin/kh version"; [ $? -ne 0 ]; check "plugin wrapper: once kh is cached the real hook answers, not the wrapper's fail-safe" $?
+export XDG_CACHE_HOME="$W/cache"
+
 # the verified binary runs hooks for real in hook mode
 r5="$(newrepo "$V1" "$W/d1")"; write_keel "$r5"
 (cd "$r5" && git add -A && git commit -q -m seed)
@@ -159,5 +176,19 @@ printf '%s' "$out" | grep -q '^warn '; check "kh setup: runs kh check and prints
 # the activated pre-commit hook runs the commit gate for real
 (cd "$W/clone" && git config user.email t@t && git config user.name t && echo change > file.txt && git add file.txt && KH_RELEASE_URL="$MIRROR1" git commit -q -m x >"$W/commit.out" 2>&1); rc=$?
 [ "$rc" -eq 0 ]; check "git hooks: the commit gate (pre-commit) runs and passes on a clean change" $?
+
+# the very first commit of a repository with no commit yet passes the commit gate (guard has no base: nothing to loosen)
+r7="$(newrepo "$V1" "$W/d1")"; write_keel "$r7"
+mkdir -p "$r7/.agents/githooks"
+printf '#!/bin/sh\nexec sh "$(git rev-parse --show-toplevel)/.agents/bin/kh" gate commit\n' > "$r7/.agents/githooks/pre-commit"
+printf '#!/bin/sh\nexec sh "$(git rev-parse --show-toplevel)/.agents/bin/kh" gate slow\n' > "$r7/.agents/githooks/pre-push"
+chmod 644 "$r7/.agents/githooks/"*
+out="$(cd "$r7" && KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh setup 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ -z "$(git -C "$r7" rev-parse -q --verify HEAD 2>/dev/null)" ]; check "first commit: kh setup in a repository with no commit" $?
+out="$(cd "$r7" && KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh gate commit 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'gate: commit - PASSED'; check "first commit: the commit gate passes with no base commit (guard passes)" $?
+(cd "$r7" && git add -A && KH_RELEASE_URL="$MIRROR1" git commit -q -m "first" >"$W/first.out" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ -n "$(git -C "$r7" rev-parse -q --verify HEAD)" ]; check "first commit: the pre-commit hook lets the very first commit through" $?
+[ "$rc" -eq 0 ] || cat "$W/first.out"
 
 finish

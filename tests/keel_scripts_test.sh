@@ -43,6 +43,7 @@ out="$(cd "$r" && bash "$SC/discover.sh" 2>&1)"; rc=$?
 [ "$rc" -eq 0 ]; check "discover.sh typescript: exit 0" $?
 has_line "$out" "$(line language typescript '2 files')" ; check "discover typescript: language typescript" $?
 has_line "$out" "$(line package-manager pnpm pnpm-lock.yaml)"; check "discover typescript: package-manager pnpm" $?
+printf '%s\n' "$out" | grep -qE "^runtime${TAB}node${TAB}(v[0-9][0-9.]*|not installed|unknown), no pin$"; check "discover typescript: runtime node <version>, no pin" $?
 printf '%s\n' "$out" | grep -qxE "test-runner${TAB}vitest(${TAB}.*)?"; check "discover typescript: test-runner vitest" $?
 printf '%s\n' "$out" | grep -qxE "test-runner${TAB}playwright(${TAB}.*)?"; check "discover typescript: test-runner playwright (from package.json)" $?
 has_line "$out" "$(line arch-tool dependency-cruiser .dependency-cruiser.cjs)"; check "discover typescript: arch-tool dependency-cruiser with its config" $?
@@ -74,6 +75,12 @@ has_line "$out" "$(line package-manager gradle wrapper)"; check "discover jvm: p
 printf '%s\n' "$out" | grep -qxE "test-runner${TAB}junit(${TAB}.*)?"; check "discover jvm: test-runner junit" $?
 printf '%s\n' "$out" | grep -qxE "arch-tool${TAB}archunit(${TAB}.*)?"; check "discover jvm: arch-tool archunit" $?
 has_line "$out" "$(line linter checkstyle config/checkstyle/checkstyle.xml)"; check "discover jvm: linter checkstyle with its config" $?
+
+r2="$(mkrepo typescript)"
+printf '{"name":"x","engines":{"node":">=22"}}\n' > "$r2/package.json"
+printf '%s\n' "$(cd "$r2" && bash "$SC/discover.sh")" | grep -qE "^runtime${TAB}node${TAB}v?[^,${TAB}]+, package.json engines$"; check "discover: runtime reports a package.json engines pin" $?
+printf 'v22\n' > "$r2/.nvmrc"
+printf '%s\n' "$(cd "$r2" && bash "$SC/discover.sh")" | grep -qE "^runtime${TAB}node${TAB}[^,${TAB}]+, \.nvmrc$"; check "discover: runtime reports a .nvmrc pin" $?
 
 # instruction files, agent hooks, .agents/ and keel
 r="$(mkrepo typescript)"
