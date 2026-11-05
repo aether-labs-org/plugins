@@ -463,7 +463,7 @@ the top-level.
 **Root of a command (`KH_ROOT`):** the wrapper of a repository (`*/.agents/bin/kh`) exports
 `KH_ROOT=<two directories above itself>`, overriding any inherited value; the plugin's copy unsets it.
 `kh` takes the root of a command from `KH_ROOT` when it is set (it must be a git top-level, else an
-error), otherwise from the git top-level of the working directory. `hook stop` uses the same root. `KH_ROOT` goes no further than that process: `kh` removes it from the environment of the scripts and commands it runs.
+error), otherwise from the git top-level of the working directory. `hook stop` uses the same root. `KH_ROOT` goes no further than that process: `kh` removes it from the environment of the scripts and commands it runs, together with the repository-local git variables that a git hook exports (`git rev-parse --local-env-vars`: `GIT_DIR`, `GIT_INDEX_FILE`, ...), so that a git command a script runs in another directory cannot act on the repository being committed or pushed; `kh`'s own git calls keep the inherited environment.
 
 **Output contract:** one JSON valid for Claude and Copilot.
 - PreToolUse: `hookSpecificOutput.{hookEventName, permissionDecision, permissionDecisionReason}` (Claude)

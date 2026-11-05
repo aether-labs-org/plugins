@@ -183,3 +183,26 @@ func TestRunDoesNotPassKhRoot(t *testing.T) {
 		t.Fatalf("explicit env: %q", out.String())
 	}
 }
+
+// A script runs with the git variables that a hook inherits (GIT_DIR, GIT_INDEX_FILE, ...) removed: a git command it
+// runs in another directory would otherwise act on the repository that is being committed or pushed.
+func TestChildEnvDropsRepositoryLocalGitVariables(t *testing.T) {
+	in := []string{"PATH=/bin", "HOME=/h", "GIT_DIR=/r/.git/worktrees/w", "GIT_WORK_TREE=/r", "GIT_INDEX_FILE=/r/.git/worktrees/w/index",
+		"GIT_COMMON_DIR=/r/.git", "GIT_PREFIX=sub/", "GIT_OBJECT_DIRECTORY=/o", "KH_ROOT=/r", "GIT_SSH_COMMAND=ssh -i k", "GIT_EDITOR=true"}
+	got := childEnv(in)
+	want := []string{"PATH=/bin", "HOME=/h", "GIT_SSH_COMMAND=ssh -i k", "GIT_EDITOR=true"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("childEnv = %v, want %v", got, want)
+	}
+}
+
+func TestRunDoesNotPassGitVariables(t *testing.T) {
+	t.Setenv("GIT_DIR", "/nonexistent/.git")
+	t.Setenv("GIT_INDEX_FILE", "/nonexistent/index")
+	t.Setenv("GIT_EDITOR", "true")
+	var out bytes.Buffer
+	Run(context.Background(), Spec{Argv: sh(`printf '%s|%s|%s' "${GIT_DIR-unset}" "${GIT_INDEX_FILE-unset}" "${GIT_EDITOR-unset}"`)}, &out)
+	if out.String() != "unset|unset|true" {
+		t.Fatalf("%q", out.String())
+	}
+}

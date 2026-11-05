@@ -62,7 +62,7 @@ hook stop` and the protected set on the project. `kh hook pre-tool-use` checks e
 repository that contains the target (a repository without `.agents/keel.yml` has none, except in `--setup` mode, which applies
 the setup defaults), and intercepts declared scripts with the config of the repository the command runs in.
 `KH_ROOT` is only the hand-off from the wrapper to the `kh` process it execs: `kh` removes it from the environment of every script and
-command it runs, so a `kh` binary started inside a script works on its own working directory.
+command it runs, so a `kh` binary started inside a script works on its own working directory. For the same reason `kh` removes the repository-local git variables (`git rev-parse --local-env-vars`: `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`, ...) that a git hook exports: a script that runs `git init`, `git config` or `git commit` in another directory must not act on the repository being committed or pushed. `kh`'s own git calls keep the inherited environment, and the script still runs in the repository root.
 
 ```
 make -C cli/kh dist VERSION=0.5.0     # dist/kh-<os>-<arch> and dist/SHA256SUMS, byte-identical on a rebuild

@@ -5,6 +5,9 @@ SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo
 
 .PHONY: build test dist lock
 
+# A git hook exports GIT_DIR, GIT_INDEX_FILE ... and the tests run git in temporary directories: never pass them on.
+unexport $(shell git rev-parse --local-env-vars 2>/dev/null) KH_ROOT
+
 build:
 	CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "-X main.version=$(VERSION)" -o dist/kh .
 

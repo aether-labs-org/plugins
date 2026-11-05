@@ -312,4 +312,78 @@ rm -f "$LK/root.seen"
 out="$(cd "$LK" && KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh gate fast 2>&1)"
 [ "$(cat "$LK/root.seen" 2>/dev/null)" = unset ]; check "kh gate: the scripts see no KH_ROOT" $?
 
+# ---- round 3 correction 3: git exports GIT_DIR, GIT_INDEX_FILE ... to hooks; a gated script that runs git elsewhere must not act on the repository ----
+# Everything below happens in throwaway repositories under $W: real hooks (pre-commit, commit-msg, pre-push) activated by kh setup.
+GH="$REPO_ROOT/plugins/keel-harness/skills/harness/templates/githooks"
+HR="$(newrepo "$V1" "$W/d1")"
+cat > "$HR/.agents/keel.yml" <<'YML'
+version: 1
+githooks: { mode: native, pre-commit: commit, pre-push: slow, commit-msg: cm }
+scripts:
+  leak: "sh .agents/leak.sh"
+  cm: { builtin: commit-message, with: { pattern: '^.+' } }
+gates:
+  fast: { scripts: [guard, leak] }
+  commit: { scripts: [guard, leak], changes: staged }
+  slow: { scripts: [guard, leak], changes: branch }
+YML
+cat > "$HR/.agents/leak.sh" <<'SH'
+# what a test suite does: git in a fresh temporary directory
+echo ran >> "$LEAK_MARK"
+d="$(mktemp -d)"
+cd "$d" || exit 0
+git init -q
+git config user.name ana
+git config user.email ana@example.com
+git commit --allow-empty -qm x
+git branch leaked
+exit 0
+SH
+cp "$GH/pre-commit" "$GH/commit-msg" "$GH/pre-push" "$HR/.agents/githooks/"
+(cd "$HR" && git add -A && git commit -q -m "seed" && git branch -M main)
+git init -q --bare "$W/hooks-remote.git"
+(cd "$HR" && git remote add origin "$W/hooks-remote.git")
+export LEAK_MARK="$W/leak.marks"; : > "$LEAK_MARK"
+(cd "$HR" && KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh setup >/dev/null 2>&1)
+[ "$(git -C "$HR" config --get core.hooksPath)" = ".agents/githooks" ]; check "git hooks (R): kh setup activated the hooks in the throwaway repository" $?
+marks() { wc -l < "$LEAK_MARK" | tr -d ' '; }
+# clean_repo REPO LABEL EXPECTED-BRANCHES: nothing a hook-run script did in a temporary directory reached REPO
+clean_repo() {
+  local r="$1" label="$2" want="$3" got
+  [ "$(git -C "$r" config --local --get user.name)" = t ]; check "$label: .git/config still has user.name=t (not ana)" $?
+  [ "$(git -C "$r" config --local --get core.bare)" = false ]; check "$label: core.bare is false" $?
+  got="$(git -C "$r" for-each-ref --format='%(refname:short)' refs/heads | sort | tr '\n' ' ')"
+  [ "$got" = "$want" ]; check "$label: branches are exactly '$want' (got '$got'; none named leaked)" $?
+}
+wt_before="$(git -C "$HR" worktree list | sed 's/ [0-9a-f]\{7,\} / /')"
+n0="$(git -C "$HR" rev-list --count HEAD)"
+(cd "$HR" && echo one > f1.txt && git add f1.txt && KH_RELEASE_URL="$MIRROR1" git commit -q -m "feat: one" >"$W/hooks-commit.out" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(marks)" -ge 1 ]; check "git hooks (R): a real git commit ran pre-commit and the gated script" $?
+[ "$rc" -eq 0 ] || cat "$W/hooks-commit.out"
+[ "$(git -C "$HR" rev-list --count HEAD)" -eq $((n0 + 1))  ] && [ "$(git -C "$HR" log -1 --format=%s)" = "feat: one" ]; check "git hooks (R): HEAD moved by the intended commit only" $?
+m1="$(marks)"
+(cd "$HR" && KH_RELEASE_URL="$MIRROR1" git push -q origin HEAD:refs/heads/main >"$W/hooks-push.out" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(marks)" -gt "$m1" ]; check "git hooks (R): a real git push to a local bare remote ran pre-push and the gated script" $?
+[ "$rc" -eq 0 ] || cat "$W/hooks-push.out"
+clean_repo "$HR" "git hooks (R)" "main "
+[ "$(git -C "$HR" worktree list | sed 's/ [0-9a-f]\{7,\} / /')" = "$wt_before" ]; check "git hooks (R): git worktree list is unchanged" $?
+
+# from a linked worktree: git exports GIT_DIR=<R>/.git/worktrees/<name> (the shape of the incident)
+git -C "$HR" worktree add -q "$W/hooks-wt" -b wtbranch
+wt_before="$(git -C "$HR" worktree list | sed 's/ [0-9a-f]\{7,\} / /')"
+main_before="$(git -C "$HR" rev-parse main)"
+nw="$(git -C "$W/hooks-wt" rev-list --count HEAD)"; m1="$(marks)"
+(cd "$W/hooks-wt" && echo two > f2.txt && git add f2.txt && KH_RELEASE_URL="$MIRROR1" git commit -q -m "feat: two" >"$W/hooks-commit2.out" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(marks)" -gt "$m1" ]; check "git hooks (linked worktree): a real git commit ran the hooks and the gated script" $?
+[ "$rc" -eq 0 ] || cat "$W/hooks-commit2.out"
+[ "$(git -C "$W/hooks-wt" rev-list --count HEAD)" -eq $((nw + 1)) ] && [ "$(git -C "$HR" rev-parse main)" = "$main_before" ]; check "git hooks (linked worktree): the worktree's branch moved by the intended commit only, main did not move" $?
+m1="$(marks)"
+(cd "$W/hooks-wt" && KH_RELEASE_URL="$MIRROR1" git push -q origin HEAD:refs/heads/wtbranch >"$W/hooks-push2.out" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(marks)" -gt "$m1" ]; check "git hooks (linked worktree): a real git push ran pre-push and the gated script" $?
+[ "$rc" -eq 0 ] || cat "$W/hooks-push2.out"
+clean_repo "$HR" "git hooks (linked worktree)" "main wtbranch "
+[ "$(git -C "$W/hooks-wt" symbolic-ref --short HEAD)" = wtbranch ] && [ "$(git -C "$HR" symbolic-ref --short HEAD)" = main ]; check "git hooks (linked worktree): both worktrees are still on their own branch" $?
+[ "$(git -C "$HR" worktree list | sed 's/ [0-9a-f]\{7,\} / /')" = "$wt_before" ]; check "git hooks (linked worktree): git worktree list is unchanged" $?
+unset LEAK_MARK
+
 finish

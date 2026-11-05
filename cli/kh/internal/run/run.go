@@ -14,6 +14,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/aether-labs-org/plugins/cli/kh/internal/gitenv"
 )
 
 const (
@@ -49,14 +51,18 @@ type Outcome struct {
 	pgid int // for tests
 }
 
-// childEnv is the environment of a command kh starts: env (nil = kh's own) without KH_ROOT. KH_ROOT is the
-// wrapper's hand-off to the kh process it execs and nothing more; a kh binary started by a script (a test
-// suite that builds kh, a script that calls the binary) must work on its own working directory, not on the
-// repository the outer kh serves.
+// childEnv is the environment of a command kh starts: env (nil = kh's own) without
+//   - KH_ROOT, the wrapper's hand-off to the kh process it execs: a kh binary started by a script (a test
+//     suite that builds kh, a script that calls the binary) must work on its own working directory;
+//   - the repository-local git variables (GIT_DIR, GIT_INDEX_FILE, ...), which a git hook exports: a git command
+//     the script runs in another directory would otherwise act on the repository being committed or pushed.
+//
+// The script runs with the repository root as its directory, so git still finds the repository there.
 func childEnv(env []string) []string {
 	if env == nil {
 		env = os.Environ()
 	}
+	env = gitenv.Strip(env)
 	out := make([]string, 0, len(env))
 	for _, e := range env {
 		if !strings.HasPrefix(e, "KH_ROOT=") {
