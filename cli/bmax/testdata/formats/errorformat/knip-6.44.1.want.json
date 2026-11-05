@@ -1,0 +1,18 @@
+[
+  {
+    "file": "src/unused.ts",
+    "line": 0,
+    "col": 0,
+    "rule": "",
+    "severity": "error",
+    "message": "src/unused.ts"
+  },
+  {
+    "file": "src/domain/order.ts",
+    "line": 0,
+    "col": 0,
+    "rule": "",
+    "severity": "error",
+    "message": "dead"
+  }
+]

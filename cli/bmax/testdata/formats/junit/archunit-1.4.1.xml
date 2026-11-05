@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="com.acme.ArchitectureTest" time="0.568" tests="1" errors="0" skipped="0" failures="1">
+  <properties/>
+  <testcase name="domain_does_not_depend_on_adapters" classname="ArchitectureTest" time="0.567">
+    <failure message="Architecture Violation [Priority: MEDIUM] - Rule &apos;no classes that reside in a package &apos;..domain..&apos; should depend on classes that reside in a package &apos;..adapters..&apos;&apos; was violated (2 times):&#10;Method &lt;com.acme.domain.Order.id()&gt; calls constructor &lt;com.acme.adapters.Db.&lt;init&gt;()&gt; in (Order.java:6)&#10;Method &lt;com.acme.domain.Order.id()&gt; calls method &lt;com.acme.adapters.Db.load()&gt; in (Order.java:6)" type="java.lang.AssertionError"><![CDATA[java.lang.AssertionError: 
+Architecture Violation [Priority: MEDIUM] - Rule 'no classes that reside in a package '..domain..' should depend on classes that reside in a package '..adapters..'' was violated (2 times):
+Method <com.acme.domain.Order.id()> calls constructor <com.acme.adapters.Db.<init>()> in (Order.java:6)
+Method <com.acme.domain.Order.id()> calls method <com.acme.adapters.Db.load()> in (Order.java:6)
+	at com.tngtech.archunit.lang.ArchRule$Assertions.assertNoViolation(ArchRule.java:94)
+	at com.tngtech.archunit.lang.ArchRule$Assertions.check(ArchRule.java:86)
+	at com.tngtech.archunit.lang.ArchRule$Factory$SimpleArchRule.check(ArchRule.java:165)
+	at com.tngtech.archunit.lang.syntax.ObjectsShouldInternal.check(ObjectsShouldInternal.java:81)
+	at com.tngtech.archunit.junit.internal.ArchUnitTestDescriptor$ArchUnitRuleDescriptor.execute(ArchUnitTestDescriptor.java:168)
+	at com.tngtech.archunit.junit.internal.ArchUnitTestDescriptor$ArchUnitRuleDescriptor.execute(ArchUnitTestDescriptor.java:151)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+]]></failure>
+  </testcase>
+</testsuite>

@@ -1,0 +1,8 @@
+version: 1
+scripts:
+  guard: "true"
+  lint: "true"
+gates:
+  fast: { scripts: [guard, lint] }
+  commit: { scripts: [guard, lint], changes: staged }
+  slow: { scripts: [guard, lint], changes: branch }

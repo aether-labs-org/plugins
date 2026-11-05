@@ -1,0 +1,13 @@
+{
+  "session_id": "s-1234",
+  "transcript_path": "/work/transcript.jsonl",
+  "cwd": "__ROOT__",
+  "permission_mode": "bypassPermissions",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "__ROOT__/AGENTS.md",
+    "content": "# x\n"
+  },
+  "tool_use_id": "toolu_01"
+}

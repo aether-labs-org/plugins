@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/aether-labs-org/plugins/bmax.json",
+  "title": "bmax.yml version 1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": { "const": 1 },
+    "adr_dir": { "type": "string", "default": "docs/adr" },
+    "review_due": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "guides": { "type": "array", "items": { "type": "string" } },
+    "githooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["native", "external"] },
+        "pre-commit": { "type": "string", "description": "name of a gate" },
+        "pre-push": { "type": "string", "description": "name of a gate" },
+        "commit-msg": { "type": "string", "description": "id of a script (the commit-message builtin)" }
+      }
+    },
+    "scripts": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string", "description": "short form: a command, verdict from the exit code" },
+          { "$ref": "#/$defs/script" }
+        ]
+      }
+    },
+    "gates": {
+      "type": "object",
+      "description": "fast, commit and slow are required and must list guard",
+      "additionalProperties": { "$ref": "#/$defs/gate" }
+    }
+  },
+  "$defs": {
+    "script": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "exactly one of run, builtin, exec",
+      "properties": {
+        "run": { "type": "string" },
+        "builtin": { "type": "string" },
+        "exec": { "type": "string" },
+        "with": { "type": "object" },
+        "format": { "enum": ["junit", "sarif", "checkstyle", "eslint-json", "errorformat"] },
+        "pattern": { "type": "string" },
+        "reports": { "type": "string" },
+        "files": { "type": "string" },
+        "pass_files": { "type": "boolean", "default": true },
+        "timeout": { "type": "string", "default": "10m" },
+        "retries": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "class": { "enum": ["security", "correctness", "heuristic"] },
+        "baseline": { "type": "string" },
+        "guidance": { "type": "string" },
+        "decision": { "type": "string" },
+        "doc": { "type": "string" },
+        "exemplar": { "type": "string" },
+        "legacy": { "type": "string" },
+        "requires": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "type": "string" } },
+        "exceptions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "until"],
+            "properties": {
+              "path": { "type": "string" },
+              "until": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+            }
+          }
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scripts"],
+      "properties": {
+        "scripts": { "type": "array", "items": { "type": "string" } },
+        "changes": { "enum": ["worktree", "staged", "branch"], "default": "worktree" },
+        "ceiling": { "type": "string" }
+      }
+    }
+  }
+}

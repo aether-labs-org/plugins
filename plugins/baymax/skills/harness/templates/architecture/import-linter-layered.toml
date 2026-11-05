@@ -1,0 +1,12 @@
+# Baymax template: replace every <placeholder> with this repository's real path or package, then remove this line. Protect this file with config: in .agents/bmax.yml.
+# layered: web -> service -> repository; no upward calls.
+# Paste into pyproject.toml, or save as .importlinter (INI) after converting.
+[tool.importlinter]
+root_package = "<package>"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Architecture layers (layered)"
+type = "layers"
+layers = ["<web>", "<service>", "<repository>"]
+containers = ["<package>"]

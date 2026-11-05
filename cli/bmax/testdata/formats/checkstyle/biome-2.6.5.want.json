@@ -1,0 +1,34 @@
+[
+  {
+    "file": "src/bad.js",
+    "line": 3,
+    "col": 10,
+    "rule": "lint/correctness/noUnusedVariables",
+    "severity": "warning",
+    "message": "This function unusedFn is unused."
+  },
+  {
+    "file": "src/bad.js",
+    "line": 4,
+    "col": 7,
+    "rule": "lint/correctness/noUnusedVariables",
+    "severity": "warning",
+    "message": "This variable x is unused."
+  },
+  {
+    "file": "src/bad.js",
+    "line": 2,
+    "col": 7,
+    "rule": "lint/suspicious/noDoubleEquals",
+    "severity": "error",
+    "message": "Using == may be unsafe if you are relying on type coercion."
+  },
+  {
+    "file": "src/bad.js",
+    "line": 0,
+    "col": 0,
+    "rule": "format",
+    "severity": "error",
+    "message": "Formatter would have printed the following content:"
+  }
+]

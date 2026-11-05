@@ -1,0 +1,3 @@
+java -jar detekt-cli-1.23.8-all.jar --input src --build-upon-default-config --report xml:out-detekt.xml
+tool version: detekt 1.23.8
+2026-11-04

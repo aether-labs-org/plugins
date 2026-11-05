@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural checks for the marketplace and the keel-harness plugin.
+# Structural checks for the marketplace and the baymax plugin.
 set -uo pipefail
 fail=0
 check() { # check <description> <condition-exit-code>
@@ -7,36 +7,36 @@ check() { # check <description> <condition-exit-code>
 }
 root="$(cd "$(dirname "$0")/.." && pwd)"
 mp="$root/.claude-plugin/marketplace.json"
-pj="$root/plugins/keel-harness/.claude-plugin/plugin.json"
+pj="$root/plugins/baymax/.claude-plugin/plugin.json"
 
 jq -e . "$mp" >/dev/null 2>&1; check "marketplace.json is valid JSON" $?
 [ "$(jq -r .name "$mp" 2>/dev/null)" = "aether-labs" ]; check "marketplace name is aether-labs" $?
 [ -n "$(jq -r '.owner.name // empty' "$mp" 2>/dev/null)" ]; check "marketplace has owner.name" $?
-[ "$(jq -r '.plugins[0].source' "$mp" 2>/dev/null)" = "./plugins/keel-harness" ]; check "plugin source path" $?
-[ -d "$root/plugins/keel-harness" ]; check "plugin source path exists" $?
+[ "$(jq -r '.plugins[0].source' "$mp" 2>/dev/null)" = "./plugins/baymax" ]; check "plugin source path" $?
+[ -d "$root/plugins/baymax" ]; check "plugin source path exists" $?
 [ "$(jq -r '.plugins[0].version // "unset"' "$mp" 2>/dev/null)" = "unset" ]; check "no version in marketplace entry" $?
 
 jq -e . "$pj" >/dev/null 2>&1; check "plugin.json is valid JSON" $?
-[ "$(jq -r .name "$pj" 2>/dev/null)" = "keel-harness" ]; check "plugin name is keel-harness" $?
-[ "$(jq -r .version "$pj" 2>/dev/null)" = "0.3.0-rc.1" ]; check "plugin version is 0.3.0-rc.1" $?
-grep -q "project.s own rules" "$root/.claude-plugin/marketplace.json" && grep -q "project.s own rules" "$root/README.md"; check "marketplace and root README carry the v0.2 description" $?
-grep -q "implemented in v0.2.0" "$root/docs/specs/2026-10-20-keel-harness-v0.2-design.md"; check "spec status is implemented in v0.2.0" $?
-grep -q "release candidate 0.3.0-rc.1" "$root/docs/specs/2026-10-23-keel-harness-v0.3-design.md"; check "v0.3 spec status is release candidate 0.3.0-rc.1" $?
+[ "$(jq -r .name "$pj" 2>/dev/null)" = "baymax" ]; check "plugin name is baymax" $?
+[ "$(jq -r .version "$pj" 2>/dev/null)" = "0.5.0" ]; check "plugin version is 0.5.0" $?
+desc="$(jq -r .description "$pj" 2>/dev/null)"
+[ -n "$desc" ] && [ "$(jq -r '.plugins[0].description' "$mp" 2>/dev/null)" = "$desc" ] && grep -qF "$desc" "$root/README.md"; check "plugin.json, marketplace.json and the root README carry the same description" $?
 
 for forbidden in hooks .mcp.json bin commands; do
-  [ ! -e "$root/plugins/keel-harness/$forbidden" ]
+  [ ! -e "$root/plugins/baymax/$forbidden" ]
   check "plugin has no $forbidden (spec 9)" $?
 done
 
-for s in assess build rules; do
-  f="$root/plugins/keel-harness/skills/$s/SKILL.md"
+for s in harness; do
+  f="$root/plugins/baymax/skills/$s/SKILL.md"
   [ -f "$f" ]; check "skills/$s/SKILL.md exists" $?
   grep -q "^name: $s$" "$f" 2>/dev/null; check "skills/$s frontmatter name" $?
-  grep -q "^description: >" "$f" 2>/dev/null; check "skills/$s frontmatter description" $?
+  grep -q "^description: " "$f" 2>/dev/null; check "skills/$s frontmatter description" $?
 done
+[ "$(ls "$root/plugins/baymax/skills" | tr '\n' ' ')" = "harness " ]; check "the plugin has one skill" $?
 
 # The plugin must not reference anything outside its own directory.
-! grep -rn '\.\./\.\.' "$root/plugins/keel-harness" --include='*.md' --include='*.json' >/dev/null 2>&1
+! grep -rn '\.\./\.\.' "$root/plugins/baymax" --include='*.md' --include='*.json' >/dev/null 2>&1
 check "plugin does not escape its directory" $?
 
 exit $fail

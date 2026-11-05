@@ -1,0 +1,24 @@
+[project]
+name = "fixture-py"
+version = "0.1.0"
+dependencies = ["requests>=2.31"]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff", "mypy", "import-linter"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "layers"
+type = "layers"
+layers = ["adapters", "domain"]

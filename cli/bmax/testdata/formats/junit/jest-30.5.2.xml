@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="3" failures="1" errors="0" time="0.226">
+  <testsuite name="undefined" errors="0" failures="1" skipped="1" timestamp="2026-11-04T18:54:24" time="0.09" tests="3">
+    <testcase classname=" adds" name=" adds" time="0.002">
+    </testcase>
+    <testcase classname=" fails on purpose" name=" fails on purpose" time="0.002">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 5
+Received: 4
+    at Object.&lt;anonymous&gt; (/work/ts/tests-jest/math.test.cjs:6:17)
+    at Promise.finally.completed (/work/ts/node_modules/jest-circus/build/jestAdapterInit.js:1834:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/work/ts/node_modules/jest-circus/build/jestAdapterInit.js:1774:10)
+    at _callCircusTest (/work/ts/node_modules/jest-circus/build/jestAdapterInit.js:1167:40)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _runTestInContext (/work/ts/node_modules/jest-circus/build/jestAdapterInit.js:1103:3)
+    at runTestWithContext (/work/ts/node_modules/jest-circus/build/jestAdapterInit.js:996:5)
+    at _runTestsForDescribeBlockOnce (/work/ts/node_modules/jest-circus/build/jestAdapterInit.js:1008:11)
+    at _runTestsForDescribeBlock (/work/ts/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at run (/work/ts/node_modules/jest-circus/build/jestAdapterInit.js:789:3)
+    at runAndTransformResultsToJestFormat (/work/ts/node_modules/jest-circus/build/jestAdapterInit.js:2300:21)
+    at jestAdapter (/work/ts/node_modules/jest-circus/build/runner.js:111:19)
+    at runTestInternal (/work/ts/node_modules/jest-runner/build/index.js:247:16)
+    at runTest (/work/ts/node_modules/jest-runner/build/index.js:315:7)</failure>
+    </testcase>
+    <testcase classname=" skipped one" name=" skipped one" time="0">
+      <skipped/>
+    </testcase>
+  </testsuite>
+</testsuites>

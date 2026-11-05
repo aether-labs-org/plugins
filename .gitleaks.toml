@@ -1,0 +1,8 @@
+title = "aether-labs plugins"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Local, git-ignored agent worktrees; they are scratch copies, not repository content."
+paths = ['''(^|/)\.claude/worktrees/''']

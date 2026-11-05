@@ -1,0 +1,10 @@
+[
+  {
+    "file": "com.acme.MathTest",
+    "line": 0,
+    "col": 0,
+    "rule": "failsOnPurpose()",
+    "severity": "error",
+    "message": "org.opentest4j.AssertionFailedError: expected: \u003c5\u003e but was: \u003c4\u003e"
+  }
+]

@@ -1,0 +1,5 @@
+{
+  "cwd": "__ROOT__",
+  "hook_event_name": "Stop",
+  "stop_hook_active": false
+}

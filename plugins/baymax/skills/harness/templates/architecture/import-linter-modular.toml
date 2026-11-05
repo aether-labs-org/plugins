@@ -1,0 +1,11 @@
+# Baymax template: replace every <placeholder> with this repository's real path or package, then remove this line. Protect this file with config: in .agents/bmax.yml.
+# modular: modules depend only on each other's public API (index).
+# Paste into pyproject.toml, or save as .importlinter (INI) after converting.
+[tool.importlinter]
+root_package = "<package>"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Modules are independent"
+type = "independence"
+modules = ["<package>.<module-a>", "<package>.<module-b>"]

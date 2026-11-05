@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.acme.MathTest" tests="3" skipped="1" failures="1" errors="0" timestamp="2026-11-04T18:55:39.594Z" hostname="host" time="0.025">
+  <properties/>
+  <testcase name="failsOnPurpose()" classname="com.acme.MathTest" time="0.022">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;5&gt; but was: &lt;4&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;5&gt; but was: &lt;4&gt;
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at app//org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:150)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:145)
+	at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:531)
+	at app//com.acme.MathTest.failsOnPurpose(MathTest.java:10)
+	at java.base@25/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base@25/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at java.base@25/java.util.ArrayList.forEach(ArrayList.java:1604)
+</failure>
+  </testcase>
+  <testcase name="adds()" classname="com.acme.MathTest" time="0.0"/>
+  <testcase name="skipped()" classname="com.acme.MathTest" time="0.0">
+    <skipped/>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

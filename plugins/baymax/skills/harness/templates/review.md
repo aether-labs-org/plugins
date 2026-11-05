@@ -1,0 +1,26 @@
+# Review
+
+The single copy of who reviews, when, and the checklist. The reviewer definitions
+(`.claude/agents/baymax-reviewer.md`, `.github/agents/baymax-reviewer.agent.md`) point here and say nothing else.
+
+## Who
+
+- {{The `baymax-reviewer` subagent (fresh context, read-only), a named person, or another CLI the team uses.}}
+
+## When
+
+- Before finishing a task: the agent asks the human whether to run the review, every time.
+- Before opening the pull request.
+
+## Checklist
+
+Apply each item to the diff. Report an item only when it fails; say what you did not check.
+
+1. Does the change do what the plan's `## Acceptance` says, and nothing outside its `Scope`?
+2. Is every behaviour change covered by a test that fails without the change (a regression test for a fix)?
+3. Does it follow the rules in the guides (`docs/architecture.md`, `docs/conventions.md`, `docs/testing.md`), including the rules no tool enforces?
+4. Does it loosen the harness (config, baselines, thresholds, hooks, guides, ADRs)? That needs an ADR naming what it loosens.
+5. Are there new dependencies, secrets, absolute paths, or local evidence references in anything committed?
+6. Are errors handled and logged the way the repository does it, with no swallowed exception and no console output?
+7. Is anything left behind: dead code, a TODO without a reference, a debug statement, a commented-out block?
+8. {{A project-specific item the tools cannot check.}}

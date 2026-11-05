@@ -1,0 +1,18 @@
+[
+  {
+    "file": "leak.py",
+    "line": 2,
+    "col": 21,
+    "rule": "github-pat",
+    "severity": "warning",
+    "message": "github-pat has detected secret for file leak.py."
+  },
+  {
+    "file": "leak.py",
+    "line": 3,
+    "col": 5,
+    "rule": "generic-api-key",
+    "severity": "warning",
+    "message": "generic-api-key has detected secret for file leak.py."
+  }
+]

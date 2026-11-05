@@ -1,5 +1,13 @@
 .agents/last-run.log
-.claude/
+# Baymax: only the agent hook settings and the reviewer agent are versioned under .claude/ (skills, worktrees, local settings stay local)
+.claude/*
+!.claude/settings.json
+!.claude/agents/
+# Baymax: local execution state (evidence, gate history, handoff notes, lessons inbox) is never committed
+.agents/run/
+# skills installed locally with the skills CLI
+.agents/skills/
+skills-lock.json
 **/evals/results/
 node_modules/
 .DS_Store

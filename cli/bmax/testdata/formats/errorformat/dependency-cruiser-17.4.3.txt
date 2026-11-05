@@ -1,0 +1,5 @@
+
+  error no-domain-to-adapters: src/domain/order.ts → src/adapters/db.ts
+
+x 1 dependency violations (1 errors, 0 warnings). 5 modules, 2 dependencies cruised.
+

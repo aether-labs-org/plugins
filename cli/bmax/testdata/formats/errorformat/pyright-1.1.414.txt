@@ -1,0 +1,6 @@
+/work/py/app/bad.py
+  /work/py/app/bad.py:6:12 - error: Type "int" is not assignable to return type "str"
+    "int" is not assignable to "str" (reportReturnType)
+  /work/py/app/bad.py:13:14 - error: Type "Literal['text']" is not assignable to declared type "int"
+    "Literal['text']" is not assignable to "int" (reportAssignmentType)
+2 errors, 0 warnings, 0 informations

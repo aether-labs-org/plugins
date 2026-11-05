@@ -1,0 +1,98 @@
+[
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 1,
+    "col": 0,
+    "rule": "JavadocPackageCheck",
+    "severity": "error",
+    "message": "Missing package-info.java file."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 4,
+    "col": 5,
+    "rule": "DesignForExtensionCheck",
+    "severity": "error",
+    "message": "Class 'Bad' looks like designed for extension (can be subclassed), but the method 'add' does not have javadoc that explains how to do that safely. If class is not designed for extension consider making the class 'Bad' final or making the method 'add' static/final/abstract/empty, or adding allowed an…"
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 4,
+    "col": 5,
+    "rule": "MissingJavadocMethodCheck",
+    "severity": "error",
+    "message": "Missing a Javadoc comment for 'add'."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 4,
+    "col": 20,
+    "rule": "FinalParametersCheck",
+    "severity": "error",
+    "message": "Parameter a should be final."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 4,
+    "col": 25,
+    "rule": "WhitespaceAfterCheck",
+    "severity": "error",
+    "message": "',' is not followed by whitespace."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 4,
+    "col": 26,
+    "rule": "FinalParametersCheck",
+    "severity": "error",
+    "message": "Parameter b should be final."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 4,
+    "col": 32,
+    "rule": "WhitespaceAroundCheck",
+    "severity": "error",
+    "message": "'{' is not preceded with whitespace."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 5,
+    "col": 19,
+    "rule": "WhitespaceAroundCheck",
+    "severity": "error",
+    "message": "'=' is not followed by whitespace."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 5,
+    "col": 19,
+    "rule": "WhitespaceAroundCheck",
+    "severity": "error",
+    "message": "'=' is not preceded with whitespace."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 5,
+    "col": 20,
+    "rule": "MagicNumberCheck",
+    "severity": "error",
+    "message": "'5' is a magic number."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 6,
+    "col": 17,
+    "rule": "WhitespaceAroundCheck",
+    "severity": "error",
+    "message": "'+' is not followed by whitespace."
+  },
+  {
+    "file": "/work/kt/src/Bad.java",
+    "line": 6,
+    "col": 17,
+    "rule": "WhitespaceAroundCheck",
+    "severity": "error",
+    "message": "'+' is not preceded with whitespace."
+  }
+]

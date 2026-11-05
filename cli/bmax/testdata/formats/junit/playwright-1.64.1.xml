@@ -1,0 +1,32 @@
+<testsuites id="" name="" tests="2" failures="1" skipped="0" errors="0" time="0.706472">
+<testsuite name="math.spec.ts" timestamp="2026-11-04T18:54:26.024Z" hostname="" tests="2" failures="1" skipped="0" time="0.008" errors="0">
+<testcase name="adds" classname="math.spec.ts" time="0.005">
+</testcase>
+<testcase name="fails on purpose" classname="math.spec.ts" time="0.003">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../test-results/math-fails-on-purpose/error-context.md]]
+]]>
+</system-out>
+<failure message="expect(received).toBe(expected) // Object.is equality" type="expect.toBe">
+<![CDATA[  math.spec.ts:7:1 › fails on purpose ──────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 5
+    Received: 4
+
+       6 |
+       7 | test('fails on purpose', async () => {
+    >  8 |   expect(2 + 2).toBe(5)
+         |                 ^
+       9 | })
+      10 |
+        at /work/ts/tests-pw/math.spec.ts:8:17
+
+    Error Context: ../test-results/math-fails-on-purpose/error-context.md
+]]>
+</failure>
+</testcase>
+</testsuite>
+</testsuites>

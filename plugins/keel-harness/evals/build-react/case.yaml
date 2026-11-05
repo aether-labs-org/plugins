@@ -1,6 +1,0 @@
-schema_version: "1.1"
-name: build-react
-description: Installs the full harness in a React (Vite) repo without asking, as the prompt waives the gate.
-tags: [build, react, tools]
-context:
-  scaffold_script: scaffold.sh

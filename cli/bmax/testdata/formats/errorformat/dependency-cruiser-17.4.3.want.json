@@ -1,0 +1,10 @@
+[
+  {
+    "file": "src/domain/order.ts",
+    "line": 0,
+    "col": 0,
+    "rule": "no-domain-to-adapters",
+    "severity": "error",
+    "message": "src/adapters/db.ts"
+  }
+]

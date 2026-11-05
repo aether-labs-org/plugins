@@ -1,4 +1,0 @@
-schema_version: "1.1"
-name: trigger-rules-2
-description: A request phrased without naming the skill makes Claude load the rules skill.
-tags: [trigger, readonly]

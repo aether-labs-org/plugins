@@ -1,0 +1,146 @@
+[
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 9,
+    "rule": "standard:function-signature",
+    "severity": "error",
+    "message": "Newline expected after opening parenthesis"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 10,
+    "rule": "standard:parameter-list-spacing",
+    "severity": "error",
+    "message": "Whitespace after ':' is missing"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 11,
+    "rule": "standard:colon-spacing",
+    "severity": "error",
+    "message": "Missing spacing after \":\""
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 14,
+    "rule": "standard:parameter-list-spacing",
+    "severity": "error",
+    "message": "Whitespace after ',' is missing"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 15,
+    "rule": "standard:comma-spacing",
+    "severity": "error",
+    "message": "Missing spacing after \",\""
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 15,
+    "rule": "standard:function-signature",
+    "severity": "error",
+    "message": "Parameter should start on a newline"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 16,
+    "rule": "standard:parameter-list-spacing",
+    "severity": "error",
+    "message": "Whitespace after ':' is missing"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 17,
+    "rule": "standard:colon-spacing",
+    "severity": "error",
+    "message": "Missing spacing after \":\""
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 20,
+    "rule": "standard:function-signature",
+    "severity": "error",
+    "message": "Newline expected before closing parenthesis"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 21,
+    "rule": "standard:function-return-type-spacing",
+    "severity": "error",
+    "message": "Single space expected between colon and return type"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 22,
+    "rule": "standard:colon-spacing",
+    "severity": "error",
+    "message": "Missing spacing after \":\""
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 25,
+    "rule": "standard:curly-spacing",
+    "severity": "error",
+    "message": "Missing spacing before \"{\""
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 25,
+    "rule": "standard:function-start-of-body-spacing",
+    "severity": "error",
+    "message": "Expected a single white space before start of function body"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 3,
+    "col": 25,
+    "rule": "standard:function-signature",
+    "severity": "error",
+    "message": "Expected a single space before body block"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 5,
+    "col": 13,
+    "rule": "standard:op-spacing",
+    "severity": "error",
+    "message": "Missing spacing around \"+\""
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 8,
+    "col": 7,
+    "rule": "standard:class-naming",
+    "severity": "error",
+    "message": "Class or object name should start with an uppercase letter and use camel case"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 9,
+    "col": 9,
+    "rule": "standard:function-naming",
+    "severity": "error",
+    "message": "Function name should start with a lowercase letter (except factory methods) and use camel case"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 10,
+    "col": 20,
+    "rule": "standard:paren-spacing",
+    "severity": "error",
+    "message": "Unexpected spacing before \")\""
+  }
+]

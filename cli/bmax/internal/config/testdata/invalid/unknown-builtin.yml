@@ -1,0 +1,8 @@
+version: 1
+scripts:
+  fs: { builtin: file-sizes }
+  lint: eslint
+gates:
+  fast: { scripts: [guard, lint], changes: worktree }
+  commit: { scripts: [guard, lint], changes: staged }
+  slow: { scripts: [guard, lint], changes: branch }

@@ -1,0 +1,10 @@
+[
+  {
+    "file": "ArchitectureTest",
+    "line": 0,
+    "col": 0,
+    "rule": "domain_does_not_depend_on_adapters",
+    "severity": "error",
+    "message": "Architecture Violation [Priority: MEDIUM] - Rule 'no classes that reside in a package '..domain..' should depend on classes that reside in a package '..adapters..'' was violated (2 times):"
+  }
+]

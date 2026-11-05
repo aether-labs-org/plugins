@@ -1,0 +1,42 @@
+[
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 1,
+    "col": 1,
+    "rule": "detekt.naming.InvalidPackageDeclaration",
+    "severity": "warning",
+    "message": "The package declaration does not match the actual file location."
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 8,
+    "col": 7,
+    "rule": "detekt.naming.ClassNaming",
+    "severity": "warning",
+    "message": "Class and Object names should match the pattern: [A-Z][a-zA-Z0-9]*"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 9,
+    "col": 9,
+    "rule": "detekt.naming.FunctionNaming",
+    "severity": "warning",
+    "message": "Function names should match the pattern: [a-z][a-zA-Z0-9]*"
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 4,
+    "col": 18,
+    "rule": "detekt.style.MagicNumber",
+    "severity": "warning",
+    "message": "This expression contains a magic number. Consider defining it to a well named constant."
+  },
+  {
+    "file": "/work/kt/src/Bad.kt",
+    "line": 4,
+    "col": 9,
+    "rule": "detekt.style.UnusedPrivateProperty",
+    "severity": "warning",
+    "message": "Private property `unused` is unused."
+  }
+]

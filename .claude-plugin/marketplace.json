@@ -7,15 +7,15 @@
   "description": "Claude Code plugins by Aether Labs.",
   "plugins": [
     {
-      "name": "keel-harness",
-      "source": "./plugins/keel-harness",
-      "description": "Assess, install and maintain an AI-agent harness and the project's own rules — architecture, testing strategy, conventions — in a repository.",
+      "name": "baymax",
+      "source": "./plugins/baymax",
+      "description": "The Baymax harness: create, review and keep the AI-agent harness of a repository. One skill diagnoses, measures, asks in rounds and writes only what you confirm; the pinned bmax engine runs the gates.",
       "category": "development",
       "tags": [
         "harness",
         "agents-md",
         "quality-gate",
-        "sensors"
+        "bmax"
       ]
     },
     {
