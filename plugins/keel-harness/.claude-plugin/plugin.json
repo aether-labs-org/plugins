@@ -1,7 +1,7 @@
 {
   "name": "keel-harness",
   "description": "Create, review and keep the AI-agent harness of a repository: one skill diagnoses, measures, asks in rounds and writes only what you confirm; the pinned kh engine runs the gates.",
-  "version": "0.5.0-rc.2",
+  "version": "0.5.0-rc.4",
   "author": {
     "name": "Aether Labs"
   },
