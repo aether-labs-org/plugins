@@ -18,10 +18,11 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: cli/kh/go.mod
+          cache-dependency-path: cli/kh/go.sum
       - name: Test
         run: make -C cli/kh test
       - name: Build the four platforms
@@ -32,7 +33,7 @@ jobs:
           make -C cli/kh dist VERSION="$version"
           cat cli/kh/dist/SHA256SUMS
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest@v4
         with:
           subject-path: 'cli/kh/dist/kh-*'
       - name: Create the release
