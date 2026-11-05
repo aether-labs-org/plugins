@@ -14,8 +14,8 @@ jobs:
           node-version: '24'
       - uses: actions/setup-go@v7
         with:
-          go-version-file: cli/kh/go.mod
-          cache-dependency-path: cli/kh/go.sum
+          go-version-file: cli/bmax/go.mod
+          cache-dependency-path: cli/bmax/go.sum
       - name: Install gitleaks (the secrets template test runs it)
         env:
           GITLEAKS_VERSION: 8.30.1

@@ -152,7 +152,7 @@ diretórios). Converter depois um plugin 100% AWS custaria reescrever as skills 
 │   ├── brownfield: assess (inventário, postura, as-built, drift) · governance · migration    │
 │   ├── subagents: architecture-reviewer · security-reviewer · finops-analyst ·               │
 │   │              account-inspector                                                          │
-│   ├── skills/*/scripts/ (sensores determinísticos, contrato do keel-harness)                │
+│   ├── skills/*/scripts/ (sensores determinísticos, contrato do baymax)                      │
 │   └── hooks/ PreToolUse → DENY em qualquer mutação de nuvem (D13, D14)                      │
 │              │ dependencies                                                                 │
 │   ├── aws-core@claude-plugins-official ── skills de serviço + AWS MCP Server                │
@@ -453,7 +453,7 @@ sob demanda.
    - chamadas `aws___run_script` cujo código contenha chamadas mutantes do boto3.
 
    A mensagem de bloqueio explica o motivo e como o humano executa por fora. Esta é a única exceção à
-   regra "informa, não bloqueia" herdada do keel-harness, e a justificativa é que ação na nuvem é
+   regra "informa, não bloqueia" herdada do baymax, e a justificativa é que ação na nuvem é
    irreversível e custa dinheiro. **[H]** O matcher de hook precisa enxergar os argumentos de ferramenta
    MCP.
 3. **`terraform plan` sem escrita.** Por padrão, o `plan` adquire lock no backend, o que é uma escrita no
@@ -516,7 +516,7 @@ ADR que supersede o anterior → `diagram` só nas visões afetadas → `iac` �
 Terraform); draw.io MCP (o diagrama é arquivo; o plugin `drawio@drawio` é opcional, D20); WA Security MCP, Threat Modeling MCP e
 Prowler MCP (o CLI basta); gateways.
 
-### 11.2 CLIs (contrato de sensor do keel-harness; ausente = `skipped` com orientação, D19)
+### 11.2 CLIs (contrato de sensor do baymax; ausente = `skipped` com orientação, D19)
 
 | CLI | Licença | Papel | Obrigatório |
 |---|---|---|---|
@@ -581,7 +581,7 @@ plugins/solutions-architect/
 ├── evals/<caso>/{prompt.md, case.yaml, scaffold.sh, graders/*.md}
 └── README.md                       # instalação, política IAM, MCPs opt-in
 
-tests/solutions_architect_*_test.sh # na raiz, no padrão do keel-harness
+tests/solutions_architect_*_test.sh # na raiz, no padrão do baymax
 .claude-plugin/marketplace.json     # + entrada; allowCrossMarketplaceDependenciesOn
                                     #   [claude-plugins-official]
 ```

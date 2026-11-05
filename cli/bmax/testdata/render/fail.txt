@@ -1,0 +1,9 @@
+lint  FAIL  exit=1  4.2s  6 errors, 1 warning  [run 20261104-120000-ab12]
+  src/a.ts:10  no-var  Unexpected var
+  src/a.ts:20  no-var  Unexpected var
+  src/a.ts:30  no-var  Unexpected var
+  src/a.ts:40  no-var  Unexpected var
+  src/a.ts:50  no-var  Unexpected var
+  … and 2 more
+  guidance: Fix the errors above; do not add an eslint-disable comment.
+evidence: bmax show 20261104-120000-ab12 [--failures | --full]

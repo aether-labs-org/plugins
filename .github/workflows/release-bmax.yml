@@ -1,0 +1,50 @@
+name: Release bmax
+
+# Publishes the bmax binaries when the owner pushes a tag cli/bmax/vX.Y.Z (a release)
+# or cli/bmax/vX.Y.Z-rc.N (a pre-release). The workflow lives in Baymax's own
+# repository; target repositories get no CI from Baymax.
+
+on:
+  push:
+    tags:
+      - 'cli/bmax/v*'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: cli/bmax/go.mod
+          cache-dependency-path: cli/bmax/go.sum
+      - name: Test
+        run: make -C cli/bmax test
+      - name: Build the four platforms
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#cli/bmax/v}"
+          make -C cli/bmax dist VERSION="$version"
+          cat cli/bmax/dist/SHA256SUMS
+      - name: Attest build provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: 'cli/bmax/dist/bmax-*'
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          flag=""
+          case "$TAG" in *-rc.*) flag="--prerelease" ;; esac
+          # shellcheck disable=SC2086
+          gh release create "$TAG" $flag \
+            --title "bmax ${TAG#cli/bmax/v}" \
+            --notes "bmax ${TAG#cli/bmax/v}. Verify with SHA256SUMS or gh attestation verify. The Baymax wrapper downloads and verifies this binary from bmax.lock." \
+            cli/bmax/dist/bmax-linux-amd64 cli/bmax/dist/bmax-linux-arm64 cli/bmax/dist/bmax-darwin-amd64 cli/bmax/dist/bmax-darwin-arm64 cli/bmax/dist/SHA256SUMS

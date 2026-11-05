@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/aether-labs-org/plugins/result.json",
+  "title": "bmax result, version 1",
+  "description": "What bmax run --json prints for one script, and meta.json of a run. bmax gate --json wraps these in $defs.gate.",
+  "type": "object",
+  "required": ["id", "status", "exit_code", "summary", "findings", "evidence"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^\\d{8}-\\d{6}-[0-9a-f]{4}$" },
+    "script": { "type": "string", "description": "declared script id; empty for bmax run -- <command>" },
+    "command": { "type": "string" },
+    "gate": { "type": "string" },
+    "class": { "enum": ["", "security", "correctness", "heuristic"] },
+    "status": { "enum": ["pass", "fail", "skip", "error"] },
+    "exit_code": { "type": ["integer", "null"] },
+    "attempts": { "type": "integer", "minimum": 0 },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "summary": { "type": "string" },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "error": { "type": "integer" },
+        "warning": { "type": "integer" },
+        "note": { "type": "integer" }
+      }
+    },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "parsed": { "type": "boolean", "description": "false: the output was not recognised, only the generic reduction exists" },
+    "baseline": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string" },
+        "over": { "type": "array", "items": { "type": "string", "description": "path count>allowed" } }
+      }
+    },
+    "guidance": { "type": "string" },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dir": { "type": "string" },
+        "log": { "type": "string" },
+        "reports": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "tree": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "head": { "type": "string" }, "diff_hash": { "type": "string" } }
+    },
+    "bmax_version": { "type": "string" },
+    "cwd": { "type": "string" },
+    "timeout_ms": { "type": "integer" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer" },
+        "col": { "type": "integer" },
+        "rule": { "type": "string" },
+        "severity": { "enum": ["error", "warning", "note"] },
+        "message": { "type": "string" }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "gate": { "type": "string" },
+        "status": { "enum": ["pass", "fail"] },
+        "spent_ms": { "type": "integer" },
+        "ceiling_ms": { "type": "integer" },
+        "over_ceiling": { "type": "boolean" },
+        "scripts": { "type": "array", "items": { "$ref": "#" } }
+      }
+    }
+  }
+}

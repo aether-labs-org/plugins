@@ -33,21 +33,21 @@ scripts:
     timeout: 10m
     requires: [make]
     guidance: Exit code only (tests/run.sh prints ok/FAIL per check, no report). Read the failing line; do not weaken an assertion without an ADR.
-  isolation-keel-harness:
+  isolation-baymax:
     builtin: pattern
     class: correctness
     doc: docs/architecture.md
     with:
       pattern: 'plugins/(second-brain|solutions-architect)|\.\./(second-brain|solutions-architect)'
-      include: [plugins/keel-harness]
-      exclude: [plugins/keel-harness/evals]
+      include: [plugins/baymax]
+      exclude: [plugins/baymax/evals]
       message: A plugin must not reference another plugin.
   isolation-second-brain:
     builtin: pattern
     class: correctness
     doc: docs/architecture.md
     with:
-      pattern: 'plugins/(keel-harness|solutions-architect)|\.\./(keel-harness|solutions-architect)'
+      pattern: 'plugins/(baymax|solutions-architect)|\.\./(baymax|solutions-architect)'
       include: [plugins/second-brain]
       exclude: [plugins/second-brain/evals, plugins/second-brain/obsidian/node_modules, plugins/second-brain/obsidian/dist]
       message: A plugin must not reference another plugin.
@@ -56,7 +56,7 @@ scripts:
     class: correctness
     doc: docs/architecture.md
     with:
-      pattern: 'plugins/(keel-harness|second-brain)|\.\./(keel-harness|second-brain)'
+      pattern: 'plugins/(baymax|second-brain)|\.\./(baymax|second-brain)'
       include: [plugins/solutions-architect]
       exclude: [plugins/solutions-architect/evals]
       message: A plugin must not reference another plugin.
@@ -66,6 +66,6 @@ scripts:
     builtin: commit-message
     with: { pattern: '^(feat|fix|docs|refactor|test|chore|perf|build|ci|style|revert)(\(.+\))?!?: .+' }
 gates:
-  fast: { scripts: [guard, secrets, typecheck, lint, isolation-keel-harness, isolation-second-brain, isolation-solutions-architect], changes: worktree, ceiling: 30s }
+  fast: { scripts: [guard, secrets, typecheck, lint, isolation-baymax, isolation-second-brain, isolation-solutions-architect], changes: worktree, ceiling: 30s }
   commit: { scripts: [guard, secrets, memory, lint], changes: staged, ceiling: 30s }
   slow: { scripts: [guard, suite, merge-check], changes: branch, ceiling: 10m }

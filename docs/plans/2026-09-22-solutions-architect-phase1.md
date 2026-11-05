@@ -4,7 +4,7 @@
 
 **Goal:** Ship the `solutions-architect` Claude Code plugin, Phase 1 of the design: the greenfield spine (requirements -> design -> draw.io views -> list-price estimate -> Terraform gate -> docs -> review) with its read-only hook, deterministic validators and eval suite, distributed from the `aether-labs` marketplace.
 
-**Architecture:** Eight skills carry the method and delegate AWS service knowledge to the official `aws-core` plugin (a marketplace-level dependency). Everything checkable is checked by standard-library Python and POSIX-ish Bash scripts that follow keel-harness's sensor contract (line 1 = `id<TAB>class<TAB>status<TAB>summary`, exit 0/1/2). State lives only in the user repository's `architecture/manifest.json`. A `PreToolUse` hook denies every command that would change a cloud account.
+**Architecture:** Eight skills carry the method and delegate AWS service knowledge to the official `aws-core` plugin (a marketplace-level dependency). Everything checkable is checked by standard-library Python and POSIX-ish Bash scripts that follow baymax's sensor contract (line 1 = `id<TAB>class<TAB>status<TAB>summary`, exit 0/1/2). State lives only in the user repository's `architecture/manifest.json`. A `PreToolUse` hook denies every command that would change a cloud account.
 
 **Tech Stack:** Markdown, JSON, Python 3.10+ (stdlib only), Bash, draw.io XML, Terraform 1.9+, tflint, checkov, AWS CLI v2 (`pricing get-products`), `claude plugin validate` / `claude plugin eval`, jq.
 
@@ -169,7 +169,7 @@ Expected: FAIL from the first check (`marketplace lists solutions-architect`) on
 
 - [ ] **Step 3: Update the marketplace**
 
-Replace `.claude-plugin/marketplace.json` with (keel-harness stays first so its structure test, which reads `.plugins[0]`, keeps passing):
+Replace `.claude-plugin/marketplace.json` with (baymax stays first so its structure test, which reads `.plugins[0]`, keeps passing):
 
 `.claude-plugin/marketplace.json`:
 
@@ -183,8 +183,8 @@ Replace `.claude-plugin/marketplace.json` with (keel-harness stays first so its 
   "description": "Claude Code plugins by Aether Labs.",
   "plugins": [
     {
-      "name": "keel-harness",
-      "source": "./plugins/keel-harness",
+      "name": "baymax",
+      "source": "./plugins/baymax",
       "description": "Assess, install and maintain an AI-agent harness in a repository.",
       "category": "development",
       "tags": [
@@ -371,7 +371,7 @@ check:
 	./tests/run.sh
 
 validate:
-	claude plugin validate ./plugins/keel-harness --strict
+	claude plugin validate ./plugins/baymax --strict
 	claude plugin validate ./plugins/solutions-architect --strict
 ```
 
@@ -384,7 +384,7 @@ In `.github/workflows/validate.yml`, change the last step's `run:` to `make vali
 - [ ] **Step 9: Run the tests to verify they pass**
 
 Run: `./tests/run.sh && make validate`
-Expected: every check `ok` except `hook matcher` (its file arrives in Task 3); both plugins print `Validation passed`; the keel-harness tests still pass. From Task 3 on the structure test is fully green and every later task keeps it green.
+Expected: every check `ok` except `hook matcher` (its file arrives in Task 3); both plugins print `Validation passed`; the baymax tests still pass. From Task 3 on the structure test is fully green and every later task keeps it green.
 
 - [ ] **Step 10: Commit** (ask the owner first)
 

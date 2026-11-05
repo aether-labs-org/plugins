@@ -1,0 +1,45 @@
+# bmax.yml for Python (uv, poetry or pip). Replace what does not fit, then run `sh .agents/bin/bmax validate`.
+version: 1
+guides: [AGENTS.md, CLAUDE.md, docs/review.md]
+githooks: { mode: native, pre-commit: commit, pre-push: slow, commit-msg: commit-message }
+scripts:
+  typecheck:
+    run: mypy --show-column-numbers --show-error-codes --no-error-summary .
+    pass_files: false
+    format: errorformat
+    pattern: '^(?P<file>[^:]+):(?P<line>\d+):(?P<col>\d+): (?P<severity>error|warning|note): (?P<message>.*?)(?:  \[(?P<rule>[a-z-]+)\])?$'
+    class: correctness
+    config: [pyproject.toml]
+  lint:
+    run: ruff check --no-cache --output-format sarif --output-file {report}
+    files: "*.py"
+    format: sarif
+    reports: "{report}"
+    class: heuristic
+    config: [pyproject.toml, ruff.toml]
+    guidance: Fix the finding; do not add a noqa comment to silence it.
+    # baseline: .agents/baselines/lint.tsv   # add when the repository already has findings (bmax measure lint)
+  test:
+    run: pytest -q --junitxml={report}
+    format: junit
+    reports: "{report}"
+    class: correctness
+    timeout: 10m
+    retries: 1
+    guidance: Read the failing assertion. Do not change the expectation to the new value without an ADR.
+  secrets:
+    run: gitleaks detect --no-git --no-banner --redact --report-format sarif --report-path {report}
+    format: sarif
+    reports: "{report}"
+    class: security
+    requires: [gitleaks]
+    config: [.gitleaks.toml]   # gitleaks has no .gitignore option: this file allow-lists the ignored directories (gitleaks.toml.tmpl)
+  memory: { builtin: memory, class: correctness }
+  merge-check: { builtin: merge-check }
+  commit-message:
+    builtin: commit-message
+    with: { pattern: '^(feat|fix|docs|refactor|test|chore|perf|build|ci)(\(.+\))?!?: .+' }
+gates:
+  fast: { scripts: [guard, secrets, typecheck, lint], changes: worktree, ceiling: 30s }
+  commit: { scripts: [guard, secrets, memory, lint], changes: staged, ceiling: 30s }
+  slow: { scripts: [guard, test, merge-check], changes: branch, ceiling: 10m }
