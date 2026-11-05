@@ -90,7 +90,7 @@ grep -q 'gitleaks.toml' "$T/adr-0001.md"; check "adr-0001.md has a line for the 
 GL="$(command -v gitleaks || true)"; [ -z "$GL" ] && [ -x "$HOME/.local/bin/gitleaks" ] && GL="$HOME/.local/bin/gitleaks"
 if [ -n "$GL" ]; then
   g="$W/gl"; mkdir -p "$g/build" "$g/.claude/worktrees/w" "$g/src"
-  fake='const k = "AKIAIOSFODNN7EXAMPLQ";'
+  fake='const k = "AKIAIOSFODNN7EXAMPLQ";' # gitleaks:allow (fake key: this test checks that gitleaks finds it)
   printf '%s\n' "$fake" > "$g/build/a.js"; printf '%s\n' "$fake" > "$g/.claude/worktrees/w/b.js"; printf '%s\n' "$fake" > "$g/src/c.js"
   printf 'build/\n.claude/worktrees/\n' > "$g/.gitignore"
   (cd "$g" && git init -q .)

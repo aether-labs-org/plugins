@@ -34,7 +34,7 @@ func TestRedactPlaceholder(t *testing.T) {
 }
 
 func TestRedactEnvValue(t *testing.T) {
-	r := redact.New([]string{"AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG"})
+	r := redact.New([]string{"AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG"}) // gitleaks:allow (fake secret: redaction test fixture)
 	got := r.String("key wJalrXUtnFEMI/K7MDENG end")
 	if got != "key "+ph+" end" {
 		t.Fatalf("got %q", got)
@@ -110,7 +110,7 @@ func TestRedactPatterns(t *testing.T) {
 
 func TestRedactPrivateKeyBlock(t *testing.T) {
 	r := redact.New(nil)
-	in := "a\n-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\nb\n"
+	in := "a\n-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\nb\n" // gitleaks:allow (fake key: redaction test fixture)
 	if got := write(t, r, in); got != "a\n"+ph+"\nb\n" {
 		t.Fatalf("got %q", got)
 	}
@@ -174,7 +174,7 @@ func (c *closeWatcher) Close() error                { c.closed = true; return ni
 
 func TestContains(t *testing.T) {
 	tok := "ghp_" + strings.Repeat("a1B2", 9)
-	for _, in := range []string{tok, "key AKIAABCDEFGHIJKLMNOP end", "-----BEGIN RSA PRIVATE KEY-----", "eyJhbGciOiJI.eyJzdWIiOiIx.SflKxwRJSMeKKF2QT4"} {
+	for _, in := range []string{tok, "key AKIAABCDEFGHIJKLMNOP end", "-----BEGIN RSA PRIVATE KEY-----", "eyJhbGciOiJI.eyJzdWIiOiIx.SflKxwRJSMeKKF2QT4"} { // gitleaks:allow (fake secrets: redaction test fixture)
 		if !redact.Contains(in) {
 			t.Errorf("Contains(%q) = false", in)
 		}

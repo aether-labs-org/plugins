@@ -47,7 +47,7 @@ has() { printf '%s' "$1" | grep -F -- "$2" >/dev/null; }
 has_file() { grep -F -- "$2" "$1" >/dev/null; }
 alive() { pgrep -f "$1" >/dev/null 2>&1; }
 TOK="ghp_$(printf 'a1B2%.0s' 1 2 3 4 5 6 7 8 9)" # ghp_ + 36 alphanumerics
-SECRET='wJalrXUtnFEMI/K7MDENG'
+SECRET='wJalrXUtnFEMI/K7MDENG' # gitleaks:allow (fake secret: redaction test fixture)
 
 # ------------------------------------------------------------------ version and usage
 r="$(krepo)"
