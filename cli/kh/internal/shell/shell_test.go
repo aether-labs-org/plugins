@@ -321,3 +321,16 @@ func TestPathsWithSpacesAndDashStayOneWord(t *testing.T) {
 		t.Errorf("mv targets = %q", got)
 	}
 }
+
+func TestInfoOnly(t *testing.T) {
+	cases := map[string]bool{
+		"gitleaks version": true, "gitleaks dir --help": true, "npx tsc --version": true, "tsc -h": true, "gitleaks help detect": true,
+		"gitleaks detect --no-git": false, "npx tsc --noEmit": false, "gitleaks": false, "make versions": false,
+	}
+	for cmd, want := range cases {
+		segs, _ := Split(cmd)
+		if got := InfoOnly(segs[0]); got != want {
+			t.Errorf("InfoOnly(%q) = %v, want %v", cmd, got, want)
+		}
+	}
+}

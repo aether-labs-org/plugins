@@ -33,6 +33,7 @@ scripts:
     reports: "{report}"
     class: security
     requires: [gitleaks]
+    config: [.gitleaks.toml]   # gitleaks has no .gitignore option: this file allow-lists the ignored directories (gitleaks.toml.tmpl)
   memory: { builtin: memory, class: correctness }
   merge-check: { builtin: merge-check }
   commit-message:

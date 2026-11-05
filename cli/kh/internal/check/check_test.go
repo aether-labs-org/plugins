@@ -51,7 +51,15 @@ gates:
   slow: { scripts: [guard, test], changes: branch }
 `
 
-const hookSettings = `{"hooks":{"PreToolUse":[{"matcher":"Write|Edit|Bash","hooks":[{"type":"command","command":"sh \"$(git rev-parse --show-toplevel)/.agents/bin/kh\" hook pre-tool-use","timeout":10}]}],"Stop":[{"hooks":[{"type":"command","command":"sh \"$(git rev-parse --show-toplevel)/.agents/bin/kh\" hook stop","timeout":120}]}]}}`
+// the hook commands of the settings.json template (round 3): the wrapper is located with CLAUDE_PROJECT_DIR
+func hookCommand(event string) string {
+	return `w=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.agents/bin/kh\"; if [ -f \"$w\" ]; then exec sh \"$w\" hook ` + event + `; fi; printf '%s\\n' '{}'`
+}
+
+var hookSettings = `{"hooks":{"PreToolUse":[{"matcher":"Write|Edit|Bash","hooks":[{"type":"command","command":"` + hookCommand("pre-tool-use") + `","timeout":10}]}],"Stop":[{"hooks":[{"type":"command","command":"` + hookCommand("stop") + `","timeout":120}]}]}}`
+
+// the commands of the first v0.5 template: they resolve the wrapper from the working directory only
+const oldHookSettings = `{"hooks":{"PreToolUse":[{"matcher":"Write|Edit|Bash","hooks":[{"type":"command","command":"sh \"$(git rev-parse --show-toplevel)/.agents/bin/kh\" hook pre-tool-use","timeout":10}]}],"Stop":[{"hooks":[{"type":"command","command":"sh \"$(git rev-parse --show-toplevel)/.agents/bin/kh\" hook stop","timeout":120}]}]}}`
 
 const agentsMD = "# Project\n\nSetup: `sh .agents/bin/kh setup`\nRun: `sh .agents/bin/kh run test`, `sh .agents/bin/kh gate fast`\n\nSee [testing](docs/testing.md).\n"
 
@@ -122,7 +130,12 @@ func TestEachWarning(t *testing.T) {
 		{"dangling-pointer", "dangling-pointer", "docs/gone.md", func(t *testing.T, d string) { write(t, d, "AGENTS.md", agentsMD+"Also [gone](docs/gone.md#x).\n") }},
 		{"dangling-pointer in a guide", "dangling-pointer", "../nope.md", func(t *testing.T, d string) { write(t, d, "docs/testing.md", "# t\n[up](../nope.md)\n") }},
 		{"hook-missing Stop", "hook-missing", "Stop", func(t *testing.T, d string) {
-			write(t, d, ".claude/settings.json", `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"sh .agents/bin/kh hook pre-tool-use"}]}]}}`)
+			write(t, d, ".claude/settings.json", `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"`+hookCommand("pre-tool-use")+`"}]}]}}`)
+		}},
+		{"hook-outdated", "hook-outdated", "CLAUDE_PROJECT_DIR", func(t *testing.T, d string) { write(t, d, ".claude/settings.json", oldHookSettings) }},
+		{"harness-ignored", "harness-ignored", "docs/review.md", func(t *testing.T, d string) {
+			write(t, d, ".gitignore", ".agents/run/\ndocs/review.md\n")
+			git(t, d, "rm", "-q", "--cached", "docs/review.md")
 		}},
 		{"baseline-stale review_by", "baseline-stale", "past its review_by", func(t *testing.T, d string) {
 			write(t, d, ".agents/baselines/lint.tsv", "# measured_at: 2024-01-01 review_by: 2024-07-01\nsrc/a.ts\t3\n")
@@ -157,7 +170,12 @@ func TestEachWarning(t *testing.T) {
 		{"githooks-inactive native", "githooks-inactive", "core.hooksPath", func(t *testing.T, d string) {
 			git(t, d, "config", "--unset", "core.hooksPath")
 		}},
-		{"reviewer-missing", "reviewer-missing", ".github/agents/keel-reviewer.agent.md", func(t *testing.T, d string) {
+		{"reviewer-missing: no review.md", "reviewer-missing", "docs/review.md", func(t *testing.T, d string) {
+			os.Remove(filepath.Join(d, "docs/review.md"))
+			write(t, d, ".agents/keel.yml", strings.Replace(cleanKeel, "docs/review.md, ", "", 1))
+		}},
+		{"reviewer-missing: no reviewer agent", "reviewer-missing", "keel-reviewer", func(t *testing.T, d string) {
+			os.Remove(filepath.Join(d, ".claude/agents/keel-reviewer.md"))
 			os.Remove(filepath.Join(d, ".github/agents/keel-reviewer.agent.md"))
 		}},
 		{"guide-unlisted", "guide-unlisted", "docs/extra.md", func(t *testing.T, d string) {
@@ -182,6 +200,51 @@ func TestEachWarning(t *testing.T) {
 			}
 			only(t, Run(d, cfg, "0.5.0"), c.id, c.contains)
 		})
+	}
+}
+
+func TestHarnessIgnoredNamesEveryFileAndTheRule(t *testing.T) {
+	d, cfg := clean(t)
+	write(t, d, ".gitignore", ".agents/run/\n.claude/\n")
+	git(t, d, "rm", "-q", "--cached", "-r", ".claude")
+	ws := Run(d, cfg, "0.5.0")
+	var got []string
+	for _, w := range ws {
+		if w.ID != "harness-ignored" {
+			t.Fatalf("unexpected %v", w)
+		}
+		got = append(got, w.Message)
+	}
+	if len(got) != 2 || !strings.Contains(got[0], ".claude/agents/keel-reviewer.md") || !strings.Contains(got[1], ".claude/settings.json") || !strings.Contains(got[1], ".gitignore:2:.claude/") {
+		t.Fatalf("%q", got)
+	}
+	// hook-missing is not reported for an ignored settings.json that exists; narrowing the rule clears the warnings
+	write(t, d, ".gitignore", ".agents/run/\n.claude/*\n!.claude/settings.json\n!.claude/agents/\n")
+	if ws := Run(d, cfg, "0.5.0"); len(ws) != 0 {
+		t.Fatalf("%v", ws)
+	}
+}
+
+func TestHarnessIgnoredTrackedFilesAreVersioned(t *testing.T) {
+	d, cfg := clean(t)
+	write(t, d, ".gitignore", ".agents/run/\nAGENTS.md\n") // AGENTS.md is tracked: git still versions it
+	if ws := Run(d, cfg, "0.5.0"); len(ws) != 0 {
+		t.Fatalf("%v", ws)
+	}
+}
+
+// a team that uses one agent needs one reviewer file, not both
+func TestReviewerNeedsAtLeastOneAgentFile(t *testing.T) {
+	for _, keep := range []string{".claude/agents/keel-reviewer.md", ".github/agents/keel-reviewer.agent.md"} {
+		d, cfg := clean(t)
+		for _, f := range []string{".claude/agents/keel-reviewer.md", ".github/agents/keel-reviewer.agent.md"} {
+			if f != keep {
+				os.Remove(filepath.Join(d, f))
+			}
+		}
+		if ws := Run(d, cfg, "0.5.0"); len(ws) != 0 {
+			t.Errorf("only %s: %v", keep, ws)
+		}
 	}
 }
 

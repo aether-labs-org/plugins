@@ -656,3 +656,28 @@ func TestStopFailureAfterGreenBlocksAgain(t *testing.T) {
 		t.Fatalf("a failure after a green is a new occurrence: %q", out)
 	}
 }
+
+// ------------------------------------------------------- validation round 3
+
+// asking a declared tool for its version or help is not running it: interception lets it through
+func TestInterceptionSkipsVersionAndHelp(t *testing.T) {
+	d, _ := project(t)
+	y := strings.Replace(keelYML, `test: { run: "./gradlew test" }`, `test: { run: "gitleaks detect --no-git --report-path {report}" }
+  typecheck: { run: "npx tsc --noEmit" }`, 1)
+	y = strings.Replace(y, "fast: { scripts: [guard, check] }", "fast: { scripts: [guard, check, typecheck] }", 1)
+	write(t, d, ".agents/keel.yml", y)
+	cfg, err := config.LoadValid(d, builtin.Default().Validator())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []string{"gitleaks version", "gitleaks dir --help", "gitleaks detect --help", "gitleaks -h", "npx tsc --version", "tsc --version", "gitleaks help detect", "gitleaks --version"} {
+		if dec := PreToolUse(d, cfg, Payload{Tool: "Bash", Command: c, Cwd: d}, false); dec.Kind != "allow" {
+			t.Errorf("%q should be allowed: %+v", c, dec)
+		}
+	}
+	for _, c := range []string{"gitleaks detect --no-git", "gitleaks detect --no-git --report-path x", "npx tsc --noEmit", "npx tsc -p tsconfig.json"} {
+		if dec := PreToolUse(d, cfg, Payload{Tool: "Bash", Command: c, Cwd: d}, false); dec.Kind != "deny" {
+			t.Errorf("%q should still be denied: %+v", c, dec)
+		}
+	}
+}

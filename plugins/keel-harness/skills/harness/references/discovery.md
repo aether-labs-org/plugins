@@ -26,6 +26,18 @@ output is the drift report. Explain each warning and propose the fix; do not rep
 `pnpm-workspace.yaml` (a real run added a supply-chain exemption nobody chose): say so in the proposal and check `git diff` after
 the first run.
 
+## Ignore rules
+
+`discover.sh` prints two kinds of lines about `.gitignore`:
+
+- `ignored <path>` for each harness path the current rules would hide (`.claude/settings.json`, `.claude/agents/keel-reviewer.md`,
+  `.github/agents/keel-reviewer.agent.md`, `.agents/keel.yml`, `.agents/bin/kh`, `.agents/githooks/pre-commit`, `AGENTS.md`,
+  `CLAUDE.md`). A hidden harness file is not versioned: nobody gets it on a clone. It answers for files not written yet too.
+  Raise it before proposing any file; the fix is in [rounds](rounds.md) (write order, `.gitignore`).
+- `ignored-dir <dir>` for each ignored directory of the repository (the top-most of each tree; at most 50, then one
+  `ignored-dir-truncated <n>` line says how many were left out). The secrets scan needs them: see `.gitleaks.toml` in
+  [rounds](rounds.md). Drop any directory that holds tracked files or harness files before you use the list.
+
 ## What to read besides the scripts
 
 - The build files and the Makefile: the real commands (read them, do not run an install).

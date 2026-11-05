@@ -51,7 +51,7 @@ var Version = "0.5.0-dev"
 var Stdin io.Reader = os.Stdin
 
 const usage = `usage:
-  kh run [--json] <script> [-- extra args...]
+  kh run [--all] [--json] <script> [-- extra args...]
   kh run [--timeout D] [--json] -- <command...>
   kh show <id> [--failures|--full|--json]
   kh gate <name> [--all] [--json]
@@ -110,6 +110,7 @@ func usageErr(stderr io.Writer, format string, a ...any) int {
 type runArgs struct {
 	timeout time.Duration // 0 = default
 	json    bool
+	all     bool     // a declared script over every candidate file, as kh gate --all
 	script  string   // declared script id; "" for kh run -- <command>
 	argv    []string // the command, or the extra arguments of a script
 }
@@ -129,6 +130,8 @@ func parseRun(args []string) (runArgs, error) {
 			return ra, nil
 		case a == "--json":
 			ra.json = true
+		case a == "--all":
+			ra.all = true
 		case a == "--timeout" || strings.HasPrefix(a, "--timeout="):
 			var v string
 			if a == "--timeout" {
@@ -159,7 +162,17 @@ func parseRun(args []string) (runArgs, error) {
 	return ra, errors.New("run: missing -- and command")
 }
 
+// findRoot returns the root of a command: KH_ROOT when set (the wrapper of a
+// repository exports it), else the repository that contains the working directory.
 func findRoot(stderr io.Writer) (string, int) {
+	if v := os.Getenv(root.EnvVar); v != "" {
+		r, err := root.FromEnv(v)
+		if err != nil {
+			fmt.Fprintf(stderr, "kh: %v\n", err)
+			return "", ExitError
+		}
+		return r, 0
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(stderr, "kh: %v\n", err)
@@ -207,6 +220,9 @@ func cmdRun(args []string, stdout, stderr io.Writer) int {
 	rootDir, code := findRoot(stderr)
 	if code != 0 {
 		return code
+	}
+	if ra.all && ra.script == "" {
+		return usageErr(stderr, "run: --all applies to a declared script (kh run --all <script>); kh run -- <command> has no file scope")
 	}
 	if ra.script != "" {
 		if ra.timeout != 0 {
@@ -300,7 +316,7 @@ func cmdRunScript(rootDir string, ra runArgs, stdout, stderr io.Writer) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	ex := script.Exec{Root: rootDir, Cfg: cfg, Changes: scope.Worktree, KhVersion: Version}
+	ex := script.Exec{Root: rootDir, Cfg: cfg, Changes: scope.Worktree, All: ra.all, KhVersion: Version}
 	res, err := ex.Script(ctx, ra.script, ra.argv)
 	if err != nil {
 		fmt.Fprintf(stderr, "kh: %v\n", err)
@@ -627,15 +643,34 @@ func readStdin() []byte {
 	return b
 }
 
-// hookRoot finds the repository root from the payload's working directory.
-func hookRoot(cwd string, setup bool) (string, error) {
+// hookProject finds the project root of an agent hook: KH_ROOT when set (the
+// wrapper of a repository exports it), else the repository that contains the
+// working directory of the payload. "" means the session has no project: in setup
+// mode when the working directory is in no repository, in project mode when its
+// repository has no .agents/keel.yml. Each write target is then judged by the
+// repository that contains it (hook.PreToolUse).
+func hookProject(cwd string, setup bool) (string, error) {
+	if v := os.Getenv(root.EnvVar); v != "" {
+		if setup {
+			return root.Pinned(v)
+		}
+		return root.FromEnv(v)
+	}
 	if cwd == "" {
 		cwd, _ = os.Getwd()
 	}
 	if setup {
-		return root.Toplevel(cwd)
+		r, err := root.Toplevel(cwd)
+		if errors.Is(err, root.ErrNotGit) {
+			return "", nil
+		}
+		return r, err
 	}
-	return root.Find(cwd)
+	r, err := root.Find(cwd)
+	if errors.Is(err, root.ErrNotFound) {
+		return "", nil
+	}
+	return r, err
 }
 
 func hookPreToolUse(setup bool, stdout io.Writer) int {
@@ -648,28 +683,33 @@ func hookPreToolUse(setup bool, stdout io.Writer) int {
 	if err != nil {
 		return fail("the hook payload is not JSON: " + err.Error())
 	}
-	rootDir, err := hookRoot(p.Cwd, setup)
+	rootDir, err := hookProject(p.Cwd, setup)
 	if err != nil {
-		return fail(err.Error() + "; run sh .agents/bin/kh setup")
+		if errors.Is(err, root.ErrNotGit) {
+			return fail("the working directory is not in a git repository")
+		}
+		return fail(err.Error())
 	}
 	var cfg *config.Config
-	if _, statErr := os.Stat(filepath.Join(rootDir, ".agents", "keel.yml")); statErr == nil {
-		cfg, err = config.LoadValid(rootDir, withValidator)
-		if err != nil {
-			if setup {
-				cfg = nil // the setup session is how a broken config gets fixed
-			} else {
-				return fail("cannot use .agents/keel.yml (" + firstLine(err.Error()) + "); run sh .agents/bin/kh validate")
+	if rootDir != "" {
+		if _, statErr := os.Stat(filepath.Join(rootDir, ".agents", "keel.yml")); statErr == nil {
+			cfg, err = config.LoadValid(rootDir, withValidator)
+			if err != nil {
+				if setup {
+					cfg = nil // the setup session is how a broken config gets fixed
+				} else {
+					return fail("cannot use .agents/keel.yml (" + firstLine(err.Error()) + "); run sh .agents/bin/kh validate")
+				}
 			}
+		} else if !setup {
+			return fail("no .agents/keel.yml")
 		}
-	} else if !setup {
-		return fail("no .agents/keel.yml")
-	}
-	if !setup {
-		if code := checkPin(rootDir, io.Discard); code != 0 {
-			var buf strings.Builder
-			checkPin(rootDir, &buf)
-			return fail(strings.TrimPrefix(firstLine(buf.String()), "kh: "))
+		if !setup {
+			if code := checkPin(rootDir, io.Discard); code != 0 {
+				var buf strings.Builder
+				checkPin(rootDir, &buf)
+				return fail(strings.TrimPrefix(firstLine(buf.String()), "kh: "))
+			}
 		}
 	}
 	hook.WritePreToolUse(stdout, hook.PreToolUse(rootDir, cfg, p, setup))
@@ -693,8 +733,14 @@ func hookStop(stdout, stderr io.Writer) int {
 	if err != nil {
 		return fail("the hook payload is not JSON")
 	}
-	rootDir, err := hookRoot(p.Cwd, false)
+	rootDir, err := hookProject(p.Cwd, false)
+	if err == nil && rootDir == "" {
+		err = root.ErrNotFound
+	}
 	if err != nil {
+		if errors.Is(err, root.ErrNotGit) {
+			return fail("the working directory is not in a git repository")
+		}
 		return fail(err.Error())
 	}
 	var buf strings.Builder

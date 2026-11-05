@@ -11,7 +11,8 @@ Run these after the last write. Report every result as measured; if something wa
    matches nothing, a report that is never found, or a tool that does not run shows up. Read the verdict line
    (`gate: fast - PASSED (P of N, S skipped) | ceiling ..., spent ...`) and every skipped script: a skip names the missing tool.
 4. If the user accepts the cost: `sh .agents/bin/kh gate slow --all`. A script that times out or errors is a finding of its own.
-5. Run `sh .agents/bin/kh run <script>` once for each new script whose parser you configured, and compare the findings with the
+5. Run `sh .agents/bin/kh run --all <script>` once for each new script whose parser you configured (`--all`: over every tracked or
+   untracked, not ignored, file, not just the changes; without it a clean tree skips the script), and compare the findings with the
    tool's own output: an errorformat that parses nothing looks like a clean run.
 
 If a gate is over its ceiling (`over ceiling` in the verdict), say so; do not raise the ceiling to make it disappear (that is a

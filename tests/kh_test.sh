@@ -3,6 +3,7 @@
 # (spec section 14, M0), plus the Go unit tests and static checks via `make -C cli/kh test`.
 # shellcheck disable=SC2319  # "check ... $?" after a test is this suite's idiom (see keel_helpers.sh)
 set -uo pipefail
+unset KH_ROOT  # the tests choose the root with the cwd; the cases that pin it set it themselves
 . "$(dirname "$0")/keel_helpers.sh"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -221,11 +222,40 @@ PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$phys"'","p
 hk "$h" pre-tool-use; [ "$rc" -eq 0 ] && [ -z "$out" ]; check "hook pre-tool-use: an undeclared command is allowed" $?
 PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$phys"'","permission_mode":"default","tool_input":{"file_path":"AGENTS.md"}}'
 mkdir -p "$h/sub dir"; hk "$h/sub dir" pre-tool-use; [ "$(jq_ 'd["permissionDecision"]')" = ask ]; check "hook pre-tool-use: works from a subdirectory (root from the payload cwd)" $?
+# round 3 correction: a fake .git entry (empty directory, gitdir file, git init) inside .agents/, .claude/ or docs/adr/ must not unprotect the files there
+for kind in dir file init; do
+  for rel in .agents/keel.yml .agents/githooks/pre-commit .claude/settings.json docs/adr/0001-x.md; do
+    fh="$(harness)"; fphys="$(cd "$fh" && pwd -P)"; fdir="$fphys/$(dirname "$rel")"; mkdir -p "$fdir"
+    case "$kind" in
+      dir) mkdir -p "$fdir/.git" ;;
+      file) printf 'gitdir: /nonexistent/elsewhere\n' > "$fdir/.git" ;;
+      init) git -C "$fdir" init -q . ;;
+    esac
+    for mode in "--setup" "" "KH_ROOT"; do
+      flag="$mode"; [ "$mode" = KH_ROOT ] && flag=""
+      for tool in Write Edit; do
+        PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"'"$tool"'","cwd":"'"$fphys"'","permission_mode":"default","tool_input":{"file_path":"'"$fphys/$rel"'"}}'
+        if [ "$mode" = KH_ROOT ]; then KH_ROOT="$fphys" hk "$fh" pre-tool-use $flag; else hk "$fh" pre-tool-use $flag; fi
+        [ "$rc" -eq 0 ] && [ "$(jq_ 'd["permissionDecision"]')" = ask ]; check "fake .git ($kind) in $(dirname "$rel"), ${mode:-project}: $tool $rel asks" $?
+      done
+      PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$fphys"'","permission_mode":"bypassPermissions","tool_input":{"file_path":"'"$fphys/$rel"'"}}'
+      if [ "$mode" = KH_ROOT ]; then KH_ROOT="$fphys" hk "$fh" pre-tool-use $flag; else hk "$fh" pre-tool-use $flag; fi
+      [ "$(jq_ 'd["permissionDecision"]')" = deny ]; check "fake .git ($kind) in $(dirname "$rel"), ${mode:-project}: Write $rel is denied under bypass" $?
+      PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$fphys"'","permission_mode":"default","tool_input":{"command":"echo x > '"$rel"'"}}'
+      if [ "$mode" = KH_ROOT ]; then KH_ROOT="$fphys" hk "$fh" pre-tool-use $flag; else hk "$fh" pre-tool-use $flag; fi
+      [ "$(jq_ 'd["permissionDecision"]')" = deny ]; check "fake .git ($kind) in $(dirname "$rel"), ${mode:-project}: Bash > $rel is denied" $?
+    done
+  done
+done
 nog="$(mktemp -d "$W/nogit.XXXXXX")"
 PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"'"$nog"'","permission_mode":"default","tool_input":{"command":"ls"}}'
 hk "$nog" pre-tool-use; [ "$rc" -eq 0 ] && [ "$(jq_ 'd["permissionDecision"]')" = ask ] && has "$out" "kh unavailable"; check "hook pre-tool-use: outside a repository fails safe (ask)" $?
 PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$nog"'","permission_mode":"default","tool_input":{"file_path":"AGENTS.md"}}'
-hk "$nog" pre-tool-use --setup; [ "$rc" -eq 0 ] && [ "$(jq_ 'd["permissionDecision"]')" = ask ] && has "$out" "kh unavailable"; check "hook pre-tool-use --setup: outside a repository fails safe too" $?
+hk "$nog" pre-tool-use --setup; [ "$rc" -eq 0 ] && [ -z "$out" ]; check "hook pre-tool-use --setup: outside a repository a target outside any repository is allowed (round 3: the target's repository decides)" $?
+PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$nog"'","permission_mode":"default","tool_input":{"file_path":"'"$phys"'/.agents/keel.yml"}}'
+hk "$nog" pre-tool-use --setup; [ "$rc" -eq 0 ] && [ "$(jq_ 'd["permissionDecision"]')" = ask ]; check "hook pre-tool-use --setup: outside a repository, a target in a repository with a harness still asks" $?
+hk "$nog" pre-tool-use; [ "$rc" -eq 0 ] && [ "$(jq_ 'd["permissionDecision"]')" = ask ] && has "$out" "not in a git repository" && ! has "$out" "kh setup"; check "hook pre-tool-use: outside a repository (no KH_ROOT) fails safe, and does not blame setup" $?
+KH_ROOT="$phys" hk "$nog" pre-tool-use; [ "$rc" -eq 0 ] && [ "$(jq_ 'd["permissionDecision"]')" = ask ] && ! has "$out" "unavailable"; check "hook pre-tool-use: KH_ROOT pins the project when the cwd is outside any repository" $?
 sr="$(mktemp -d "$W/setup.XXXXXX")"; git init -q "$sr"; srp="$(cd "$sr" && pwd -P)"
 PAYLOAD='{"hook_event_name":"PreToolUse","tool_name":"Write","cwd":"'"$srp"'","permission_mode":"default","tool_input":{"file_path":"'"$srp"'/AGENTS.md"}}'
 hk "$sr" pre-tool-use --setup; [ "$(jq_ 'd["permissionDecision"]')" = ask ] && ! has "$out" "unavailable"; check "hook pre-tool-use --setup: a repository without keel.yml still protects the guides" $?

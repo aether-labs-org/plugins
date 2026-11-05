@@ -134,3 +134,79 @@ func TestToplevel(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestContainingAndEnclosing(t *testing.T) {
+	p := gitRepo(t)
+	n := filepath.Join(p, "n")
+	os.MkdirAll(n, 0o755)
+	git(t, n, "init", "-q", ".")
+	out := tmp(t)
+	cases := []struct{ path, want string }{
+		{filepath.Join(p, "AGENTS.md"), p},                   // does not exist yet
+		{filepath.Join(p, "deep", "er", "x"), p},             // no existing ancestor but the repo
+		{filepath.Join(p, ".git", "hooks", "pre-commit"), p}, // inside .git, where git rev-parse refuses
+		{filepath.Join(p, ".git", "config"), p},              // an existing file inside .git
+		{filepath.Join(n, "x"), n},                           // nested repository
+		{n, n},                                               // the nested top-level itself
+		{filepath.Join(out, "x"), ""},                        // outside any repository
+	}
+	for _, c := range cases {
+		if got := root.Containing(c.path); got != c.want {
+			t.Errorf("Containing(%s) = %q, want %q", c.path, got, c.want)
+		}
+	}
+	if got := root.Enclosing(filepath.Join(n, "x")); len(got) != 2 || got[0] != n || got[1] != p {
+		t.Errorf("Enclosing = %v", got)
+	}
+	if got := root.Enclosing(filepath.Join(out, "x")); len(got) != 0 {
+		t.Errorf("Enclosing outside = %v", got)
+	}
+	// a symlink to a directory of another repository: the target is judged there
+	os.Symlink(n, filepath.Join(p, "link"))
+	if got := root.Containing(filepath.Join(p, "link", "x")); got != n {
+		t.Errorf("through a symlink = %q, want %q", got, n)
+	}
+}
+
+func TestContainingWorktree(t *testing.T) {
+	p := gitRepo(t)
+	os.WriteFile(filepath.Join(p, "a"), []byte("x"), 0o644)
+	git(t, p, "add", "-A")
+	git(t, p, "commit", "-q", "-m", "s")
+	w := filepath.Join(p, "wt")
+	git(t, p, "worktree", "add", "-q", w, "-b", "b")
+	if got := root.Containing(filepath.Join(w, "a")); got != w {
+		t.Errorf("worktree file = %q, want %q", got, w)
+	}
+	if got := root.Containing(w + "/.git"); got != w {
+		t.Errorf("worktree .git file = %q, want %q", got, w)
+	}
+}
+
+func TestFromEnv(t *testing.T) {
+	r := gitRepo(t)
+	mark(t, r)
+	if got, err := root.FromEnv(r); err != nil || got != r {
+		t.Fatalf("FromEnv(top) = %q, %v", got, err)
+	}
+	sub := filepath.Join(r, "sub")
+	os.MkdirAll(sub, 0o755)
+	if _, err := root.FromEnv(sub); err == nil || !strings.Contains(err.Error(), "KH_ROOT") {
+		t.Errorf("a subdirectory is not a top-level: %v", err)
+	}
+	if _, err := root.FromEnv(tmp(t)); err == nil {
+		t.Error("outside any repository accepted")
+	}
+	bare := gitRepo(t)
+	if _, err := root.FromEnv(bare); !errors.Is(err, root.ErrNotFound) {
+		t.Errorf("no keel.yml: %v", err)
+	}
+	if got, err := root.Pinned(bare); err != nil || got != bare {
+		t.Errorf("Pinned without keel.yml: %q, %v", got, err)
+	}
+	link := filepath.Join(tmp(t), "link")
+	os.Symlink(r, link)
+	if got, err := root.FromEnv(link); err != nil || got != r {
+		t.Errorf("symlinked root = %q, %v", got, err)
+	}
+}

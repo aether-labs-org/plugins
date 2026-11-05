@@ -91,3 +91,98 @@ func Find(start string) (string, error) {
 	}
 	return top, nil
 }
+
+// EnvVar names the variable that pins the root of a command: the wrapper of a
+// repository exports it, so a command resolves the project from where the wrapper
+// lives and not from the working directory (which an agent session can move into
+// another repository).
+const EnvVar = "KH_ROOT"
+
+// FromEnv resolves the value of KH_ROOT: it must be the top-level of a git work
+// tree (a worktree's own top-level when .git is a file) and must contain
+// .agents/keel.yml.
+func FromEnv(value string) (string, error) {
+	top, err := Pinned(value)
+	if err != nil {
+		return "", err
+	}
+	if !hasKeel(top) {
+		return "", ErrNotFound
+	}
+	return top, nil
+}
+
+// Pinned is FromEnv without the keel.yml requirement.
+func Pinned(value string) (string, error) {
+	abs, err := filepath.Abs(value)
+	if err != nil {
+		return "", err
+	}
+	top, err := Toplevel(abs)
+	if err != nil {
+		return "", fmt.Errorf("%s=%s is not inside a git repository", EnvVar, value)
+	}
+	want := abs
+	if r, err := filepath.EvalSymlinks(abs); err == nil {
+		want = r
+	}
+	if filepath.Clean(want) != top {
+		return "", fmt.Errorf("%s=%s is not a git top-level (the top-level is %s)", EnvVar, value, top)
+	}
+	return top, nil
+}
+
+// Containing returns the top-level of the git repository that contains path: the
+// nearest ancestor (the path itself included) holding a .git entry, found from the
+// nearest existing directory with symlinks resolved. It does not need git to run
+// and works inside a .git directory. "" means path is outside any repository.
+func Containing(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+	cur := abs
+	for {
+		if r, err := filepath.EvalSymlinks(cur); err == nil {
+			cur = r
+			break
+		}
+		dir := filepath.Dir(cur)
+		if dir == cur {
+			return ""
+		}
+		cur = dir
+	}
+	if st, err := os.Stat(cur); err == nil && !st.IsDir() {
+		cur = filepath.Dir(cur)
+	}
+	return nearestGit(cur)
+}
+
+// Enclosing returns every repository top-level that contains path, nearest first.
+func Enclosing(path string) []string {
+	var out []string
+	cur := Containing(path)
+	for cur != "" {
+		out = append(out, cur)
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			break
+		}
+		cur = nearestGit(parent)
+	}
+	return out
+}
+
+func nearestGit(dir string) string {
+	for {
+		if _, err := os.Lstat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}

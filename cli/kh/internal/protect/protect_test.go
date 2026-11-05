@@ -187,3 +187,26 @@ func TestOddNames(t *testing.T) {
 		t.Error("src/-rf.md")
 	}
 }
+
+func TestLoadUserOnly(t *testing.T) {
+	d := repo(t)
+	home := filepath.Join(d, "home")
+	s := LoadUser()
+	if _, ok := s.Match(filepath.Join(home, ".claude/settings.json")); !ok {
+		t.Error("user-level settings must be protected in a set without a repository")
+	}
+	if _, ok := s.Match(filepath.Join(d, "AGENTS.md")); ok {
+		t.Error("a repository file is not protected by the user-only set")
+	}
+	if _, ok := s.Match("relative/path"); ok {
+		t.Error("relative path")
+	}
+}
+
+func TestUserLevelStaysProtectedWhenHomeIsInsideTheRepository(t *testing.T) {
+	d := repo(t) // HOME is d/home, inside the root
+	s := Load(d, cfg(t), false)
+	if _, ok := s.Match(filepath.Join(d, "home/.claude/settings.json")); !ok {
+		t.Error("a home directory inside the repository (a dotfiles repository) must keep its protection")
+	}
+}

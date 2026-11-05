@@ -50,9 +50,12 @@ Each write is a separate Write/Edit that the human confirms:
 3. native tool configs the scripts need (the architecture tool configuration, the linter configuration), from
    `templates/architecture/` (`dependency-cruiser-<style>.cjs`, `import-linter-<style>.toml`, `archunit-<style>.java` for the styles
    `hexagonal`, `layered`, `clean`, `modular`), each placeholder replaced with the real path or package, and named in the owning
-   script's `config:` so a later change is a loosening;
+   script's `config:` so a later change is a loosening; with the secrets script also `.gitleaks.toml` from
+   `templates/gitleaks.toml.tmpl`: gitleaks scans git-ignored files too and cannot read `.gitignore`, so write one allowlist entry
+   per `ignored-dir` line of `discover.sh` (escape dots; skip any directory that holds tracked files) and keep
+   `[extend] useDefault = true`, without which the scan finds nothing; record the allowlist in the install ADR;
 4. baselines, from the output of `kh measure <script>` (a baseline is a ratchet: only heuristic scripts take one);
-5. guides: `AGENTS.md` (`templates/AGENTS.md`), `CLAUDE.md` (`templates/CLAUDE.md`, exactly `@AGENTS.md`), topic files, nested
+5. guides: `AGENTS.md` (`templates/AGENTS.md.tmpl`), `CLAUDE.md` (`templates/CLAUDE.md.tmpl`, exactly `@AGENTS.md`), topic files, nested
    `AGENTS.md` where a rule applies to one directory (`templates/nested-AGENTS.md`), every one listed in `guides:`;
 6. ADRs (`templates/adr-0001.md`, `templates/adr.md`);
 7. the review: `docs/review.md` (`templates/review.md`), `.claude/agents/keel-reviewer.md` (`templates/keel-reviewer.claude.md`),
@@ -62,8 +65,14 @@ Each write is a separate Write/Edit that the human confirms:
    (`templates/lessons.md`), a first plan from `templates/plan.md` only for real work;
 10. git hooks: `.agents/githooks/pre-commit`, `.agents/githooks/commit-msg`, `.agents/githooks/pre-push` from
     `templates/githooks/pre-commit`, `templates/githooks/commit-msg`, `templates/githooks/pre-push` (native mode), or the hook
-    manager's config calling `sh .agents/bin/kh` (external mode);
-11. `.gitignore` additions from `templates/gitignore.txt` (`.agents/run/`);
+    manager's config calling `sh .agents/bin/kh` (external mode). The Write tool creates the hook files without the exec bit and
+    the hook of this skill denies `chmod`, by design: **never chmod the hooks**. `sh .agents/bin/kh setup` makes them executable
+    and sets `core.hooksPath`, so the final report asks the human to run it once (it is also the per-clone step);
+11. `.gitignore` additions from `templates/gitignore.txt` (`.agents/run/`). Check the `ignored` lines of `discover.sh` first. When
+    an existing rule ignores `.claude/settings.json` or `.claude/agents/` (typically `.claude/`), propose replacing that one rule
+    with `.claude/*`, `!.claude/settings.json` and `!.claude/agents/`: everything else under `.claude/` (skills, worktrees,
+    local settings) stays ignored. Never replace a broad ignore rule with narrower lines unless you list every path that would
+    become visible (`git status` shows them as untracked, and `git add -A` would commit them) and ask about each;
 12. `.claude/settings.json` from `templates/settings.json` **last**: once it exists the repository hook also guards the rest of
     the session, and both hooks may prompt for one write (the setup-session hook of this skill and the repository's).
 

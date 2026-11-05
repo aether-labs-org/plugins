@@ -27,6 +27,16 @@ else under `.agents/` (for example `.agents/skills/`) belongs to other tools: ne
 - A shell command that invokes the same executable as a declared script is denied with the `kh run <script>` to use, and "do not
   pipe its output". `kh run -- <command>` runs an undeclared command with evidence. Commands the tokenizer cannot split are allowed.
 
+## Which repository decides
+
+Each write target is checked against the protected set of the git repository that **contains the target**, not the one the session
+happens to be in: a nested repository, or a `git worktree` of the project, is another repository, and writing a protected file of
+the project from there asks all the same. A repository without `.agents/keel.yml` has no protected set (in the setup session the
+setup defaults apply to it); one whose `keel.yml` is invalid is treated as protected. The wrapper of the project exports `KH_ROOT`,
+so `kh` and the hooks stay on the project when the working directory moves. Declared scripts are intercepted only in a repository
+that has a harness, and an invocation that only asks for `--version` or `--help` is not intercepted. The reason to never `cd` out
+of the repository during setup is in [SKILL.md](../SKILL.md).
+
 ## What to tell the human
 
 - When a write is **asked**: say which file, its class, what you want to change and why, and that nothing changes until they
@@ -52,4 +62,6 @@ lowered (`tsconfig` strict, mypy, pyright). A loosening passes only when an ADR 
 
 A fresh clone before `kh setup`, an offline machine, a cached binary that fails verification: the wrapper, in hook mode, never
 downloads. It answers `ask` for every Write/Edit/Bash call (`deny` under bypass) with "kh unavailable: run sh .agents/bin/kh
-setup", and a non-blocking notice for Stop. Tell the human to run `sh .agents/bin/kh setup`.
+setup" (or the real cause: no lock, a checksum mismatch), and a non-blocking notice for Stop. Tell the human to run
+`sh .agents/bin/kh setup`. The commands in `.claude/settings.json` do the same when the wrapper file itself is missing (a worktree
+that has no `.agents/bin/kh`): `ask`/notice and exit 0, never exit 2, which would block every tool call.

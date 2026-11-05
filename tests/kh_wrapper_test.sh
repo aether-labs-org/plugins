@@ -77,6 +77,8 @@ cp "$XDG_CACHE_HOME/keel/$V1/kh" "$W/kh.orig"
 printf 'tampered' >> "$XDG_CACHE_HOME/keel/$V1/kh"
 out="$(cd "$r1" && KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh version 2>&1)"; rc=$?
 [ "$rc" -eq 3 ] && printf '%s' "$out" | grep -q 'checksum mismatch for'; check "wrapper: a tampered cached binary is refused (exit 3)" $?
+out="$(cd "$r1" && printf '{}' | KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh hook pre-tool-use 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '"permissionDecision":"ask"' && printf '%s' "$out" | grep -q 'checksum mismatch for' && printf '%s' "$out" | grep -q 'delete it'; check "wrapper hook mode: a tampered cached binary is named and the advice is to delete it (setup alone would refuse it too)" $?
 cp "$W/kh.orig" "$XDG_CACHE_HOME/keel/$V1/kh"
 
 # KH_BINARY verified like a download
@@ -119,6 +121,7 @@ out="$(cd "$r4" && $SH .agents/bin/kh hook commit-msg MSG 2>&1)"; rc=$?
 rm -f "$r4/.agents/keel.lock"
 out="$(cd "$r4" && printf '%s' "$PAYLOAD" | $SH .agents/bin/kh hook pre-tool-use 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '"permissionDecision":"ask"'; check "wrapper hook mode: a missing keel.lock still answers" $?
+printf '%s' "$out" | grep -q 'no keel.lock' && ! printf '%s' "$out" | grep -q 'kh setup'; check "wrapper hook mode: a missing keel.lock says so and does not advise kh setup (setup cannot fix it)" $?
 out="$(cd "$r4" && $SH .agents/bin/kh version 2>&1)"; rc=$?
 [ "$rc" -eq 3 ] && printf '%s' "$out" | grep -q 'no keel.lock'; check "wrapper: a missing keel.lock is an error outside hook mode" $?
 export XDG_CACHE_HOME="$W/cache"
@@ -190,5 +193,100 @@ out="$(cd "$r7" && KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh gate commit 2>&1
 (cd "$r7" && git add -A && KH_RELEASE_URL="$MIRROR1" git commit -q -m "first" >"$W/first.out" 2>&1); rc=$?
 [ "$rc" -eq 0 ] && [ -n "$(git -C "$r7" rev-parse -q --verify HEAD)" ]; check "first commit: the pre-commit hook lets the very first commit through" $?
 [ "$rc" -eq 0 ] || cat "$W/first.out"
+
+# ---- round 3: the root of a command does not follow the working directory ----
+# 1. the wrapper exports KH_ROOT (repository mode), overrides an inherited one, unsets it (plugin mode)
+STUB="$W/stub-kh"; printf '#!/bin/sh\nprintf "KH_ROOT=%%s\\n" "${KH_ROOT-unset}"\n' > "$STUB"; chmod +x "$STUB"
+stubsum="$(sha256sum "$STUB" | cut -d' ' -f1)"
+stub_lock() { printf 'version=0.0.0-stub\nlinux-amd64=%s\nlinux-arm64=%s\ndarwin-amd64=%s\ndarwin-arm64=%s\n' "$stubsum" "$stubsum" "$stubsum" "$stubsum" > "$1"; }
+sr="$W/stubrepo"; mkdir -p "$sr/.agents/bin" "$sr/sub/deep"; cp "$WRAPPER" "$sr/.agents/bin/kh"; stub_lock "$sr/.agents/keel.lock"
+out="$(cd "$sr/sub/deep" && env -u KH_ROOT KH_BINARY="$STUB" $SH ../../.agents/bin/kh run x 2>&1)"
+[ "$out" = "KH_ROOT=$sr" ]; check "wrapper (repository mode): exports KH_ROOT as the directory two levels above itself" $?
+out="$(cd "$sr" && KH_ROOT=/somewhere/else KH_BINARY="$STUB" $SH .agents/bin/kh run x 2>&1)"
+[ "$out" = "KH_ROOT=$sr" ]; check "wrapper (repository mode): overrides an inherited KH_ROOT" $?
+out="$(cd "$sr" && KH_ROOT=/somewhere/else KH_BINARY="$STUB" sh "$sr/.agents/bin/kh" run x 2>&1)"
+[ "$out" = "KH_ROOT=$sr" ]; check "wrapper (repository mode): absolute path of the wrapper" $?
+spl="$W/stub plug"; mkdir -p "$spl/kh/bin"; cp "$WRAPPER" "$spl/kh/bin/kh"; stub_lock "$spl/kh/keel.lock"
+out="$(cd "$W" && KH_ROOT=/somewhere/else KH_BINARY="$STUB" $SH "$spl/kh/bin/kh" run x 2>&1)"
+[ "$out" = "KH_ROOT=unset" ]; check "wrapper (plugin mode): unsets an inherited KH_ROOT" $?
+
+# 2. a project P with a harness, a nested repository N, and a real git worktree of P under P/.claude/worktrees/w
+mk_world() { # mk_world NAME -> P with the wrapper, keel.yml, nested repo n/ (ignored) and a worktree
+  local p="$W/$1"; mkdir -p "$p"
+  (cd "$p" && git init -q . && git config user.email t@t && git config user.name t && mkdir -p .agents/bin \
+    && cp "$WRAPPER" .agents/bin/kh && lock_of "$V1" "$W/d1" > .agents/keel.lock \
+    && printf '.agents/run/\nn/\n.claude/worktrees/\n' > .gitignore)
+  write_keel "$p"
+  printf '# a\n' > "$p/AGENTS.md"
+  (cd "$p" && git add -A && git commit -q -m seed && mkdir -p n && git -C n init -q . && git worktree add -q .claude/worktrees/w -b wt)
+  printf '%s\n' "$(cd "$p" && pwd -P)"
+}
+P="$(mk_world world)"; N="$P/n"; WT="$P/.claude/worktrees/w"
+OUTSIDE="$W/outside"; mkdir -p "$OUTSIDE"
+(cd "$P" && KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh version >/dev/null 2>&1)
+payload() { # payload TOOL CWD KEY VALUE [MODE] (stderr dropped: the reader may not read it)
+  python3 -I -c 'import json,sys; print(json.dumps({"hook_event_name":"PreToolUse","tool_name":sys.argv[1],"cwd":sys.argv[2],"permission_mode":sys.argv[5] if len(sys.argv)>5 else "default","tool_input":{sys.argv[3]:sys.argv[4]}}))' "$@" 2>/dev/null
+}
+verdict() { # verdict JSON-OUTPUT -> ask|deny|allow
+  if [ -z "$1" ]; then echo allow; else printf '%s' "$1" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["permissionDecision"])'; fi
+}
+PLUGIN="$W/plugin-world/kh/bin/kh"; mkdir -p "$W/plugin-world/kh/bin"; cp "$WRAPPER" "$PLUGIN"; lock_of "$V1" "$W/d1" > "$W/plugin-world/kh/keel.lock"
+for cwd in "$N" "$WT" "$OUTSIDE"; do
+  label="$(basename "$cwd")"
+  # setup mode, through the plugin's wrapper
+  got="$(verdict "$(cd "$cwd" && payload Write "$cwd" file_path "$P/AGENTS.md" > "$W/pl.json" && KH_RELEASE_URL="$MIRROR1" $SH "$PLUGIN" hook pre-tool-use --setup < "$W/pl.json" 2>&1)")"
+  [ "$got" = ask ]; check "cwd $label, setup mode: Write P/AGENTS.md asks ($got)" $?
+  got="$(verdict "$(cd "$cwd" && payload Write "$cwd" file_path "$cwd/x" > "$W/pl.json" && KH_RELEASE_URL="$MIRROR1" $SH "$PLUGIN" hook pre-tool-use --setup < "$W/pl.json" 2>&1)")"
+  [ "$got" = allow ]; check "cwd $label, setup mode: Write <cwd>/x is allowed ($got)" $?
+  got="$(verdict "$(cd "$cwd" && payload Bash "$cwd" command "echo x > $P/AGENTS.md" > "$W/pl.json" && KH_RELEASE_URL="$MIRROR1" $SH "$PLUGIN" hook pre-tool-use --setup < "$W/pl.json" 2>&1)")"
+  [ "$got" = deny ]; check "cwd $label, setup mode: Bash echo x > P/AGENTS.md is denied ($got)" $?
+  # project mode, through the project's wrapper (found with CLAUDE_PROJECT_DIR)
+  got="$(verdict "$(cd "$cwd" && payload Write "$cwd" file_path "$P/.agents/keel.yml" > "$W/pl.json" && KH_RELEASE_URL="$MIRROR1" $SH "$P/.agents/bin/kh" hook pre-tool-use < "$W/pl.json" 2>&1)")"
+  [ "$got" = ask ]; check "cwd $label, project mode: Write P/.agents/keel.yml asks ($got)" $?
+  got="$(verdict "$(cd "$cwd" && payload Write "$cwd" file_path "$cwd/x" > "$W/pl.json" && KH_RELEASE_URL="$MIRROR1" $SH "$P/.agents/bin/kh" hook pre-tool-use < "$W/pl.json" 2>&1)")"
+  [ "$got" = allow ]; check "cwd $label, project mode: Write <cwd>/x is allowed ($got)" $?
+  got="$(verdict "$(cd "$cwd" && payload Bash "$cwd" command "echo x > $P/.agents/keel.yml" > "$W/pl.json" && KH_RELEASE_URL="$MIRROR1" $SH "$P/.agents/bin/kh" hook pre-tool-use < "$W/pl.json" 2>&1)")"
+  [ "$got" = deny ]; check "cwd $label, project mode: Bash echo x > P/.agents/keel.yml is denied ($got)" $?
+done
+got="$(verdict "$(cd "$N" && payload Bash "$N" command "echo x > ../.agents/keel.yml" > "$W/pl.json" && KH_RELEASE_URL="$MIRROR1" $SH "$P/.agents/bin/kh" hook pre-tool-use < "$W/pl.json" 2>&1)")"
+[ "$got" = deny ]; check "cwd N, project mode: Bash echo x > ../.agents/keel.yml is denied ($got)" $?
+
+# 3. the commands of the settings.json template, run with sh -c from a nested repository
+SETTINGS="$REPO_ROOT/plugins/keel-harness/skills/harness/templates/settings.json"
+cmd_of() { python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["hooks"][sys.argv[2]][0]["hooks"][0]["command"])' "$SETTINGS" "$1"; }
+PRE="$(cmd_of PreToolUse)"; STOP="$(cmd_of Stop)"
+[ "$(printf '%s\n' "$PRE" | wc -l)" -eq 1 ] && [ "$(printf '%s\n' "$STOP" | wc -l)" -eq 1 ]; check "settings.json: each hook command is one line" $?
+out="$(cd "$N" && payload Write "$N" file_path "$P/.agents/keel.yml" > "$W/pl.json" && env CLAUDE_PROJECT_DIR="$P" KH_RELEASE_URL="$MIRROR1" sh -c "$PRE" < "$W/pl.json" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$(verdict "$out")" = ask ] && ! printf '%s' "$out" | grep -q "was not found"; check "settings.json PreToolUse, cwd N, CLAUDE_PROJECT_DIR=P: reaches P's wrapper, which asks" $?
+out="$(cd "$N" && payload Write "$N" file_path "$P/.agents/keel.yml" > "$W/pl.json" && env -u CLAUDE_PROJECT_DIR sh -c "$PRE" < "$W/pl.json" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$(verdict "$out")" = ask ] && printf '%s' "$out" | python3 -I -c 'import json,sys; d=json.load(sys.stdin); assert d["hookSpecificOutput"]["permissionDecision"]=="ask" and d["hookSpecificOutput"]["hookEventName"]=="PreToolUse" and d["permissionDecisionReason"]==d["hookSpecificOutput"]["permissionDecisionReason"] and "was not found" in d["permissionDecisionReason"]'; check "settings.json PreToolUse, cwd N, no CLAUDE_PROJECT_DIR, no wrapper: dual-shape ask, exit 0 (never 2)" $?
+out="$(cd "$OUTSIDE" && payload Write "$OUTSIDE" file_path "$OUTSIDE/x" > "$W/pl.json" && env -u CLAUDE_PROJECT_DIR sh -c "$PRE" < "$W/pl.json" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$(verdict "$out")" = ask ]; check "settings.json PreToolUse, cwd outside any repository: ask, exit 0" $?
+out="$(cd "$N" && printf '{}' > "$W/pl.json" && env -u CLAUDE_PROJECT_DIR sh -c "$STOP" < "$W/pl.json" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | python3 -I -c 'import json,sys; d=json.load(sys.stdin); assert "decision" not in d and "kh unavailable" in d["systemMessage"]'; check "settings.json Stop, no wrapper: a systemMessage, exit 0 (never 2)" $?
+printf '%s' "$PRE" | grep -q 'CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel'; check "settings.json: the wrapper is located with CLAUDE_PROJECT_DIR, falling back to git" $?
+
+# Stop from a nested repository runs the project's gate through the chain settings command -> wrapper -> KH_ROOT -> kh
+F="$(mk_world failing)"; FN="$F/n"
+cat > "$F/.agents/keel.yml" <<'YML'
+version: 1
+scripts:
+  broken: "false"
+gates:
+  fast: { scripts: [guard, broken] }
+  commit: { scripts: [guard, broken], changes: staged }
+  slow: { scripts: [guard, broken], changes: branch }
+YML
+out="$(cd "$FN" && printf '{"hook_event_name":"Stop","cwd":"%s"}' "$FN" > "$W/pl.json" && env CLAUDE_PROJECT_DIR="$F" KH_RELEASE_URL="$MIRROR1" sh -c "$STOP" < "$W/pl.json" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '"decision":"block"'; check "settings.json Stop, cwd nested repository: runs the project's fast gate, a failure blocks" $?
+
+# the dogfood case: a worktree of the project, which has no wrapper of its own
+D="$(mk_world dogfood)"; DW="$D/.claude/worktrees/w"
+git -C "$DW" rm -q --cached -r .agents/bin 2>/dev/null; rm -rf "$DW/.agents/bin"
+[ ! -e "$DW/.agents/bin/kh" ]; check "dogfood: the worktree has no wrapper" $?
+out="$(cd "$DW" && payload Bash "$DW" command "ls" > "$W/pl.json" && env -u CLAUDE_PROJECT_DIR sh -c "$PRE" < "$W/pl.json" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$(verdict "$out")" = ask ]; check "dogfood: PreToolUse in the wrapper-less worktree asks and exits 0 (it used to exit 2 and block every call)" $?
+out="$(cd "$DW" && payload Write "$DW" file_path "$D/.agents/keel.yml" > "$W/pl.json" && env CLAUDE_PROJECT_DIR="$D" KH_RELEASE_URL="$MIRROR1" sh -c "$PRE" < "$W/pl.json" 2>&1)"
+[ "$(verdict "$out")" = ask ] && ! printf '%s' "$out" | grep -q 'not found'; check "dogfood: with CLAUDE_PROJECT_DIR the project's wrapper answers" $?
 
 finish

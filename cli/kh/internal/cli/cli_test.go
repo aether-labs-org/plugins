@@ -52,6 +52,7 @@ func repo(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(d, ".agents", "keel.yml"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("KH_ROOT", "") // the root is the cwd's unless a test pins it
 	t.Chdir(d)
 	return d
 }
@@ -464,5 +465,56 @@ func TestSchemaKeelDescribesBuiltinWith(t *testing.T) {
 	}
 	if !strings.Contains(out, `"mappings"`) || !strings.Contains(out, "$1") {
 		t.Error("the test-presence mapping syntax is not in the schema")
+	}
+}
+
+// ------------------------------------------------------- validation round 3
+
+const filesKeel = `version: 1
+scripts:
+  txt: { run: "cat", files: "*.txt" }
+gates:
+  fast: { scripts: [guard, txt] }
+  commit: { scripts: [guard, txt], changes: staged }
+  slow: { scripts: [guard, txt], changes: branch }
+`
+
+func TestRunAllFlag(t *testing.T) {
+	r := repo(t)
+	t.Setenv("KH_ROOT", "")
+	writeKeel(t, r, filesKeel)
+	os.WriteFile(filepath.Join(r, "a.txt"), []byte("a\n"), 0o644)
+	os.WriteFile(filepath.Join(r, ".gitignore"), []byte(".agents/run/\nignored.txt\n"), 0o644)
+	os.WriteFile(filepath.Join(r, "ignored.txt"), []byte("x\n"), 0o644)
+	for _, args := range [][]string{{"add", "-A"}, {"-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "seed"}} {
+		if out, err := exec.Command("git", append([]string{"-C", r}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("%v %s", err, out)
+		}
+	}
+	// nothing changed: the worktree scope has no file for the script
+	out, _, rc := run("run", "txt")
+	if rc != cli.ExitSkip || !strings.Contains(out, "no changed files in scope") {
+		t.Fatalf("without --all: rc=%d out=%q", rc, out)
+	}
+	// --all: the same scope as kh gate --all, before or after the script name
+	for _, args := range [][]string{{"run", "--all", "txt"}, {"run", "txt", "--all"}} {
+		out, errb, rc := run(args...)
+		if rc != 0 || !strings.Contains(out, "txt  PASS") {
+			t.Fatalf("%v: rc=%d out=%q err=%q", args, rc, out, errb)
+		}
+	}
+	// an untracked file that is not ignored is in the scope, an ignored one is not (as in kh gate --all)
+	os.WriteFile(filepath.Join(r, "new.txt"), []byte("n\n"), 0o644)
+	out, _, rc = run("run", "--all", "--json", "txt")
+	if rc != 0 || !strings.Contains(out, `"status": "pass"`) {
+		t.Fatalf("json: rc=%d out=%q", rc, out)
+	}
+	// --all is a script flag: kh run -- <command> has no scope
+	if _, errb, rc := run("run", "--all", "--", "true"); rc != cli.ExitUsage || !strings.Contains(errb, "--all") {
+		t.Fatalf("--all with --: rc=%d err=%q", rc, errb)
+	}
+	// extra arguments after -- still reach the script
+	if _, _, rc := run("run", "--all", "txt", "--", "-n"); rc != 0 {
+		t.Fatalf("extra args rc=%d", rc)
 	}
 }

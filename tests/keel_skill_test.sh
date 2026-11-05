@@ -93,6 +93,15 @@ first_kh="$(grep -n 'kh/bin/kh" version' "$SK" | head -1 | cut -d: -f1)"; first_
 { [ -n "$first_kh" ] && [ -n "$first_disc" ] && [ "$first_kh" -lt "$first_disc" ]; }; check "SKILL.md: the first action is the plugin's kh version (before discover.sh)" $?
 grep -qi 'until .kh. is cached' "$SK" && grep -q 'asks the human to confirm every' "$SK"; check "SKILL.md says why: until kh is cached the setup hook asks for every call" $?
 grep -q '/keel-harness:harness' "$SK"; check "SKILL.md names its own invocation" $?
+# round 3 (dogfood): the Bash cwd persists between calls, a cd into the plugin directory moved the session into another repository
+grep -q 'never `cd`' "$SK" && grep -q 'Read tool' "$SK" && grep -qF 'cat "<absolute path>"' "$SK" && grep -qi 'working directory persists' "$SK"; check "SKILL.md: read templates with Read or cat <absolute path>, never cd into the plugin directory, and why" $?
+# git hooks: the Write tool cannot set the exec bit, the setup hook denies chmod, kh setup does it
+grep -qi 'never chmod' "$SK" && grep -qF 'sh .agents/bin/kh setup' "$SK" && grep -qi 'executable' "$SK"; check "SKILL.md: never chmod the git hooks; the hand-off asks the human to run kh setup, which makes them executable" $?
+grep -qi 'never chmod' "$REF/rounds.md" && grep -qi 'core.hooksPath' "$REF/rounds.md"; check "rounds.md: git hooks are not chmod'ed; kh setup makes them executable and sets core.hooksPath" $?
+# .gitignore: a broad rule is replaced by the three-line form, never by narrower lines that expose paths
+grep -qF '.claude/*' "$REF/rounds.md" && grep -qF '!.claude/settings.json' "$REF/rounds.md" && grep -qF '!.claude/agents/' "$REF/rounds.md" && grep -qi 'list every path' "$REF/rounds.md"; check "rounds.md: the .claude/* + !settings.json + !agents/ form, and every newly visible path is listed and asked about" $?
+grep -q 'ignored' "$REF/discovery.md" && grep -q 'ignored-dir' "$REF/discovery.md"; check "discovery.md explains the ignored and ignored-dir lines" $?
+grep -qF '.gitleaks.toml' "$REF/rounds.md" && grep -qF 'gitleaks.toml.tmpl' "$REF/rounds.md" && grep -q 'ignored-dir' "$REF/rounds.md"; check "rounds.md: the proposal includes .gitleaks.toml (one allowlist entry per ignored-dir) when secrets is chosen" $?
 if command -v claude >/dev/null 2>&1; then
   claude plugin validate "$P" --strict >/dev/null 2>&1; check "claude plugin validate ./plugins/keel-harness --strict passes" $?
 else

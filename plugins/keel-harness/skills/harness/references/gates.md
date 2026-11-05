@@ -106,5 +106,5 @@ the tool's own baseline (ArchUnit `FreezingArchRule`, `depcruise-baseline`), for
 
 ## Check it
 
-`sh .agents/bin/kh validate` must be silent. Then run each new script once (`kh run <id>`) and read its output before trusting it:
+`sh .agents/bin/kh validate` must be silent. Then run each new script once over the whole tree (`kh run --all <id>`; plain `kh run <id>` sees only the changes and skips on a clean tree) and read its output before trusting it:
 an errorformat pattern that matches nothing reports a clean run. See [verify](verify.md).

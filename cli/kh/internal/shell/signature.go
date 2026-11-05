@@ -190,3 +190,21 @@ func RunSignature(run string) string {
 	}
 	return ""
 }
+
+// InfoOnly reports whether the invocation only asks the tool for its version or
+// help: a word --version, --help or -h, or a first non-option argument "version"
+// or "help" (`gitleaks version`, `gitleaks dir --help`, `npx tsc --version`).
+// Such an invocation does not run the tool's job, so it is not intercepted.
+func InfoOnly(seg Segment) bool {
+	if len(seg.Words) < 2 {
+		return false
+	}
+	args := seg.Words[1:]
+	for _, w := range args {
+		if w == "--version" || w == "--help" || w == "-h" {
+			return true
+		}
+	}
+	first, _ := firstNonOption(args)
+	return first == "version" || first == "help"
+}

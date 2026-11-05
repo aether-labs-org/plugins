@@ -295,7 +295,7 @@ Rules (v0.4 rules kept unless stated):
 ## 7. Execution — `kh`
 
 ```
-kh run <script> [-- extra args]       one declared script
+kh run [--all] <script> [-- extra args]  one declared script (--all: every candidate file, as kh gate --all)
 kh run -- <command…>                  any command: capture, verdict from exit code, generic reduction
 kh gate <name> [--all]                the gate's scripts, in order
 kh show <run-id> [--failures|--full|--json]
@@ -384,6 +384,19 @@ generic `protect:` key, owner 2026-11-04]:
 | A Bash segment whose command signature equals a declared script's signature (v0.4 D62 tokenizer: split on `&&`, `\|\|`, `;`, `\|`, newlines; drop leading assignments; skip `cd`/`export`/`echo`; first token extended through known launchers) | `deny` naming `kh run <script>` and "do not pipe its output"; `kh run -- …` is the escape for undeclared commands |
 | Anything the tokenizer cannot split (unbalanced quotes, `eval`, `$(…)` at the head) | allow |
 
+**Which repository decides.** Every write target (a file-tool path, or a shell write target resolved
+against the command's working directory) is checked against the protected set of the git repository that
+*contains the target* (the top-level of its nearest existing ancestor; a target in no repository has no
+protected set apart from the user-level agent settings). Each repository's set is loaded once per
+invocation. A repository without `.agents/keel.yml` has no protected set, except in `--setup` mode, where
+the setup defaults apply to the target's repository; a target in another repository whose `keel.yml` is
+invalid is treated as protected (`ask`). The fail-safes (invalid `keel.yml`, pin mismatch, §9.5) apply to
+the project root (`KH_ROOT`, else the working directory's repository when it has a `keel.yml`).
+Interception of declared scripts uses the config of the repository the command runs in (the working
+directory's top-level); a command in a repository with no harness is not intercepted. An invocation that
+only asks for `--version`, `--help`, `-h`, or whose first argument is `version` or `help`, is not
+intercepted.
+
 The tokenizer only splits; it never rewrites. **Declared limit** (README and `AGENTS.md`): protection is
 friction with evidence, not a security boundary; `guard` and the git hooks are the second line, and a
 human can still bypass them — by design.
@@ -438,8 +451,19 @@ Decision: **only `.claude/settings.json`** carries keel's hooks:
 ```
 
 `<kh>` is `sh <repository root>/.agents/bin/kh`; the exact command form must work in all three agents
-(root found from the payload's `cwd` and `git rev-parse --show-toplevel`, not from `$CLAUDE_PROJECT_DIR`
-alone) [builder, pinned by the contract tests].
+[builder, pinned by the contract tests]. Round 3 (dogfood): the wrapper is located with
+`${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}`, not from the working directory alone: the Bash
+working directory persists between calls and a `cd` into a nested repository or a worktree (another git
+repository) made `git rev-parse` name the wrong root. When the wrapper file does not exist the command
+prints the `ask` JSON of §9.5 (PreToolUse) or a `systemMessage` (Stop) and exits 0, in POSIX `sh`, on one
+line, and **never exits 2** (a PreToolUse exit 2 blocks every Bash, Write and Edit call, and the session
+cannot recover by itself). Git hook templates keep `$(git rev-parse --show-toplevel)`: git runs them at
+the top-level.
+
+**Root of a command (`KH_ROOT`):** the wrapper of a repository (`*/.agents/bin/kh`) exports
+`KH_ROOT=<two directories above itself>`, overriding any inherited value; the plugin's copy unsets it.
+`kh` takes the root of a command from `KH_ROOT` when it is set (it must be a git top-level, else an
+error), otherwise from the git top-level of the working directory. `hook stop` uses the same root.
 
 **Output contract:** one JSON valid for Claude and Copilot.
 - PreToolUse: `hookSpecificOutput.{hookEventName, permissionDecision, permissionDecisionReason}` (Claude)
@@ -492,7 +516,7 @@ treat a failing or timed-out hook as non-blocking, so protection would silently 
 - In hook mode (`hook …` as its first argument) **the wrapper never downloads** — the PreToolUse timeout
   is 10 s. Without a verified binary it answers by itself, in POSIX `sh` with no `jq`.
 - **PreToolUse:** `ask` for every Write/Edit/Bash call, reason "kh unavailable: run
-  `sh .agents/bin/kh setup`", in the dual shape of §9.1; `deny` when the payload's `permission_mode` is
+  `sh .agents/bin/kh setup`" (or the real cause: a missing lock, a checksum mismatch), in the dual shape of §9.1; `deny` when the payload's `permission_mode` is
   `bypassPermissions` or `dontAsk`. The human stays in the loop; the agent stays usable.
 - **Stop:** never blocks; it tells the human that the gates did not run and why.
 - The same applies to the plugin's setup-session hook (§9.4).
@@ -611,7 +635,7 @@ recorded, and must say so]:
 | code | file size, code language, comments, spelling | builtins (`file-size`, `code-language`, `pattern`) | same | same |
 | architecture | layering, dependencies | dependency-cruiser | import-linter | ArchUnit (junit) |
 | architecture | folder layout, exemplars | `folder-layout` builtin, `exemplar`/`legacy` | same | same |
-| security | secrets | gitleaks (SARIF) | same | same |
+| security | secrets | gitleaks (SARIF); `.gitleaks.toml` allow-lists the git-ignored directories (gitleaks scans ignored files and cannot read `.gitignore`) | same | same |
 | security | SCA | osv-scanner (SARIF) / npm audit | osv-scanner / pip-audit | osv-scanner / OWASP dependency-check |
 | security | SAST | semgrep (SARIF) | semgrep | semgrep / SpotBugs (SARIF) |
 | observability | logging, error handling | ESLint `no-console`, empty-catch rules + `pattern` | ruff `T20`, `BLE001` + `pattern` | Checkstyle/PMD rules + `pattern` |
@@ -626,6 +650,9 @@ Warnings about the harness itself; never part of a gate verdict.
   `script-unavailable`, `run-state`, `review-due`.
 - Restored [owner, R1.2/R1.6]: `exemplar-missing`, `plan-stale`, `progress-size`, and the memory format
   through the same code as the `memory` builtin (B2: one implementation, two entry points).
+- Round 3: `harness-ignored` (an existing harness file that git ignores, so it is not versioned), `hook-outdated` (a registered
+  hook calls `.agents/bin/kh hook` without `CLAUDE_PROJECT_DIR`); `reviewer-missing` now needs `docs/review.md` and at
+  least one of the two reviewer files (a team that uses one agent needs one).
 - New: `githooks-inactive`, `reviewer-missing`, `guide-unlisted` (a topic file linked from `AGENTS.md`
   that is not in `guides:`, hence unprotected), `pin-mismatch`.
 - Removed: `mandatory-unsensored` (no `mandatory`), `protect-missing` (folded into `hook-missing`).

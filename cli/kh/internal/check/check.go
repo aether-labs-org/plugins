@@ -65,10 +65,13 @@ func fileExists(root, rel string) bool {
 }
 
 var (
-	khRunRE   = regexp.MustCompile("`[^`\n]*?\\bkh run ([A-Za-z0-9][A-Za-z0-9_-]*)[^`\n]*`")
-	khGateRE  = regexp.MustCompile("`[^`\n]*?\\bkh gate ([A-Za-z0-9][A-Za-z0-9_-]*)[^`\n]*`")
-	linkRE    = regexp.MustCompile(`\]\(([^)\s]+)\)`)
-	hookCmdRE = regexp.MustCompile(`\.agents/bin/kh"?\s+hook\s+`)
+	khRunRE  = regexp.MustCompile("`[^`\n]*?\\bkh run ([A-Za-z0-9][A-Za-z0-9_-]*)[^`\n]*`")
+	khGateRE = regexp.MustCompile("`[^`\n]*?\\bkh gate ([A-Za-z0-9][A-Za-z0-9_-]*)[^`\n]*`")
+	linkRE   = regexp.MustCompile(`\]\(([^)\s]+)\)`)
+	// a registered hook calls the wrapper: `.agents/bin/kh" hook <event>` (the first v0.5 template) or the
+	// round-3 form, which finds the wrapper with CLAUDE_PROJECT_DIR and runs `exec sh "$w" hook <event>`
+	hookCmdRE  = regexp.MustCompile(`\.agents/bin/kh"?\s+hook\s+`)
+	hookCmdRE3 = regexp.MustCompile(`\.agents/bin/kh\b[\s\S]*\bhook\s+(pre-tool-use|stop)\b`)
 )
 
 // RunWith is Run with options. Warnings come out in a stable order.
@@ -152,10 +155,17 @@ func RunWith(root string, cfg *config.Config, binaryVersion string, o Options) [
 
 	// hook-missing
 	settings, ok := read(root, ".claude/settings.json")
+	var outdated []string
 	for _, ev := range []string{"PreToolUse", "Stop"} {
-		if !ok || !hasHook(string(settings), ev) {
+		switch {
+		case !ok || !hasHook(string(settings), ev):
 			add("hook-missing", ".claude/settings.json has no %s hook calling .agents/bin/kh hook", ev)
+		case hookOutdated(string(settings), ev):
+			outdated = append(outdated, ev)
 		}
+	}
+	if len(outdated) > 0 {
+		add("hook-outdated", ".claude/settings.json: the %s hook command finds the wrapper from the working directory only (no CLAUDE_PROJECT_DIR), so it breaks when a session moves into another repository; replace it with the command of the template", strings.Join(outdated, " and "))
 	}
 
 	// baselines, exceptions, requires, exemplars
@@ -236,15 +246,30 @@ func RunWith(root string, cfg *config.Config, binaryVersion string, o Options) [
 	// githooks-inactive
 	ws = append(ws, githooks(root, cfg)...)
 
-	// reviewer-missing
-	var missing []string
-	for _, f := range []string{"docs/review.md", ".claude/agents/keel-reviewer.md", ".github/agents/keel-reviewer.agent.md"} {
-		if !fileExists(root, f) {
-			missing = append(missing, f)
+	// reviewer-missing: the checklist, and a reviewer for at least one of the agents in use
+	{
+		var missing []string
+		if !fileExists(root, "docs/review.md") {
+			missing = append(missing, "docs/review.md")
+		}
+		if !fileExists(root, ".claude/agents/keel-reviewer.md") && !fileExists(root, ".github/agents/keel-reviewer.agent.md") {
+			missing = append(missing, "a reviewer agent (.claude/agents/keel-reviewer.md for Claude Code or .github/agents/keel-reviewer.agent.md for Copilot CLI)")
+		}
+		if len(missing) > 0 {
+			add("reviewer-missing", "missing: %s", strings.Join(missing, ", "))
 		}
 	}
-	if len(missing) > 0 {
-		add("reviewer-missing", "missing: %s", strings.Join(missing, ", "))
+
+	// harness-ignored: a harness file git ignores is not versioned, so nobody gets it on a clone
+	for _, f := range harnessFiles(root, cfg) {
+		if _, err := scope.Git(root, "check-ignore", "-q", "--", f); err == nil {
+			out := strings.TrimSpace(gitOut(root, "check-ignore", "-v", "--", f))
+			rule := out
+			if i := strings.IndexByte(out, '\t'); i >= 0 {
+				rule = out[:i]
+			}
+			add("harness-ignored", "%s exists but git ignores it (%s), so it is not versioned; narrow the rule in .gitignore", f, rule)
+		}
 	}
 
 	// pin-mismatch
@@ -254,6 +279,30 @@ func RunWith(root string, cfg *config.Config, binaryVersion string, o Options) [
 		}
 	}
 	return ws
+}
+
+// harnessFiles lists the harness files that exist, in a stable order.
+func harnessFiles(root string, cfg *config.Config) []string {
+	cands := []string{".agents/keel.yml", ".agents/keel.lock", ".agents/bin/kh", "AGENTS.md", "CLAUDE.md", "docs/review.md",
+		".claude/settings.json", ".claude/agents/keel-reviewer.md", ".github/agents/keel-reviewer.agent.md"}
+	if ents, err := os.ReadDir(filepath.Join(root, ".agents", "githooks")); err == nil {
+		for _, e := range ents {
+			if !e.IsDir() {
+				cands = append(cands, ".agents/githooks/"+e.Name())
+			}
+		}
+	}
+	cands = append(cands, cfg.Guides...)
+	seen := map[string]bool{}
+	var out []string
+	for _, f := range cands {
+		if !seen[f] && fileExists(root, f) {
+			seen[f] = true
+			out = append(out, f)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func contains(l []string, s string) bool {
@@ -282,9 +331,7 @@ func gitOut(root string, args ...string) string {
 	return string(out)
 }
 
-// hasHook reports whether settings.json registers a command under the event
-// that calls .agents/bin/kh hook.
-func hasHook(settings, event string) bool {
+func hookCommands(settings, event string) []string {
 	var doc struct {
 		Hooks map[string][]struct {
 			Hooks []struct {
@@ -293,13 +340,40 @@ func hasHook(settings, event string) bool {
 		} `json:"hooks"`
 	}
 	if json.Unmarshal([]byte(settings), &doc) != nil {
-		return false
+		return nil
 	}
+	var out []string
 	for _, g := range doc.Hooks[event] {
 		for _, h := range g.Hooks {
-			if hookCmdRE.MatchString(h.Command) {
-				return true
-			}
+			out = append(out, h.Command)
+		}
+	}
+	return out
+}
+
+// hasHook reports whether settings.json registers a command under the event
+// that calls the wrapper's hook (.agents/bin/kh hook <event>), in either form.
+func hasHook(settings, event string) bool {
+	for _, c := range hookCommands(settings, event) {
+		if hookCmdRE.MatchString(c) || hookCmdRE3.MatchString(c) {
+			return true
+		}
+	}
+	return false
+}
+
+// hookOutdated: a registered hook calls the wrapper directly, without
+// CLAUDE_PROJECT_DIR, and no other registered command uses it.
+func hookOutdated(settings, event string) bool {
+	cmds := hookCommands(settings, event)
+	for _, c := range cmds {
+		if strings.Contains(c, "CLAUDE_PROJECT_DIR") && hookCmdRE3.MatchString(c) {
+			return false
+		}
+	}
+	for _, c := range cmds {
+		if hookCmdRE.MatchString(c) {
+			return true
 		}
 	}
 	return false

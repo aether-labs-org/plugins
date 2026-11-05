@@ -82,6 +82,32 @@ printf '%s\n' "$(cd "$r2" && bash "$SC/discover.sh")" | grep -qE "^runtime${TAB}
 printf 'v22\n' > "$r2/.nvmrc"
 printf '%s\n' "$(cd "$r2" && bash "$SC/discover.sh")" | grep -qE "^runtime${TAB}node${TAB}[^,${TAB}]+, \.nvmrc$"; check "discover: runtime reports a .nvmrc pin" $?
 
+# ignored harness paths and ignored directories (round 3)
+r="$(mkrepo typescript)"
+mkdir -p "$r/node_modules/x" "$r/build/out" "$r/.claude/worktrees/w" "$r/.claude/skills/local"
+echo m > "$r/node_modules/x/a.js"; echo b > "$r/build/out/b.js"; echo s > "$r/.claude/skills/local/SKILL.md"
+printf 'node_modules/\nbuild/\n.claude/\n' > "$r/.gitignore"
+before="$(snapshot "$r")"
+out="$(cd "$r" && bash "$SC/discover.sh" 2>&1)"
+for p in .claude/settings.json .claude/agents/keel-reviewer.md; do has_line "$out" "$(line ignored "$p")"; check "discover: a broad .claude/ rule -> ignored $p" $?; done
+! printf '%s\n' "$out" | grep -qE "^ignored${TAB}(AGENTS.md|CLAUDE.md|\.agents/keel\.yml|\.agents/bin/kh)$"; check "discover: harness paths the rules do not hide are not reported" $?
+for d in node_modules/ build/ .claude/; do has_line "$out" "$(line ignored-dir "$d")"; check "discover: ignored-dir $d" $?; done
+! printf '%s\n' "$out" | grep -qE "^ignored-dir${TAB}\.claude/.+"; check "discover: only the top-most ignored directory is listed (not .claude/skills/ inside .claude/)" $?
+[ "$(snapshot "$r")" = "$before" ]; check "discover with ignore rules leaves the tree unchanged" $?
+# a narrow rule: only the exact path
+printf '.claude/*\n!.claude/settings.json\n!.claude/agents/\n' > "$r/.gitignore"
+out="$(cd "$r" && bash "$SC/discover.sh" 2>&1)"
+! printf '%s\n' "$out" | grep -qE "^ignored${TAB}"; check "discover: .claude/* with !.claude/settings.json and !.claude/agents/ hides no harness path" $?
+printf 'AGENTS.md\n.agents/\n' > "$r/.gitignore"
+out="$(cd "$r" && bash "$SC/discover.sh" 2>&1)"
+has_line "$out" "$(line ignored AGENTS.md)" && has_line "$out" "$(line ignored .agents/keel.yml)" && has_line "$out" "$(line ignored .agents/bin/kh)" && has_line "$out" "$(line ignored .agents/githooks/pre-commit)"; check "discover: ignored lists AGENTS.md and the .agents/ paths when they are ignored" $?
+# the cap
+r3="$(mkrepo typescript)"
+for i in $(seq 1 60); do mkdir -p "$r3/gen$i/sub"; echo x > "$r3/gen$i/sub/f"; done
+printf 'gen*/\n' > "$r3/.gitignore"
+out="$(cd "$r3" && bash "$SC/discover.sh" 2>&1)"
+[ "$(printf '%s\n' "$out" | grep -c "^ignored-dir${TAB}")" -eq 50 ] && printf '%s\n' "$out" | grep -qE "^ignored-dir-truncated${TAB}10${TAB}"; check "discover: at most 50 ignored-dir lines, then ignored-dir-truncated says how many were left out" $?
+
 # instruction files, agent hooks, .agents/ and keel
 r="$(mkrepo typescript)"
 mkdir -p "$r/.agents" "$r/.claude" "$r/.github" "$r/pkg"

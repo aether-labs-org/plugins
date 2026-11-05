@@ -8,10 +8,10 @@ Each topic is a section with the same six labels: **Questions** (what to ask), *
 
 **Questions**: Is a secret scanner already part of the workflow? Are there fake keys in fixtures that need an allow-list?
 **Measure**: Run the scanner once over the working tree and count leaks.
-**Default**: gitleaks over the working tree in the fast and commit gates; `--redact` so the report holds no secret.
-**Why**: A secret in the repository is a leak the moment it is pushed; scanning before the commit is the cheap place to stop it (https://github.com/gitleaks/gitleaks). `requires:` makes a missing scanner a `skip`, and a skipped security script fails the gate.
+**Default**: gitleaks over the working tree in the fast and commit gates; `--redact` so the report holds no secret; `.gitleaks.toml` (from `templates/gitleaks.toml.tmpl`) extends the default rules and allow-lists the repository's git-ignored directories.
+**Why**: A secret in the repository is a leak the moment it is pushed; scanning before the commit is the cheap place to stop it (https://github.com/gitleaks/gitleaks). `requires:` makes a missing scanner a `skip`, and a skipped security script fails the gate. Pitfall seen in a real run (gitleaks 8.30.1): `gitleaks detect --no-git` and `gitleaks dir` scan every file under the path, git-ignored ones included, and have no option to honour `.gitignore`; ten false positives came from test fixtures inside local worktrees under `.claude/worktrees/`. Remedy: the `ignored-dir` lines of `discover.sh` become one `[[allowlists]]` path regex each in `.gitleaks.toml` (verified: a fake secret in an allow-listed ignored directory is not reported, the same secret in a tracked file is). `[extend] useDefault = true` is required: without it the default rules are dropped and the scan reports nothing. The script lists the file in `config:`, so editing the allowlist later is a loosening that needs an ADR.
 **Class and gate**: security; fast and commit gates; format sarif; no baseline
-**Opinion**: Which paths are allow-listed.
+**Opinion**: Which paths are allow-listed (ignored directories only; never a directory that holds tracked files).
 
 ## sca
 

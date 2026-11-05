@@ -8,6 +8,11 @@
 # KH_BINARY=<path>    use this binary instead of the cache (still verified against the lock)
 # KH_RELEASE_URL=<u>  download <u>/kh-<os>-<arch> instead of the GitHub release (a mirror)
 #
+# KH_ROOT: in a repository the wrapper exports KH_ROOT=<the repository>, so that kh works on the repository the
+# wrapper belongs to and not on whatever repository the working directory happens to be in (an agent session can
+# cd into a nested repository or a worktree). The plugin's copy unsets it: there the repository is the working
+# directory's.
+#
 # In hook mode (kh hook ...) the wrapper never downloads. Without a verified binary it
 # answers by itself, so that the agent's protection does not silently disappear.
 set -eu
@@ -17,11 +22,28 @@ die() {
   exit 3
 }
 
+# refuse MESSAGE: in hook mode answer (naming the cause), otherwise die with the message
+refuse() {
+  unavailable_why=$1
+  [ "$hook_mode" = 1 ] && answer_unavailable
+  die "$1"
+}
+
 self_dir=$(cd "$(dirname "$0")" && pwd)
 lock="$self_dir/../keel.lock"
 
 hook_mode=0
+hook_event=${2:-}
 [ "${1:-}" = hook ] && hook_mode=1
+
+# The root of the commands: the repository this wrapper belongs to (.agents/bin/kh), never an inherited value.
+case "$self_dir" in
+  */.agents/bin)
+    KH_ROOT=$(cd "$self_dir/../.." && pwd)
+    export KH_ROOT
+    ;;
+  *) unset KH_ROOT ;;
+esac
 
 # What to tell the human to run. In a repository the wrapper is .agents/bin/kh; the plugin carries its own copy
 # elsewhere (kh/bin/kh), where .agents/bin does not exist, so name this wrapper's own path.
@@ -29,14 +51,17 @@ case "$self_dir" in
   */.agents/bin) setup_cmd='sh .agents/bin/kh setup' ;;
   *) setup_cmd="sh $self_dir/$(basename "$0") version" ;;
 esac
-# the message goes into JSON: escape backslashes and double quotes
-setup_cmd_json=$(printf '%s' "$setup_cmd" | sed 's/\\/\\\\/g; s/"/\\"/g')
-unavailable_msg="kh unavailable: run $setup_cmd"
-unavailable_msg_json="kh unavailable: run $setup_cmd_json"
+# Why the hook cannot be answered by kh itself. Default: kh is not cached yet, which the command fixes. Each other
+# failure names its own cause (a missing lock is not fixed by setup).
+unavailable_why="run $setup_cmd"
 
 # answer_unavailable: hook mode without a verified kh (spec section 9.5).
 answer_unavailable() {
-  case "${2:-}" in
+  # the message goes into JSON: escape backslashes and double quotes
+  why_json=$(printf '%s' "$unavailable_why" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  unavailable_msg="kh unavailable: $unavailable_why"
+  unavailable_msg_json="kh unavailable: $why_json"
+  case "$hook_event" in
     pre-tool-use)
       payload=$(cat 2>/dev/null || true)
       kind=ask
@@ -47,7 +72,7 @@ answer_unavailable() {
         "$kind" "$unavailable_msg_json" "$kind" "$unavailable_msg_json"
       ;;
     stop)
-      printf '{"systemMessage":"kh unavailable: the gates did not run - run %s"}\n' "$setup_cmd_json"
+      printf '{"systemMessage":"kh unavailable: the gates did not run - %s"}\n' "$why_json"
       ;;
     *)
       printf 'kh: %s\n' "$unavailable_msg" >&2
@@ -57,8 +82,7 @@ answer_unavailable() {
 }
 
 if [ ! -f "$lock" ]; then
-  [ "$hook_mode" = 1 ] && answer_unavailable "$@"
-  die "no keel.lock beside $self_dir (expected $lock)"
+  refuse "no keel.lock beside $self_dir (expected $lock)"
 fi
 
 lock_get() {
@@ -66,34 +90,22 @@ lock_get() {
 }
 
 version=$(lock_get version)
-[ -n "$version" ] || {
-  [ "$hook_mode" = 1 ] && answer_unavailable "$@"
-  die "keel.lock has no version="
-}
+[ -n "$version" ] || refuse "keel.lock has no version="
 
 os=$(uname -s | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
 case "$os" in
   linux | darwin) ;;
-  *)
-    [ "$hook_mode" = 1 ] && answer_unavailable "$@"
-    die "unsupported operating system: $os (Linux and macOS; Windows through WSL)"
-    ;;
+  *) refuse "unsupported operating system: $os (Linux and macOS; Windows through WSL)" ;;
 esac
 arch=$(uname -m)
 case "$arch" in
   x86_64 | amd64) arch=amd64 ;;
   aarch64 | arm64) arch=arm64 ;;
-  *)
-    [ "$hook_mode" = 1 ] && answer_unavailable "$@"
-    die "unsupported architecture: $arch"
-    ;;
+  *) refuse "unsupported architecture: $arch" ;;
 esac
 
 want=$(lock_get "$os-$arch")
-[ -n "$want" ] || {
-  [ "$hook_mode" = 1 ] && answer_unavailable "$@"
-  die "keel.lock has no $os-$arch= line"
-}
+[ -n "$want" ] || refuse "keel.lock has no $os-$arch= line"
 
 if [ "$os" = darwin ]; then
   cache_root="${HOME:-/tmp}/Library/Caches/keel"
@@ -125,8 +137,7 @@ if [ -n "${KH_BINARY:-}" ]; then
   if verified "$KH_BINARY"; then
     exec "$KH_BINARY" "$@"
   fi
-  [ "$hook_mode" = 1 ] && answer_unavailable "$@"
-  die "checksum mismatch for $KH_BINARY"
+  refuse "checksum mismatch for $KH_BINARY"
 fi
 
 # 2. The cache.
@@ -135,12 +146,11 @@ if [ -f "$cached" ]; then
     [ -x "$cached" ] || chmod +x "$cached" 2>/dev/null || true
     exec "$cached" "$@"
   fi
-  [ "$hook_mode" = 1 ] && answer_unavailable "$@"
-  die "checksum mismatch for $cached"
+  refuse "checksum mismatch for $cached (delete it, then run $setup_cmd)"
 fi
 
 # 3. Download (never in hook mode).
-[ "$hook_mode" = 1 ] && answer_unavailable "$@"
+[ "$hook_mode" = 1 ] && answer_unavailable
 
 url="${KH_RELEASE_URL:-https://github.com/aether-labs-org/plugins/releases/download/cli/kh/v$version}/kh-$os-$arch"
 mkdir -p "$cache_dir" || die "cannot create $cache_dir"

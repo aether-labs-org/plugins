@@ -16,9 +16,14 @@ it out. A nested `AGENTS.md` (`templates/nested-AGENTS.md`) holds rules for one 
 
 Only `.claude/settings.json` carries the hooks (`templates/settings.json`):
 
-- `PreToolUse` with the matcher `Write|Edit|MultiEdit|NotebookEdit|Bash` runs `sh "$(git rev-parse --show-toplevel)/.agents/bin/kh"
-  hook pre-tool-use` (timeout 10).
-- `Stop` runs `... hook stop` (timeout 120).
+- `PreToolUse` with the matcher `Write|Edit|MultiEdit|NotebookEdit|Bash` runs the wrapper `.agents/bin/kh hook pre-tool-use`
+  (timeout 10); `Stop` runs `... hook stop` (timeout 120). Copy the commands of the template exactly. They locate the wrapper with
+  `${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}`: the Bash working directory of a session persists between calls and can
+  end up in another repository (a nested one, a worktree), where `git rev-parse` would name the wrong root. When the wrapper file
+  does not exist the command answers `ask` (PreToolUse) or a `systemMessage` (Stop) and exits 0; a hook that exits 2 blocks every
+  Bash, Write and Edit call of the session and the session cannot recover by itself.
+- The wrapper exports `KH_ROOT` (its repository), so `kh` works on that repository whatever the working directory is. Git hook
+  templates keep `$(git rev-parse --show-toplevel)`: git runs them at the top-level.
 
 Copilot CLI reads `.claude/settings.json` in the repository and runs all hook entries from all sources, switching to Claude's
 payload shape for PascalCase events; Devin CLI imports hooks, commands and subagents from `.claude/` by default. A separate

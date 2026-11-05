@@ -38,6 +38,10 @@ Before anything else run `sh "${CLAUDE_PLUGIN_ROOT}/kh/bin/kh" version`. It down
 per-user cache (once). Until `kh` is cached, this skill's setup hook cannot decide anything and asks the human to confirm every
 Write, Edit and Bash call, so run it first, and tell the human why if it asks about this call.
 
+Read templates and references with the Read tool or `cat "<absolute path>"`; never `cd` into the plugin directory (or any other
+directory outside the repository). The Bash working directory persists between calls, so a `cd` moves the whole session into
+whatever repository that directory belongs to, and the repository hooks then see the wrong one.
+
 ## Pick the mode
 
 Then run `bash "${CLAUDE_SKILL_DIR}/scripts/discover.sh"`; its `keel` line decides.
@@ -70,7 +74,8 @@ Then run `bash "${CLAUDE_SKILL_DIR}/scripts/discover.sh"`; its `keel` line decid
    asked or denied, is in [protection](references/protection.md).
 6. **Verify.** [Verify](references/verify.md): `kh validate`, `kh check`, `kh gate fast --all`, optionally `kh gate slow --all`.
    Report every result as measured.
-7. **Hand off.** Tell the human to review and commit, to run `sh .agents/bin/kh setup` once per clone, and to open a new session.
+7. **Hand off.** Tell the human to review and commit, to run `sh .agents/bin/kh setup` once per clone (it makes the git hooks
+   executable and sets `core.hooksPath`: never chmod them yourself), and to open a new session.
 
 ## Stop conditions
 

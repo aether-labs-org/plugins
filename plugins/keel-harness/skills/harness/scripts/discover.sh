@@ -5,7 +5,8 @@
 # changed or deleted. It reads the tree with git (tracked files plus untracked files that are not ignored).
 #
 # Keys: language, runtime, package-manager, test-runner, linter, formatter, type-checker, arch-tool, githook-manager,
-#       instructions, agent-hooks, commit-convention, branch-pattern, ci (informational), agents-dir, keel.
+#       instructions, agent-hooks, commit-convention, branch-pattern, ci (informational), agents-dir, keel, ignored (a harness
+#       path the current ignore rules would hide), ignored-dir / ignored-dir-truncated (the repository's ignored directories).
 set -uo pipefail
 
 dir="${1:-.}"
@@ -228,4 +229,28 @@ if [ -f .agents/keel.yml ]; then
   if [ -n "$v" ]; then emit keel "installed $v" ".agents/keel.lock"; else emit keel "installed unpinned" ".agents/keel.yml"; fi
 else
   emit keel absent ""
+fi
+
+# ---------------------------------------------------------------- ignore rules (git only)
+# A harness file that git ignores is not versioned, so nobody gets it on a clone. `--no-index` asks about the path whether or not
+# the file exists or is tracked, so this also answers for files that are not written yet.
+if [ "$is_git" = 1 ]; then
+  for p in .claude/settings.json .claude/agents/keel-reviewer.md .github/agents/keel-reviewer.agent.md .agents/keel.yml \
+    .agents/bin/kh .agents/githooks/pre-commit AGENTS.md CLAUDE.md; do
+    git check-ignore -q --no-index -- "$p" 2>/dev/null && emit ignored "$p" ""
+  done
+  # the ignored directories (directories only, the top-most of each tree), for the secrets scan allowlist and the
+  # .gitignore proposal; the list is capped
+  cap=50
+  idirs="$(git ls-files --others --ignored --exclude-standard --directory 2>/dev/null | grep '/$' | LC_ALL=C sort |
+    awk 'index($0, last) != 1 || last == "" { print; last = $0 }' || true)"
+  if [ -n "$idirs" ]; then
+    n=0; extra=0
+    while IFS= read -r d; do
+      if [ "$n" -lt "$cap" ]; then emit ignored-dir "$d" ""; n=$((n + 1)); else extra=$((extra + 1)); fi
+    done <<EOF_IDIRS
+$idirs
+EOF_IDIRS
+    [ "$extra" -gt 0 ] && emit ignored-dir-truncated "$extra" "more ignored directories not listed (the first $cap are above)"
+  fi
 fi

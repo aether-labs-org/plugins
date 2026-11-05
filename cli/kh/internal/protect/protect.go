@@ -85,11 +85,24 @@ func Load(root string, cfg *config.Config, setup bool) Set {
 		add(Guides, "AGENTS.md", "CLAUDE.md", "docs/**/*.md", ".github/agents/**")
 		add(Engine, ".agents/**")
 	}
+	s.addUser()
+	return s
+}
+
+func (s *Set) addUser() {
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		for _, g := range userRules {
 			s.user = append(s.user, rule{filepath.ToSlash(filepath.Join(home, g)), AgentHooks})
 		}
 	}
+}
+
+// LoadUser is the protected set of a path that is in no repository, or in one
+// without a harness: only the user-level agent settings (a hook switched off there
+// switches it off everywhere).
+func LoadUser() Set {
+	var s Set
+	s.addUser()
 	return s
 }
 
@@ -134,10 +147,27 @@ func (s Set) candidates(p string) (rels []string, abs []string) {
 	}
 	full := p
 	if !filepath.IsAbs(p) {
+		if s.rootRaw == "" {
+			return nil, nil
+		}
 		full = filepath.Join(s.rootRaw, p)
 	}
 	full = filepath.Clean(full)
 	seen := map[string]bool{}
+	addAbs := func(a string) {
+		a = filepath.ToSlash(a)
+		if !seen["abs:"+a] {
+			seen["abs:"+a] = true
+			abs = append(abs, a)
+		}
+	}
+	// the user-level rules are absolute: always offered as such, also when the
+	// path lies inside the repository (a home directory that is itself a repository)
+	addAbs(full)
+	addAbs(resolve(full))
+	if s.rootRaw == "" {
+		return nil, abs
+	}
 	for _, c := range []struct{ path, root string }{
 		{full, s.rootRaw}, {full, s.root}, {resolve(full), s.root},
 	} {
@@ -146,12 +176,6 @@ func (s Set) candidates(p string) (rels []string, abs []string) {
 			if !seen[r] {
 				seen[r] = true
 				rels = append(rels, r)
-			}
-		} else {
-			a := filepath.ToSlash(c.path)
-			if !seen[a] {
-				seen[a] = true
-				abs = append(abs, a)
 			}
 		}
 	}

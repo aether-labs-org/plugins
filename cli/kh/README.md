@@ -20,7 +20,7 @@ exit code, a parser or a baseline, never from a model.
 
 | Command | What it does |
 | --- | --- |
-| `kh run <script> [-- extra args]` | One declared script. Extra arguments are appended, each as one word. |
+| `kh run [--all] <script> [-- extra args]` | One declared script. Extra arguments are appended, each as one word. `--all` runs it over every tracked or untracked (not ignored) candidate file, as `kh gate <name> --all` does, instead of the changed ones. |
 | `kh run [--timeout D] [--json] -- <command...>` | Any command: capture, verdict from the exit code, generic reduction. |
 | `kh gate <name> [--all] [--json]` | The gate's scripts, in order, under a lock. `--all` passes every tracked or untracked (not ignored) file instead of the changed ones. |
 | `kh show <id> [--failures \| --full \| --json]` | A stored run or gate. |
@@ -51,6 +51,16 @@ The repository carries `.agents/bin/kh` (a POSIX `sh` wrapper, `wrapper/kh` here
 execs it. `KH_BINARY` (verified against the lock too) and `KH_RELEASE_URL` (a mirror) override the
 source. In hook mode the wrapper never downloads: without a verified binary it answers `ask` (`deny`
 under `bypassPermissions`/`dontAsk`) for PreToolUse and a non-blocking notice for Stop.
+
+### Which repository a command works on
+
+The wrapper of a repository (`.agents/bin/kh`) exports `KH_ROOT=<that repository>`, overriding any inherited value; the plugin's
+copy (`kh/bin/kh`) unsets it. `kh` takes the root of a command from `KH_ROOT` when it is set (it must be the top-level of a git
+work tree, else `kh` exits 3), and otherwise from the git top-level of the working directory. An agent session can leave its
+repository (`cd` into a nested repository or a worktree, which is another git repository); `KH_ROOT` keeps the commands, `kh
+hook stop` and the protected set on the project. `kh hook pre-tool-use` checks each write target against the protected set of the
+repository that contains the target (a repository without `.agents/keel.yml` has none, except in `--setup` mode, which applies
+the setup defaults), and intercepts declared scripts with the config of the repository the command runs in.
 
 ```
 make -C cli/kh dist VERSION=0.5.0     # dist/kh-<os>-<arch> and dist/SHA256SUMS, byte-identical on a rebuild
