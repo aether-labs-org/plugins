@@ -12,6 +12,7 @@
 # wrapper belongs to and not on whatever repository the working directory happens to be in (an agent session can
 # cd into a nested repository or a worktree). The plugin's copy unsets it: there the repository is the working
 # directory's.
+# KH_ROOT is only this hand-off: kh does not pass it on to the scripts and commands it runs.
 #
 # In hook mode (kh hook ...) the wrapper never downloads. Without a verified binary it
 # answers by itself, so that the agent's protection does not silently disappear.

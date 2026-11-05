@@ -84,6 +84,7 @@ func TestRunNoKeelYml(t *testing.T) {
 	if out, err := exec.Command("git", "-C", d, "init", "-q", ".").CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v\n%s", err, out)
 	}
+	t.Setenv("KH_ROOT", "")
 	t.Chdir(d)
 	_, errb, rc := run("run", "--", "true")
 	if rc != cli.ExitError || !strings.Contains(errb, "no .agents/keel.yml at the repository root") {
@@ -92,6 +93,7 @@ func TestRunNoKeelYml(t *testing.T) {
 }
 
 func TestRunNotGit(t *testing.T) {
+	t.Setenv("KH_ROOT", "")
 	t.Chdir(t.TempDir())
 	_, errb, rc := run("run", "--", "true")
 	if rc != cli.ExitError || !strings.Contains(errb, "not a git repository") {
@@ -355,6 +357,7 @@ func TestHookFailSafeOnPinMismatch(t *testing.T) {
 }
 
 func TestHookOutsideARepositoryFailsSafe(t *testing.T) {
+	t.Setenv("KH_ROOT", "")
 	d := t.TempDir()
 	t.Chdir(d)
 	out, _, rc := runWithStdin(`{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"`+d+`","tool_input":{"command":"ls"}}`, "hook", "pre-tool-use")
@@ -368,6 +371,7 @@ func TestHookOutsideARepositoryFailsSafe(t *testing.T) {
 }
 
 func TestHookSetupModeWithoutKeelYml(t *testing.T) {
+	t.Setenv("KH_ROOT", "")
 	d := t.TempDir()
 	if out, err := exec.Command("git", "-C", d, "init", "-q", ".").CombinedOutput(); err != nil {
 		t.Fatalf("%v %s", err, out)

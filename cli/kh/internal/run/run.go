@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -30,7 +31,7 @@ const drainWait = 2 * time.Second
 type Spec struct {
 	Argv      []string // executed directly, no shell
 	Dir       string
-	Env       []string // nil inherits the environment of kh
+	Env       []string // nil inherits the environment of kh; KH_ROOT is never passed on (see childEnv)
 	Timeout   time.Duration
 	KillGrace time.Duration
 }
@@ -46,6 +47,23 @@ type Outcome struct {
 	Finished    time.Time
 
 	pgid int // for tests
+}
+
+// childEnv is the environment of a command kh starts: env (nil = kh's own) without KH_ROOT. KH_ROOT is the
+// wrapper's hand-off to the kh process it execs and nothing more; a kh binary started by a script (a test
+// suite that builds kh, a script that calls the binary) must work on its own working directory, not on the
+// repository the outer kh serves.
+func childEnv(env []string) []string {
+	if env == nil {
+		env = os.Environ()
+	}
+	out := make([]string, 0, len(env))
+	for _, e := range env {
+		if !strings.HasPrefix(e, "KH_ROOT=") {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // Run executes s, copying the combined stdout and stderr to out. On timeout or
@@ -84,7 +102,7 @@ func Run(ctx context.Context, s Spec, out io.Writer) (o Outcome) {
 	}
 	cmd := exec.Command(s.Argv[0], s.Argv[1:]...)
 	cmd.Dir = s.Dir
-	cmd.Env = s.Env
+	cmd.Env = childEnv(s.Env)
 	cmd.Stdout = pw
 	cmd.Stderr = pw
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

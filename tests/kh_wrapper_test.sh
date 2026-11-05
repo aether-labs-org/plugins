@@ -289,4 +289,27 @@ out="$(cd "$DW" && payload Bash "$DW" command "ls" > "$W/pl.json" && env -u CLAU
 out="$(cd "$DW" && payload Write "$DW" file_path "$D/.agents/keel.yml" > "$W/pl.json" && env CLAUDE_PROJECT_DIR="$D" KH_RELEASE_URL="$MIRROR1" sh -c "$PRE" < "$W/pl.json" 2>&1)"
 [ "$(verdict "$out")" = ask ] && ! printf '%s' "$out" | grep -q 'not found'; check "dogfood: with CLAUDE_PROJECT_DIR the project's wrapper answers" $?
 
+# ---- round 3 correction 2: KH_ROOT is the wrapper's hand-off to kh, not something scripts inherit ----
+# (a kh binary started by a script, e.g. a test suite that builds kh, would work on the outer repository)
+LK="$(newrepo "$V1" "$W/d1")"
+cat > "$LK/.agents/keel.yml" <<'YML'
+version: 1
+scripts:
+  showroot: "sh .agents/showroot.sh"
+gates:
+  fast: { scripts: [guard, showroot] }
+  commit: { scripts: [guard, showroot], changes: staged }
+  slow: { scripts: [guard, showroot], changes: branch }
+YML
+printf 'printf "%%s" "${KH_ROOT-unset}" > root.seen\n' > "$LK/.agents/showroot.sh"
+(cd "$LK" && git add -A && git commit -q -m seed)
+out="$(cd "$LK" && KH_ROOT=/somewhere/else KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh run showroot 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$(cat "$LK/root.seen" 2>/dev/null)" = unset ]; check "kh run <script>: the script sees no KH_ROOT" $?
+rm -f "$LK/root.seen"
+out="$(cd "$LK" && KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh run -- sh -c 'printf "%s" "${KH_ROOT-unset}" > root.seen' 2>&1)"
+[ "$(cat "$LK/root.seen" 2>/dev/null)" = unset ]; check "kh run -- <command>: the command sees no KH_ROOT" $?
+rm -f "$LK/root.seen"
+out="$(cd "$LK" && KH_RELEASE_URL="$MIRROR1" $SH .agents/bin/kh gate fast 2>&1)"
+[ "$(cat "$LK/root.seen" 2>/dev/null)" = unset ]; check "kh gate: the scripts see no KH_ROOT" $?
+
 finish

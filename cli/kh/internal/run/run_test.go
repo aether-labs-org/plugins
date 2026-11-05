@@ -167,3 +167,19 @@ func TestRunTimestamps(t *testing.T) {
 		t.Fatalf("%+v", o)
 	}
 }
+
+// KH_ROOT is the wrapper's hand-off to the kh process it execs: a kh started by a script must not inherit it.
+func TestRunDoesNotPassKhRoot(t *testing.T) {
+	t.Setenv("KH_ROOT", "/outer/repository")
+	t.Setenv("KH_KEEP", "yes")
+	var out bytes.Buffer
+	Run(context.Background(), Spec{Argv: sh(`printf '%s|%s' "${KH_ROOT-unset}" "${KH_KEEP-unset}"`)}, &out)
+	if out.String() != "unset|yes" {
+		t.Fatalf("inherited env: %q", out.String())
+	}
+	out.Reset()
+	Run(context.Background(), Spec{Argv: sh(`printf '%s|%s' "${KH_ROOT-unset}" "${KH_KEEP-unset}"`), Env: []string{"PATH=" + os.Getenv("PATH"), "KH_ROOT=/explicit", "KH_KEEP=no"}}, &out)
+	if out.String() != "unset|no" {
+		t.Fatalf("explicit env: %q", out.String())
+	}
+}

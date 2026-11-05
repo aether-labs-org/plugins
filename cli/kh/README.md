@@ -61,6 +61,8 @@ repository (`cd` into a nested repository or a worktree, which is another git re
 hook stop` and the protected set on the project. `kh hook pre-tool-use` checks each write target against the protected set of the
 repository that contains the target (a repository without `.agents/keel.yml` has none, except in `--setup` mode, which applies
 the setup defaults), and intercepts declared scripts with the config of the repository the command runs in.
+`KH_ROOT` is only the hand-off from the wrapper to the `kh` process it execs: `kh` removes it from the environment of every script and
+command it runs, so a `kh` binary started inside a script works on its own working directory.
 
 ```
 make -C cli/kh dist VERSION=0.5.0     # dist/kh-<os>-<arch> and dist/SHA256SUMS, byte-identical on a rebuild
