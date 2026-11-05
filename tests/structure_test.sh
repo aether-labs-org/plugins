@@ -18,7 +18,7 @@ jq -e . "$mp" >/dev/null 2>&1; check "marketplace.json is valid JSON" $?
 
 jq -e . "$pj" >/dev/null 2>&1; check "plugin.json is valid JSON" $?
 [ "$(jq -r .name "$pj" 2>/dev/null)" = "baymax" ]; check "plugin name is baymax" $?
-[ "$(jq -r .version "$pj" 2>/dev/null)" = "0.5.0-rc.1" ]; check "plugin version is 0.5.0-rc.1" $?
+[ "$(jq -r .version "$pj" 2>/dev/null)" = "0.5.0" ]; check "plugin version is 0.5.0" $?
 desc="$(jq -r .description "$pj" 2>/dev/null)"
 [ -n "$desc" ] && [ "$(jq -r '.plugins[0].description' "$mp" 2>/dev/null)" = "$desc" ] && grep -qF "$desc" "$root/README.md"; check "plugin.json, marketplace.json and the root README carry the same description" $?
 
