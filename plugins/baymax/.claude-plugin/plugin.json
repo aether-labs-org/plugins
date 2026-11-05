@@ -1,7 +1,7 @@
 {
   "name": "baymax",
   "description": "The Baymax harness: create, review and keep the AI-agent harness of a repository. One skill diagnoses, measures, asks in rounds and writes only what you confirm; the pinned bmax engine runs the gates.",
-  "version": "0.5.0",
+  "version": "0.5.0-rc.1",
   "author": {
     "name": "Aether Labs"
   },

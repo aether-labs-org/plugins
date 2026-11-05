@@ -5,21 +5,21 @@ Monorepo of Claude Code plugins: `plugins/baymax`, `plugins/second-brain` (with 
 
 ## Setup
 
-Once per clone: `sh .agents/bin/kh setup` (fetches the pinned `kh`, activates the git hooks, reports drift).
+Once per clone: `sh .agents/bin/bmax setup` (fetches the pinned `bmax`, activates the git hooks, reports drift).
 
 ## Commands
 
 | Purpose | Command |
 | --- | --- |
-| A declared script | `sh .agents/bin/kh run <script>` (the scripts are in `.agents/keel.yml`) |
-| Fast gate, before you stop | `sh .agents/bin/kh gate fast` |
-| Slow gate, before a push | `sh .agents/bin/kh gate slow` |
-| An undeclared command, with evidence | `sh .agents/bin/kh run -- <command>` |
+| A declared script | `sh .agents/bin/bmax run <script>` (the scripts are in `.agents/bmax.yml`) |
+| Fast gate, before you stop | `sh .agents/bin/bmax gate fast` |
+| Slow gate, before a push | `sh .agents/bin/bmax gate slow` |
+| An undeclared command, with evidence | `sh .agents/bin/bmax run -- <command>` |
 | Whole test suite (about 220s, exit code only) | `make check` |
 | Validate the three plugin manifests (needs the `claude` CLI) | `make validate` |
 
-Do not pipe the output of `kh`: it is already reduced. The rest of any run: `sh .agents/bin/kh show <id> [--failures | --full]`.
-A declared tool called directly (for example `make check` when `suite` is a script) is denied with the `kh run` to use.
+Do not pipe the output of `bmax`: it is already reduced. The rest of any run: `sh .agents/bin/bmax show <id> [--failures | --full]`.
+A declared tool called directly (for example `make check` when `suite` is a script) is denied with the `bmax run` to use.
 Do not run `make check` after every edit: it belongs to the slow gate.
 
 ## Working
@@ -34,15 +34,15 @@ Do not run `make check` after every edit: it belongs to the slow gate.
 
 ## Boundaries
 
-- Protected files (`.agents/keel.yml`, `.agents/keel.lock`, `.agents/bin/`, `.agents/baselines/`, `.agents/githooks/`, agent
-  settings, the guides listed in `keel.yml`, `docs/review.md`, ADRs) are changed only when the human confirms the edit:
+- Protected files (`.agents/bmax.yml`, `.agents/bmax.lock`, `.agents/bin/`, `.agents/baselines/`, `.agents/githooks/`, agent
+  settings, the guides listed in `bmax.yml`, `docs/review.md`, ADRs) are changed only when the human confirms the edit:
   explain the change you want and why, and let them confirm or make it. Do not edit them through the shell.
-- Never use `git commit --no-verify`, change `core.hooksPath`, or set `KH_BINARY` or `KH_RELEASE_URL` yourself.
+- Never use `git commit --no-verify`, change `core.hooksPath`, or set `BMAX_BINARY` or `BMAX_RELEASE_URL` yourself.
 - This protection is friction with evidence, not a security boundary.
 
 ## Before you finish
 
-1. Run `sh .agents/bin/kh gate fast`; read every failure and fix it. Run the slow gate before a push.
+1. Run `sh .agents/bin/bmax gate fast`; read every failure and fix it. Run the slow gate before a push.
 2. Ask the human whether to run the independent review (`docs/review.md`).
 3. Close the plan: delete `.agents/plans/<slug>.md` and add one line to `.agents/progress.md`:
    `- YYYY-MM-DD <slug>: done|partial|abandoned — <one line>`.

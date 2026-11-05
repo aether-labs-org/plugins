@@ -1,4 +1,4 @@
-# keel.yml for the aether-labs plugins monorepo. Run `sh .agents/bin/kh validate` after any change.
+# bmax.yml for the aether-labs plugins monorepo. Run `sh .agents/bin/bmax validate` after any change.
 version: 1
 guides: [AGENTS.md, CLAUDE.md, docs/review.md, docs/architecture.md]
 githooks: { mode: native, pre-commit: commit, pre-push: slow, commit-msg: commit-message }

@@ -1,11 +1,11 @@
 # Review
 
 The single copy of who reviews, when, and the checklist. The reviewer definition
-(`.claude/agents/keel-reviewer.md`) points here and says nothing else.
+(`.claude/agents/baymax-reviewer.md`) points here and says nothing else.
 
 ## Who
 
-- The `keel-reviewer` subagent (fresh context, read-only), or a named person.
+- The `baymax-reviewer` subagent (fresh context, read-only), or a named person.
 
 ## When
 

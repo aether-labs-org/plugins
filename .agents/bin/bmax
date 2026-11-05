@@ -1,26 +1,26 @@
 #!/bin/sh
-# kh wrapper (keel). Runs the kh binary pinned by keel.lock: downloads it once into a
+# bmax wrapper (Baymax). Runs the bmax binary pinned by bmax.lock: downloads it once into a
 # per-user, per-version cache, verifies its sha256 and execs it. POSIX sh, no bashisms.
 #
-#   sh .agents/bin/kh <command>        in a repository (the lock is .agents/keel.lock)
-#   sh kh/bin/kh <command>             in the keel plugin (the lock is kh/keel.lock)
+#   sh .agents/bin/bmax <command>        in a repository (the lock is .agents/bmax.lock)
+#   sh bmax/bin/bmax <command>           in the Baymax plugin (the lock is bmax/bmax.lock)
 #
-# KH_BINARY=<path>    use this binary instead of the cache (still verified against the lock)
-# KH_RELEASE_URL=<u>  download <u>/kh-<os>-<arch> instead of the GitHub release (a mirror)
+# BMAX_BINARY=<path>    use this binary instead of the cache (still verified against the lock)
+# BMAX_RELEASE_URL=<u>  download <u>/bmax-<os>-<arch> instead of the GitHub release (a mirror)
 #
-# KH_ROOT: in a repository the wrapper exports KH_ROOT=<the repository>, so that kh works on the repository the
+# BMAX_ROOT: in a repository the wrapper exports BMAX_ROOT=<the repository>, so that bmax works on the repository the
 # wrapper belongs to and not on whatever repository the working directory happens to be in (an agent session can
 # cd into a nested repository or a worktree). The plugin's copy unsets it: there the repository is the working
 # directory's.
-# KH_ROOT is only this hand-off: kh does not pass it on to the scripts and commands it runs. (Nor the git
+# BMAX_ROOT is only this hand-off: bmax does not pass it on to the scripts and commands it runs. (Nor the git
 # variables a git hook exports to tie commands to one repository: GIT_DIR, GIT_INDEX_FILE and the like.)
 #
-# In hook mode (kh hook ...) the wrapper never downloads. Without a verified binary it
+# In hook mode (bmax hook ...) the wrapper never downloads. Without a verified binary it
 # answers by itself, so that the agent's protection does not silently disappear.
 set -eu
 
 die() {
-  printf 'kh: %s\n' "$1" >&2
+  printf 'bmax: %s\n' "$1" >&2
   exit 3
 }
 
@@ -32,37 +32,37 @@ refuse() {
 }
 
 self_dir=$(cd "$(dirname "$0")" && pwd)
-lock="$self_dir/../keel.lock"
+lock="$self_dir/../bmax.lock"
 
 hook_mode=0
 hook_event=${2:-}
 [ "${1:-}" = hook ] && hook_mode=1
 
-# The root of the commands: the repository this wrapper belongs to (.agents/bin/kh), never an inherited value.
+# The root of the commands: the repository this wrapper belongs to (.agents/bin/bmax), never an inherited value.
 case "$self_dir" in
   */.agents/bin)
-    KH_ROOT=$(cd "$self_dir/../.." && pwd)
-    export KH_ROOT
+    BMAX_ROOT=$(cd "$self_dir/../.." && pwd)
+    export BMAX_ROOT
     ;;
-  *) unset KH_ROOT ;;
+  *) unset BMAX_ROOT ;;
 esac
 
-# What to tell the human to run. In a repository the wrapper is .agents/bin/kh; the plugin carries its own copy
-# elsewhere (kh/bin/kh), where .agents/bin does not exist, so name this wrapper's own path.
+# What to tell the human to run. In a repository the wrapper is .agents/bin/bmax; the plugin carries its own copy
+# elsewhere (bmax/bin/bmax), where .agents/bin does not exist, so name this wrapper's own path.
 case "$self_dir" in
-  */.agents/bin) setup_cmd='sh .agents/bin/kh setup' ;;
+  */.agents/bin) setup_cmd='sh .agents/bin/bmax setup' ;;
   *) setup_cmd="sh $self_dir/$(basename "$0") version" ;;
 esac
-# Why the hook cannot be answered by kh itself. Default: kh is not cached yet, which the command fixes. Each other
+# Why the hook cannot be answered by bmax itself. Default: bmax is not cached yet, which the command fixes. Each other
 # failure names its own cause (a missing lock is not fixed by setup).
 unavailable_why="run $setup_cmd"
 
-# answer_unavailable: hook mode without a verified kh (spec section 9.5).
+# answer_unavailable: hook mode without a verified bmax (spec section 9.5).
 answer_unavailable() {
   # the message goes into JSON: escape backslashes and double quotes
   why_json=$(printf '%s' "$unavailable_why" | sed 's/\\/\\\\/g; s/"/\\"/g')
-  unavailable_msg="kh unavailable: $unavailable_why"
-  unavailable_msg_json="kh unavailable: $why_json"
+  unavailable_msg="bmax unavailable: $unavailable_why"
+  unavailable_msg_json="bmax unavailable: $why_json"
   case "$hook_event" in
     pre-tool-use)
       payload=$(cat 2>/dev/null || true)
@@ -74,17 +74,17 @@ answer_unavailable() {
         "$kind" "$unavailable_msg_json" "$kind" "$unavailable_msg_json"
       ;;
     stop)
-      printf '{"systemMessage":"kh unavailable: the gates did not run - %s"}\n' "$why_json"
+      printf '{"systemMessage":"bmax unavailable: the gates did not run - %s"}\n' "$why_json"
       ;;
     *)
-      printf 'kh: %s\n' "$unavailable_msg" >&2
+      printf 'bmax: %s\n' "$unavailable_msg" >&2
       ;;
   esac
   exit 0
 }
 
 if [ ! -f "$lock" ]; then
-  refuse "no keel.lock beside $self_dir (expected $lock)"
+  refuse "no bmax.lock beside $self_dir (expected $lock)"
 fi
 
 lock_get() {
@@ -92,7 +92,7 @@ lock_get() {
 }
 
 version=$(lock_get version)
-[ -n "$version" ] || refuse "keel.lock has no version="
+[ -n "$version" ] || refuse "bmax.lock has no version="
 
 os=$(uname -s | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
 case "$os" in
@@ -107,15 +107,15 @@ case "$arch" in
 esac
 
 want=$(lock_get "$os-$arch")
-[ -n "$want" ] || refuse "keel.lock has no $os-$arch= line"
+[ -n "$want" ] || refuse "bmax.lock has no $os-$arch= line"
 
 if [ "$os" = darwin ]; then
-  cache_root="${HOME:-/tmp}/Library/Caches/keel"
+  cache_root="${HOME:-/tmp}/Library/Caches/bmax"
 else
-  cache_root="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/keel"
+  cache_root="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/bmax"
 fi
 cache_dir="$cache_root/$version"
-cached="$cache_dir/kh"
+cached="$cache_dir/bmax"
 
 sha_of() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -134,12 +134,12 @@ verified() {
   [ "$got" = "$want" ]
 }
 
-# 1. KH_BINARY, verified like a download.
-if [ -n "${KH_BINARY:-}" ]; then
-  if verified "$KH_BINARY"; then
-    exec "$KH_BINARY" "$@"
+# 1. BMAX_BINARY, verified like a download.
+if [ -n "${BMAX_BINARY:-}" ]; then
+  if verified "$BMAX_BINARY"; then
+    exec "$BMAX_BINARY" "$@"
   fi
-  refuse "checksum mismatch for $KH_BINARY"
+  refuse "checksum mismatch for $BMAX_BINARY"
 fi
 
 # 2. The cache.
@@ -154,9 +154,9 @@ fi
 # 3. Download (never in hook mode).
 [ "$hook_mode" = 1 ] && answer_unavailable
 
-url="${KH_RELEASE_URL:-https://github.com/aether-labs-org/plugins/releases/download/cli/kh/v$version}/kh-$os-$arch"
+url="${BMAX_RELEASE_URL:-https://github.com/aether-labs-org/plugins/releases/download/cli/bmax/v$version}/bmax-$os-$arch"
 mkdir -p "$cache_dir" || die "cannot create $cache_dir"
-tmp=$(mktemp "$cache_dir/kh.XXXXXX") || die "cannot create a temporary file in $cache_dir"
+tmp=$(mktemp "$cache_dir/bmax.XXXXXX") || die "cannot create a temporary file in $cache_dir"
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
 if command -v curl >/dev/null 2>&1; then
   curl -fsSL -o "$tmp" "$url" || die "cannot download $url"

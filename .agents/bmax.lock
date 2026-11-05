@@ -1,0 +1,6 @@
+# bmax.lock - bmax pin; written by Baymax, do not edit by hand
+version=0.5.0-rc.1
+linux-amd64=b4eb353d58a654e92f968691c9d9209552400aeb964ab7785861ba4cb84c3f36
+linux-arm64=ae06fa1be336c1814ee323c857f01926f60bb0bbb0bf5ce92a453aed81892441
+darwin-amd64=ea37824fa77d566e90dfddeb9f86eaffc75e43f9fa742c22598dfdc36c162109
+darwin-arm64=b1675a7c33d100adf91fe09b314fa2a26e88fc671574d353134dfa58735f6eee

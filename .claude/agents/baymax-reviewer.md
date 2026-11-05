@@ -1,5 +1,5 @@
 ---
-name: keel-reviewer
+name: baymax-reviewer
 description: Independent reviewer of a change. Use before finishing or before a pull request, after the human agreed to the review. Reads the diff in a fresh context, applies docs/review.md and reports findings; it changes nothing.
 tools: Read, Grep, Glob, Bash
 ---

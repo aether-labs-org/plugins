@@ -1,6 +1,0 @@
-# keel.lock - kh pin; written by keel, do not edit by hand
-version=0.5.0
-linux-amd64=c6aa773cad3c8805b76216d09a023f714b5372b2bf1fb1aa308c25c1e4cb1ae4
-linux-arm64=f9ad72644497c5a8ba4fa8847a05a4cfa4e6c794213548e806e45d2502db1387
-darwin-amd64=f0021163d770df7aefa815d14979c9844053a930340fcd195dbc112b508ebad3
-darwin-arm64=656ea6637bc06f23e58bba18fea2cdf04d8c185ca9ee37a901d0c0d40688f953
