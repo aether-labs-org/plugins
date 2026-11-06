@@ -1,0 +1,40 @@
+{
+  "basis": "Estimate, not a quote. Per run: half of the case max_turns are used (at least 8); the context starts at 15k tokens and grows 1.5k per turn, read from the prompt cache at USD 0.30 per million; 1.5k fresh tokens per turn written to the cache at USD 3.75 per million; 600 output tokens per turn at USD 15 per million (Sonnet-class prices, to be checked against the current price list before approval); x1.3 when the case allows the Agent tool; each llm grader adds 3 judge calls of about 8k input and 150 output tokens at haiku-class prices. Both environments pin --model sonnet and --judge-model haiku. Compare the first lot's real cost with the estimate and correct the constants in run.py before approving the next lot.",
+  "comparison": "v0.3 x v0.2.0, both with the plugin, 3 runs per arm. A new case passes when v0.3 passes 2 of 3 and is above v0.2.0. An existing case does not regress when v0.3 is not more than 1 run below v0.2.0.",
+  "lots": [
+    {
+      "name": "sandbox-new",
+      "environment": "sandbox",
+      "runs": 3,
+      "cases": ["discovery-vague-brief", "discovery-solution-first", "quick-consult", "requirements-after-discovery", "benchmark-fit"],
+      "allow_tools": {
+        "quick-consult": ["Write", "Edit"],
+        "discovery-solution-first": ["Write", "Edit"]
+      }
+    },
+    {
+      "name": "sandbox-regression",
+      "environment": "sandbox",
+      "runs": 3,
+      "cases": ["design-discussion", "should-not-trigger", "diagram-trigger"],
+      "allow_tools": {}
+    },
+    {
+      "name": "harness-new",
+      "environment": "harness",
+      "runs": 3,
+      "cases": ["discovery-candidates", "design-pushback", "review-anti-goal", "legacy-workspace", "legacy-workspace-requirements", "reference-injection", "greenfield-discovery"],
+      "allow_tools": {}
+    },
+    {
+      "name": "harness-regression",
+      "environment": "harness",
+      "runs": 3,
+      "cases": ["greenfield-web-3tier", "wa-review-qualitative"],
+      "allow_tools": {
+        "greenfield-web-3tier": ["Write", "Edit", "Bash"],
+        "wa-review-qualitative": ["Write", "Edit", "Bash"]
+      }
+    }
+  ]
+}

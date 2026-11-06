@@ -13,6 +13,7 @@
 3.
 
 **Decisions needing approval.**
+- ADR-0001 (`decisions/0001-direction.md`, when it exists) - <the approach chosen among the candidates>: <what approving it commits to>
 - ADR-NNNN - <title>: <what approving it commits to>
 
 **Next steps.**

@@ -1,0 +1,6 @@
+---
+type: tool_used
+tool: Agent
+input_match: 'reference-reader'
+arm: with-only
+---

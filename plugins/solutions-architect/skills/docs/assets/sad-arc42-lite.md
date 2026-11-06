@@ -7,7 +7,8 @@
 | Last updated | YYYY-MM-DD |
 
 ## 1. Goals and requirements
-Link: [requirements](requirements.md). Top quality goals (NFR ids and measures):
+Links: [framing](framing.md) (goals, non-goals, anti-goals; omit when there is none) and
+[requirements](requirements.md). Top quality goals (NFR ids and measures):
 
 ## 2. Constraints
 CON ids and what each rules out.
@@ -16,7 +17,8 @@ CON ids and what each rules out.
 ![Context](diagrams/context.mmd) - who uses the system and what it depends on.
 
 ## 4. Solution strategy
-Three to five sentences: the key decisions and why, each with its ADR link.
+Three to five sentences: the direction ADR (`decisions/0001-direction.md`, when it exists) first (the candidate chosen and why the others lost),
+then the key decisions and why, each with its ADR link.
 
 ## 5. Building blocks
 ![Topology](diagrams/topology.drawio.svg) - one line per component (manifest id, service, ADR).

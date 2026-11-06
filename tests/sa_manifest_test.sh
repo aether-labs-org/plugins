@@ -37,4 +37,30 @@ json.dump(m, open(p, "w"))
 PY
 python3 "$v" "$tmp/manifest.json" | grep -q 'warning: NFRs without an accepted ADR: NFR-002'; check "uncovered NFR is a warning" $?
 python3 "$v" "$tmp/manifest.json" --strict-trace >/dev/null; [ $? -eq 1 ]; check "--strict-trace fails on uncovered NFR" $?
+
+# v0.3: stage 0 (discovery) and the framing.md check (D34).
+dfx="$root/tests/fixtures/sa/manifest/discovery"
+python3 "$v" "$dfx/manifest.json" >/dev/null; check "gates.discovery pass with framing.md validates" $?
+python3 "$v" "$fx/manifest.json" >/dev/null; check "a v0.2 manifest without gates.discovery still validates" $?
+
+rm -rf "$tmp" && mkdir "$tmp" && cp -r "$dfx/." "$tmp/" && rm "$tmp/framing.md"
+out="$(python3 "$v" "$tmp/manifest.json")"; rc=$?
+[ "$rc" -eq 1 ]; check "gates.discovery pass without framing.md fails" $?
+printf '%s\n' "$out" | grep -q 'framing.md does not exist'; check "missing framing.md is reported" $?
+
+python3 - "$tmp/manifest.json" <<'PY'
+import json, sys
+p = sys.argv[1]; m = json.load(open(p))
+m["gates"]["discovery"] = {"status": "skipped", "at": "2026-11-06", "notes": "workspace created before v0.3"}
+json.dump(m, open(p, "w"))
+PY
+python3 "$v" "$tmp/manifest.json" >/dev/null; check "gates.discovery skipped needs no framing.md" $?
+
+python3 - "$tmp/manifest.json" <<'PY'
+import json, sys
+p = sys.argv[1]; m = json.load(open(p))
+m["stage"] = "discovery"; m["gates"] = {}
+json.dump(m, open(p, "w"))
+PY
+python3 "$v" "$tmp/manifest.json" >/dev/null; check "stage discovery is accepted" $?
 exit $fail

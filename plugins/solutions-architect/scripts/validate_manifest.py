@@ -10,7 +10,7 @@ import os
 import re
 import sys
 
-STAGES = ["requirements", "design", "diagram", "finops-compare", "iac",
+STAGES = ["discovery", "requirements", "design", "diagram", "finops-compare", "iac",
           "finops-estimate", "docs", "review", "done"]
 GATE_STATUS = {"pending", "pass", "fail", "skipped"}
 REQ_ID = re.compile(r"^(REQ|NFR|CON)-\d{3}$")
@@ -39,6 +39,10 @@ def validate(m, base):
             errors.append(f"gates.{g}: unknown stage")
         elif not isinstance(v, dict) or v.get("status") not in GATE_STATUS:
             errors.append(f"gates.{g}.status must be one of {sorted(GATE_STATUS)}")
+    discovery = (m.get("gates") or {}).get("discovery")
+    if isinstance(discovery, dict) and discovery.get("status") == "pass" \
+            and not os.path.isfile(os.path.join(base, "framing.md")):
+        errors.append("gates.discovery is 'pass' but framing.md does not exist next to the manifest")
 
     req_ids = set()
     for r in m.get("requirements", []):

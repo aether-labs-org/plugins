@@ -21,7 +21,7 @@
     {
       "name": "solutions-architect",
       "source": "./plugins/solutions-architect",
-      "description": "Turn the agent into an AWS solutions architect: requirements, decisions, draw.io views, list-price FinOps, Terraform gate, docs and review - read-only.",
+      "description": "Turn the agent into an AWS solutions architect: critical discovery, requirements, decisions, draw.io views, list-price FinOps, Terraform gate, docs and review - read-only.",
       "category": "development",
       "tags": [
         "aws",

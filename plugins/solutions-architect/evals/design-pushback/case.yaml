@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: design-pushback
+description: The user disagrees with a proposed ADR without evidence; the agent states the impact once, records the user's choice with Source user and the risk, and leaves the scoring unchanged.
+tags: [harness, design, critical-stance]
+context:
+  scaffold_script: scaffold.sh
