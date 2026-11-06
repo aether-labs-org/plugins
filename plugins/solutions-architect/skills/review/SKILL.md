@@ -28,7 +28,11 @@ comes from the official aws-core skill and the method review from a fresh-contex
    a pillar review from memory.
 3. **Lenses.** Apply the lenses in `references/lenses.md` whose trigger matches the workload.
 4. **Method checks.** Go through `references/method-checks.md`; each check is pass, fail or
-   not applicable, with the artifact that proves it.
+   not applicable, with the artifact that proves it. Read `architecture/framing.md` when it
+   exists: its anti-goals, candidates and market references feed checks 13 to 15. List every
+   ADR that violates an anti-goal as a blocker, unless an ADR records the user's override with
+   `Source: user`, cites the anti-goal it overrides in its own words (quoting its text from
+   `framing.md`) and states the risk it accepts (check 13).
 5. **Independent pass.** Dispatch the `architecture-reviewer` subagent with the workspace path.
    It answers with blockers, risks and suggestions. If subagents are unavailable, do a second
    pass yourself reading only the artifacts, not this conversation.
@@ -40,6 +44,10 @@ comes from the official aws-core skill and the method review from a fresh-contex
      the region) and whether a Revisit when trigger has fired;
    - the assumptions that look fragile;
    - a verdict: `keep`, `revisit` or `supersede`.
+
+   The list always includes the **direction ADR** (`decisions/0001-direction.md`, when it exists) and revisits the
+   **pre-mortem** of `framing.md`: which of its twelve-month failure reasons now look likelier,
+   given what the design decided.
 
    Put this list to the user in one message and ask which decisions, if any, they want to
    reopen. Each one they reopen becomes an action for the `design` stage (a new ADR that

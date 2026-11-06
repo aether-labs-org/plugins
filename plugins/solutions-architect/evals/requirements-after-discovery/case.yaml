@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: requirements-after-discovery
+description: Requirements reads framing.md, does not repeat what it answers, and asks the discriminating measures first, plus the region.
+tags: [sandbox, requirements, discovery]
+context:
+  scaffold_script: scaffold.sh

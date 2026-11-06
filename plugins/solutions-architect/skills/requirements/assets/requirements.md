@@ -4,19 +4,23 @@
 <!-- One paragraph: the business problem and who has it. -->
 
 ## Functional requirements
-| Id | Requirement | Priority |
-|---|---|---|
-| REQ-001 | | must |
+| Id | Requirement | Priority | Source |
+|---|---|---|---|
+| REQ-001 | | must | |
 
 ## Quality requirements (NFRs)
-| Id | Attribute | Scenario (source, stimulus, artifact, environment -> response, measure) |
-|---|---|---|
-| NFR-001 | | |
+| Id | Attribute | Scenario (source, stimulus, artifact, environment -> response, measure) | Source |
+|---|---|---|---|
+| NFR-001 | | | |
 
 ## Constraints
-| Id | Constraint | Origin |
-|---|---|---|
-| CON-001 | | |
+| Id | Constraint | Origin | Source |
+|---|---|---|---|
+| CON-001 | | | |
+
+<!-- Source, on every row, is one of: user (the user said it), inferred (you deduced it from evidence), default (a plugin
+     default), agent (your own decision). Origin is where the constraint comes from (a contract,
+     a law, an existing system); Source is who stated it. -->
 
 ## Recovery objectives
 | Scope | RTO | RPO |

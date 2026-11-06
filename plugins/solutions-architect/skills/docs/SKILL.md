@@ -16,16 +16,20 @@ publishes it afterwards is their choice.
 
 ## Procedure
 
-1. Read the manifest, `requirements.md`, the accepted ADRs, `diagrams/`, `finops/estimate.md` and
-   `reports/iac-gate.json`. Note any stage whose gate is not `pass` - the documents must say so.
+1. Read the manifest, `framing.md` (when it exists), `requirements.md`, the accepted ADRs,
+   `diagrams/`, `finops/estimate.md` and `reports/iac-gate.json`. Note any stage whose gate is
+   not `pass` - the documents must say so.
 2. Write `architecture/README.md` from `assets/sad-arc42-lite.md`. Each section is a short
    paragraph plus links: requirements by id, decisions by ADR id, views by file (embed the
-   exported SVG when it exists, otherwise link the `.drawio`), cost by the estimate.
+   exported SVG when it exists, otherwise link the `.drawio`), cost by the estimate. Section 1
+   (goals) draws on the framing's goals and anti-goals; section 4 (solution strategy) on the
+   direction ADR (`decisions/0001-direction.md`, when it exists) and why the other candidates lost.
 3. Write `architecture/executive-summary.md` from `assets/executive-summary.md`: one page,
    no jargon, the monthly list price and the cost per business unit, the top three risks, the
-   decisions that need a stakeholder's approval.
+   decisions that need a stakeholder's approval - the direction ADR first, when it exists.
 4. Write `architecture/risks.md` from `assets/risks.md`. Sources: ADR negative consequences,
-   `not-estimated` cost lines, checkov suppressions, NFRs marked `TBD`, skipped gates.
+   `not-estimated` cost lines, checkov suppressions, NFRs marked `TBD`, skipped gates, and the
+   pre-mortem and blind spots of `framing.md`.
 5. When the solution ships in phases, add a roadmap section to `README.md`: phase, components
    (by manifest id), exit criterion.
 6. Check every relative link resolves:

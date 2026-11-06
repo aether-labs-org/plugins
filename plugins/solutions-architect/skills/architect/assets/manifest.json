@@ -5,7 +5,7 @@
   "docs_path": "architecture",
   "iac_path": "infra",
   "regions": ["sa-east-1"],
-  "stage": "requirements",
+  "stage": "discovery",
   "gates": {},
   "requirements": [],
   "decisions": [],

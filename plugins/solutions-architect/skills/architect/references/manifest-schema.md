@@ -11,8 +11,8 @@ every rule below.
 | `docs_path` | string | workspace directory, default `architecture` |
 | `iac_path` | string | Terraform directory, default `infra` |
 | `regions` | string[] | first entry is the primary region |
-| `stage` | string | `requirements`, `design`, `diagram`, `finops-compare`, `iac`, `finops-estimate`, `docs`, `review`, `done` |
-| `gates.<stage>` | object | `{status: pending|pass|fail|skipped, at: YYYY-MM-DD, notes}` |
+| `stage` | string | `discovery`, `requirements`, `design`, `diagram`, `finops-compare`, `iac`, `finops-estimate`, `docs`, `review`, `done` |
+| `gates.<stage>` | object | `{status: pending|pass|fail|skipped, at: YYYY-MM-DD, notes}`; `gates.discovery.status = pass` requires `framing.md` next to the manifest. A manifest without `gates.discovery` (v0.2) is valid |
 | `requirements[]` | object | `{id: REQ-nnn|NFR-nnn|CON-nnn, kind, text, measure}`; an NFR needs `measure` |
 | `decisions[]` | object | `{id: ADR-nnnn, file, status: proposed|accepted|superseded|rejected, supersedes, addresses: [requirement ids]}`; `file` must exist |
 | `components[]` | object | `{id: kebab-case, service, decision: ADR id, terraform: [addresses or module prefixes], diagrams: [views]}` |

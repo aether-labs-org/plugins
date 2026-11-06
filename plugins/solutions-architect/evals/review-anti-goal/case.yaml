@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: review-anti-goal
+description: Review reports that an accepted ADR (EKS) violates the anti-goal "the team must not operate Kubernetes" recorded in framing.md.
+tags: [harness, review, discovery]
+context:
+  scaffold_script: scaffold.sh

@@ -19,8 +19,9 @@ hash) is suppressed once, globally, with a manifest justification starting `D22:
 | S3 | `terraform-aws-modules/s3-bucket/aws` | 5.16.1 |
 | CloudFront | `terraform-aws-modules/cloudfront/aws` | 6.7.1 |
 
-Versions checked on 2026-09-22 against registry.terraform.io; the quarterly freshness check in
-the repository reports newer releases. Upgrade by changing the version, re-running the gate and
+Versions checked on 2026-09-22 against registry.terraform.io. No scheduled freshness check
+exists: before relying on a version, confirm the latest with the Terraform MCP server
+(`get_latest_module_version`). Upgrade by changing the version, re-running the gate and
 recording the upgrade in the pull request.
 
 The price map knows the resource types these modules create (for example

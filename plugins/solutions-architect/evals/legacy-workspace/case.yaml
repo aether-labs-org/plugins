@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: legacy-workspace
+description: A v0.2 workspace at stage design continues without going back to discovery; gates.discovery is recorded as skipped.
+tags: [harness, architect, compatibility]
+context:
+  scaffold_script: scaffold.sh

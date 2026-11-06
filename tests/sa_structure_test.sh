@@ -23,7 +23,7 @@ check "plugin.json declares no dependencies (D24: evals load the plugin director
 jq -e '.mcpServers | keys == ["aws-pricing", "terraform"]' "$p/.mcp.json" >/dev/null; check "mcp servers are aws-pricing and terraform" $?
 jq -e '.hooks.PreToolUse[0].matcher == "Bash|mcp__.*run_script.*"' "$p/hooks/hooks.json" >/dev/null; check "hook matcher" $?
 
-skills="architect requirements design diagram finops iac docs review"
+skills="architect discovery requirements design diagram finops iac docs review"
 for s in $skills; do
   f="$p/skills/$s/SKILL.md"
   [ -f "$f" ]; check "skills/$s/SKILL.md exists" $?
@@ -32,8 +32,8 @@ for s in $skills; do
   [ "${#desc}" -ge 150 ] && [ "${#desc}" -le 400 ]; check "skills/$s description is 150-400 chars (${#desc})" $?
   [ "$(wc -l < "$f")" -le 250 ]; check "skills/$s SKILL.md <= 250 lines" $?
 done
-[ "$(ls "$p/skills" | wc -l)" -eq 8 ]; check "exactly 8 skills in Phase 1" $?
-for a in architecture-reviewer finops-analyst; do
+[ "$(ls "$p/skills" | wc -l)" -eq "$(echo $skills | wc -w)" ]; check "the skills directory holds exactly the listed skills" $?
+for a in architecture-reviewer finops-analyst solution-challenger reference-reader; do
   grep -q "^name: $a$" "$p/agents/$a.md"; check "agents/$a frontmatter" $?
 done
 
