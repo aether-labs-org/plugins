@@ -14,11 +14,18 @@ check "marketplace lists second-brain" $?
 jq -e '.plugins[] | select(.name == "second-brain") | has("version") | not' "$mp" >/dev/null
 check "marketplace entry has no version" $?
 [ "$(jq -r .name "$pj")" = "second-brain" ]; check "plugin name" $?
-jq -e '.plugins[] | select(.name=="second-brain") | .dependencies | map(.name+"@"+.marketplace) | sort == ["document-skills@anthropic-agent-skills","obsidian@obsidian-skills"]' "$mp" >/dev/null
-check "second-brain depends on document-skills and obsidian" $?
-jq -e '.allowCrossMarketplaceDependenciesOn | index("anthropic-agent-skills") and index("obsidian-skills")' "$mp" >/dev/null
-check "marketplace allows the two dependency marketplaces" $?
-[ "$(jq -r .version "$pj")" = "0.2.4" ]; check "plugin version 0.2.4" $?
+jq -e '.plugins[] | select(.name=="second-brain") | has("dependencies") | not' "$mp" >/dev/null
+check "second-brain declares no dependency plugins (D43)" $?
+jq -e '.allowCrossMarketplaceDependenciesOn == ["claude-plugins-official"]' "$mp" >/dev/null
+check "marketplace allows only claude-plugins-official" $?
+[ "$(jq -r .version "$pj")" = "0.3.0" ]; check "plugin version 0.3.0" $?
+! jq -r .description "$pj" | grep -qi 'protective hooks'; check "plugin description does not promise protective hooks" $?
+jq -e '.hooks | keys | sort == ["PostToolUse","SessionEnd","SessionStart","UserPromptSubmit"]' "$p/hooks/hooks.json" >/dev/null
+check "hooks.json registers exactly the four events (AC1)" $?
+[ "$(cat "$p"/lib/sb/*.py | wc -l)" -le 2500 ]; check "lib/sb/*.py totals <= 2500 lines (AC2)" $?
+for gone in lib/sb/guard.py hooks/guard.py lib/sb/review.py lib/sb/doctor.py lib/sb/index.py lib/sb/logfile.py obsidian; do
+  [ ! -e "$p/$gone" ]; check "$gone does not exist (AC1)" $?
+done
 jq -e '.hooks.SessionStart[0] | .matcher == "startup|resume|clear|compact|fork" and (.hooks[0].command | contains("session_start.py"))' "$p/hooks/hooks.json" >/dev/null
 check "SessionStart hook is registered" $?
 jq -e '.hooks.SessionStart[0].hooks[0].timeout == 60' "$p/hooks/hooks.json" >/dev/null

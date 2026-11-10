@@ -41,7 +41,7 @@
     {
       "name": "second-brain",
       "source": "./plugins/second-brain",
-      "description": "Local-first Second Brain: capture, ingest, find, link, update and lint a plain-markdown vault, with a deterministic CLI and protective hooks.",
+      "description": "Local-first Second Brain: capture, ingest, find and lint a plain-markdown vault, with a deterministic CLI and a git-based review.",
       "category": "productivity",
       "tags": [
         "second-brain",
@@ -49,22 +49,10 @@
         "knowledge-base",
         "markdown",
         "local-first"
-      ],
-      "dependencies": [
-        {
-          "name": "document-skills",
-          "marketplace": "anthropic-agent-skills"
-        },
-        {
-          "name": "obsidian",
-          "marketplace": "obsidian-skills"
-        }
       ]
     }
   ],
   "allowCrossMarketplaceDependenciesOn": [
-    "claude-plugins-official",
-    "anthropic-agent-skills",
-    "obsidian-skills"
+    "claude-plugins-official"
   ]
 }
