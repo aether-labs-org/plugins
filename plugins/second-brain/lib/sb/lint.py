@@ -1,4 +1,4 @@
-"""Deterministic lint rules SB101-SB112 (spec sections 5 and 7.1)."""
+"""Deterministic lint rules SB101-SB111 (spec sections 5 and 7.1)."""
 import re
 from collections import defaultdict
 from dataclasses import asdict, dataclass
@@ -7,7 +7,6 @@ from datetime import date
 from . import index as index_mod
 from . import tree
 from .links import extract, is_asset, target_name
-from .review import body_hash, split_trailing_agent_blocks, trailing_blocks_line
 from .vault import SCHEMA_VERSION, asset_names, load_notes
 
 REQUIRED = ("title", "summary", "type", "status", "origin", "created")
@@ -16,7 +15,7 @@ ENUMS = {
     "status": {"seed", "draft", "evergreen"},
     "origin": {"agent", "human", "mixed"},
 }
-INFO_CODES = {"SB111", "SB112"}
+INFO_CODES = {"SB111"}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -81,27 +80,6 @@ def _source_finding(root, note, known):
     return [Finding("SB109", note.rel, 1, "source does not exist: %s" % source)]
 
 
-def _review_findings(note):
-    """SB110 (reviewed text changed since review) and SB112 (agent blocks waiting), spec 7.1.
-    A note reviewed by hand without `reviewed_hash` never gets SB110."""
-    origin = str(note.data.get("origin") or "").strip().lower()
-    reviewed = str(note.data.get("reviewed") or "").strip()
-    stored = str(note.data.get("reviewed_hash") or "").strip()
-    if origin in ("agent", "mixed") and not reviewed:
-        return []                                  # unreviewed: SB106 covers it
-    out = []
-    if stored and stored != body_hash(note.body):
-        out.append(Finding("SB110", note.rel, 1,
-                           'reviewed text changed since %s; review again (Obsidian: "Mark as '
-                           'reviewed", or sb review)' % (reviewed or "its review")))
-    first = trailing_blocks_line(note.body)
-    if first is not None:
-        count = len(split_trailing_agent_blocks(note.body)[1])
-        out.append(Finding("SB112", note.rel, note.body_line + first,
-                           "%d agent block(s) waiting for review" % count))
-    return out
-
-
 def lint(root, config):
     notes = load_notes(root)
     findings = []
@@ -129,7 +107,6 @@ def lint(root, config):
             findings.append(Finding("SB106", note.rel, 1,
                                     "agent-written note has no `reviewed` date"))
         findings += _source_finding(root, note, known)
-        findings += _review_findings(note)
 
     for note in notes:
         if note.name not in inbound:
@@ -157,7 +134,7 @@ def lint(root, config):
         version = 0
     if version < SCHEMA_VERSION:
         findings.append(Finding("SB107", ".second-brain.json", 1,
-                                "schema_version %s is older than %d; run sb init --upgrade"
+                                "schema_version %s is older than %d"
                                 % (version, SCHEMA_VERSION)))
     return sorted(findings, key=lambda f: (f.path, f.line, f.code))
 

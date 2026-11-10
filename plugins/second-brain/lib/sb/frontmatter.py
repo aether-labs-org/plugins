@@ -13,7 +13,7 @@ ITEM_RE = re.compile(r"^\s*-\s+(.*)$")
 UNSUPPORTED_START = ("|", ">", "{", "&", "*", "!")
 # A fence line is `---` with only spaces, tabs and CR around it; a blank line is only those. Never
 # str.strip(): it also strips \x1c-\x1f, \x85 and others that JS trim() treats differently
-# (the companion's src/frontmatter.ts and the review hash must agree).
+# (other readers of the frontmatter, such as Obsidian, must agree).
 FENCE_RE = re.compile(r"[ \t\r]*---[ \t\r]*")
 BLANK_RE = re.compile(r"[ \t\r]*")
 

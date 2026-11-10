@@ -1,4 +1,4 @@
-"""`sb doctor`: six checks with a fix command each (spec 6.5, D32, D19)."""
+"""`sb doctor`: five checks with a fix command each (spec 6.5, D32, D19)."""
 import importlib.util
 import json
 import os
@@ -9,13 +9,9 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import init
 from .vault import VaultError, load_config
 
 _which = shutil.which
-COMPANION_ID = "second-brain-companion"
-ENABLE_COMPANION = ('Obsidian → Settings → Community plugins → turn off Restricted mode → '
-                    'enable "Second Brain Companion"')
 HEARTBEAT_MAX_AGE = timedelta(days=7)
 REQUIRED_PLUGINS = ("second-brain@aether-labs", "document-skills@anthropic-agent-skills",
                     "obsidian@obsidian-skills")
@@ -34,7 +30,6 @@ OBSIDIAN_SETUP = """Recommended Obsidian setup
 | Agent inside Obsidian | Terminal (polyipseity) | runs the real `claude`; hooks apply. Claudian / Agent Client unsupported |
 | Web capture | Obsidian Web Clipper + `_meta/web-clipper-template.json` | saves to `_inbox/` |
 | Review queue | Bases (core) + `_views/unreviewed.base` | |
-| Review actions | `second-brain-companion`, bundled with this plugin and installed by `sb init` (enable it once in Community plugins) | Mark as reviewed, Accept agent blocks, Toggle protected; `sb review` without it |
 | Squad | Obsidian Git: pull on startup, rebase, auto commit-and-sync for human edits | mobile Git is unstable |
 | HTML | HTML Viewer with scripts off for third-party pages | |
 | draw.io / Excalidraw | Drawio Preview; Excalidraw (zsviczian) | `*.excalidraw.md` is excluded from notes |
@@ -79,7 +74,7 @@ def check_python():
 def check_settings(root):
     path = Path(root) / ".claude" / "settings.json"
     if not path.is_file():
-        return _result("settings", "fail", ".claude/settings.json is missing", "sb init --upgrade --yes")
+        return _result("settings", "fail", ".claude/settings.json is missing", "sb init")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
@@ -95,7 +90,7 @@ def check_settings(root):
     missing += ["deny " + r for r in REQUIRED_DENY if r not in deny]
     if missing:
         return _result("settings", "fail", "missing in .claude/settings.json: " + ", ".join(missing),
-                       "sb init --upgrade --yes")
+                       "sb init")
     return _result("settings", "ok", ".claude/settings.json enables the plugins and has the deny rules")
 
 
@@ -165,38 +160,11 @@ def check_git(root):
     return _result("git", "ok", "squad vault with remote and upstream, nothing pending")
 
 
-def _companion_enabled(root):
-    try:
-        ids = json.loads((Path(root) / ".obsidian" / "community-plugins.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
-    return isinstance(ids, list) and COMPANION_ID in ids
-
-
-def check_companion(root):
-    plugin = Path(root) / init.COMPANION
-    if not (plugin / "manifest.json").is_file() or not (plugin / "main.js").is_file():
-        return _result("companion", "warn", "the Obsidian companion is not installed in %s" % init.COMPANION,
-                       "sb init --upgrade --yes")
-    problems, fixes = [], []
-    installed = init.manifest_version(plugin / "manifest.json")
-    bundled = init.manifest_version(init.BUNDLE / "manifest.json")
-    if bundled and (installed is None or init.version_key(bundled) > init.version_key(installed)):
-        problems.append("installed %s is older than the bundled %s" % (installed or "?", bundled))
-        fixes.append("sb init --upgrade --yes")
-    if not _companion_enabled(root):
-        problems.append("installed but not enabled in Obsidian")
-        fixes.append(ENABLE_COMPANION)
-    if problems:
-        return _result("companion", "warn", "Obsidian companion " + "; ".join(problems), "; ".join(fixes))
-    return _result("companion", "ok", "Obsidian companion %s installed and enabled" % installed)
-
-
 def run(root, now=None, which=None):
     now = now or datetime.now()
     which = which or _which
     return [check_python(), check_settings(root), check_extraction(which), check_hooks(root, now),
-            check_git(root), check_companion(root)]
+            check_git(root)]
 
 
 def render_text(results):

@@ -70,49 +70,6 @@ def cmd_lint(args, out, err):
     return EXIT_FINDINGS if any(f.code not in INFO_CODES for f in findings) else EXIT_OK
 
 
-def _find_note_file(root, raw):
-    """The note file named by a path (cwd- or vault-relative) or a note name, or None."""
-    wiki = root / "wiki"
-    for candidate in (Path(raw), root / raw):
-        path = candidate.resolve()
-        if path.is_file() and path.suffix == ".md":
-            try:
-                if is_note_rel(path.relative_to(wiki).as_posix()):
-                    return path
-            except ValueError:
-                pass
-    wanted = target_name(raw)
-    return next((n.path for n in load_notes(root) if n.name == wanted), None)
-
-
-def cmd_review(args, out, err):
-    from . import review
-
-    root = _vault(args, err)
-    if root is None:
-        return EXIT_USAGE
-    path = _find_note_file(root, args.note)
-    if path is None:
-        print("sb: note not found: %s" % args.note, file=err)
-        return EXIT_USAGE
-    try:
-        text = path.read_bytes().decode("utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        print("sb: cannot read %s: %s" % (path, exc), file=err)
-        return EXIT_USAGE
-    digest, today = review.review_hash(text), date.today().isoformat()
-    try:
-        updated = frontmatter.set_keys(text, {"reviewed": today, "reviewed_hash": digest})
-    except ValueError as exc:
-        print("sb: %s: %s" % (path, exc), file=err)
-        return EXIT_USAGE
-    write_atomic(path, updated)
-    rel = path.relative_to(root).as_posix()
-    _emit(args, out, {"note": rel, "reviewed": today, "reviewed_hash": digest},
-          "reviewed %s on %s (%s)" % (rel, today, digest))
-    return EXIT_OK
-
-
 def cmd_search(args, out, err):
     from .search import SearchIndex
 
@@ -322,35 +279,10 @@ def cmd_inbox_done(args, out, err):
     return EXIT_OK
 
 
-def cmd_upgrade(args, init_mod, target, out, err):
-    root = find_vault(target)
-    if root is None or root != target:
-        print("sb: %s is not a second-brain vault (%s not found)" % (target, MARKER), file=err)
-        return EXIT_USAGE
-    try:
-        result = init_mod.upgrade(root, profile=args.profile, yes=args.yes)
-    except (VaultError, ValueError, OSError, subprocess.SubprocessError) as exc:
-        print("sb: upgrade failed: %s" % exc, file=err)
-        return EXIT_USAGE
-    if not result["actions"]:
-        verb = "nothing to do"
-    else:
-        verb = "applied" if result["applied"] else "would apply (pass --yes to apply)"
-    lines = ["%s: %d action(s)" % (verb, len(result["actions"]))]
-    lines += ["  " + a for a in result["actions"]]
-    if result["kept"]:
-        lines.append("kept (not touched): " + ", ".join(result["kept"]))
-    lines += ["warning: " + w for w in result["warnings"]]
-    _emit(args, out, result, "\n".join(lines))
-    return EXIT_OK
-
-
 def cmd_init(args, out, err):
     from . import init as init_mod
 
     target = Path(args.vault).resolve() if args.vault else Path.cwd()
-    if args.upgrade:
-        return cmd_upgrade(args, init_mod, target, out, err)
     parent = find_vault(target)
     if parent is not None and parent != target:
         print("sb: %s is inside the existing vault %s" % (target, parent), file=err)
@@ -393,11 +325,6 @@ def build_parser():
     p = sub.add_parser("lint", parents=[common], help="run the lint rules")
     p.add_argument("--verbose", action="store_true", help="one line per finding, never grouped")
     p.set_defaults(func=cmd_lint)
-
-    p = sub.add_parser("review", parents=[common],
-                       help="record a human review: sets reviewed and reviewed_hash (run by the human)")
-    p.add_argument("note", help="note name or path")
-    p.set_defaults(func=cmd_review)
 
     p = sub.add_parser("search", parents=[common], help="ranked, accent-insensitive note search")
     p.add_argument("query")
@@ -453,9 +380,7 @@ def build_parser():
     p = sub.add_parser("init", parents=[common], help="create a vault in the target directory")
     p.add_argument("--language", default="en")
     p.add_argument("--profile", choices=("personal", "work", "project", "squad"),
-                   help="folder set and sync mode (default: personal; with --upgrade, keep)")
-    p.add_argument("--upgrade", action="store_true", help="bring an existing vault to schema 2")
-    p.add_argument("--yes", action="store_true", help="with --upgrade: apply the plan")
+                   help="folder set and sync mode (default: personal)")
     p.add_argument("--remote", help="git remote URL to add as origin (needs --git)")
     p.add_argument("--areas", default="", help="comma-separated initial areas")
     p.add_argument("--git", action="store_true", help="run git init if there is no .git")
