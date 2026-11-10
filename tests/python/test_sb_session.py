@@ -4,7 +4,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime
 from pathlib import Path
 
 from sb_helpers import PLUGIN, make_vault, note
@@ -67,24 +66,7 @@ class SessionStartTests(unittest.TestCase):
         self.assertNotIn("<second-brain-recall>", text)
         self.assertEqual(len(text.split("\n")), 5)
 
-    def test_heartbeat_written(self):
-        start(self.event(), str(self.root))
-        beat = json.loads((self.root / ".sb" / "heartbeat.json").read_text(encoding="utf-8"))
-        self.assertEqual(beat["session_id"], "sess-1")
-        datetime.fromisoformat(beat["session_start"])
-
-    def test_heartbeat_dir_is_ignored_before_the_heartbeat_is_written(self):
-        start(self.event(), str(self.root))
-        ignore = self.root / ".sb" / ".gitignore"
-        self.assertIn("*", ignore.read_text(encoding="utf-8").split("\n"))
-        # an existing, different .gitignore gets the line appended and keeps its own
-        ignore.write_text("keep-me\n", encoding="utf-8")
-        start(self.event(), str(self.root))
-        self.assertEqual(ignore.read_text(encoding="utf-8").split("\n")[:2], ["keep-me", "*"])
-
-    def test_no_heartbeat_when_the_ignore_file_cannot_be_written(self):
-        (self.root / ".sb").mkdir()
-        (self.root / ".sb" / ".gitignore").mkdir()          # a directory: cannot be read or written
+    def test_no_heartbeat_is_written(self):
         start(self.event(), str(self.root))
         self.assertFalse((self.root / ".sb" / "heartbeat.json").exists())
 

@@ -1,11 +1,8 @@
-"""SessionStart: folder tree and vault status for the model, heartbeat for `sb doctor` (spec 6.2)."""
-import json
+"""SessionStart: folder tree and vault status for the model (spec 6.2)."""
 import time
-from datetime import datetime
 from typing import Optional
 
 from . import tree
-from .fsutil import write_atomic
 from .sanitize import clean_inline, escape_tags
 from .trust import label
 from .vault import VaultError, find_vault, load_config, load_notes
@@ -50,24 +47,6 @@ def _sync_status(root, config, session_id):
     return "ok"
 
 
-def _heartbeat(root, session_id):
-    try:
-        folder = root / ".sb"
-        folder.mkdir(exist_ok=True)
-        ignore = folder / ".gitignore"            # never committed, even in a hand-made squad vault
-        try:
-            current = ignore.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            current = ""
-        if "*" not in [line.strip() for line in current.split("\n")]:
-            write_atomic(ignore, (current.rstrip("\n") + "\n" if current.strip() else "") + "*\n")
-        beat = {"session_start": datetime.now().replace(microsecond=0).isoformat(),
-                "session_id": str(session_id or "")}
-        write_atomic(folder / "heartbeat.json", json.dumps(beat) + "\n")
-    except (OSError, ValueError):
-        pass
-
-
 def start(event, cwd) -> Optional[dict]:
     root = find_vault(event.get("cwd") or cwd)
     if root is None:
@@ -76,7 +55,6 @@ def start(event, cwd) -> Optional[dict]:
         config = load_config(root)
     except VaultError:
         config = {}
-    _heartbeat(root, event.get("session_id"))
     status = _sync_status(root, config, str(event.get("session_id") or ""))
     notes = load_notes(root)
     unreviewed = sum(1 for n in notes if label(n.data, n.body) == "unreviewed")
