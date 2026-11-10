@@ -1,7 +1,7 @@
 # second-brain — Design Spec (v0.3, simplification)
 
 **Date:** 2026-11-10
-**Status:** draft, waiting for the user's validation. Nothing here is implemented.
+**Status:** implemented on branch `feat/second-brain-v0.3` (not pushed, not merged). Eval results (AC12, AC16) are in §13.
 **Supersedes:** the parts of `2026-10-31-second-brain-v0.2-design.md` listed in §3.2. Where the two
 differ, this document wins. Everything v0.2 says that this document does not mention stays.
 **Target version:** 0.3.0 (breaking: vault schema 3).
@@ -334,9 +334,10 @@ Today five hook commands and six shebangs name `python3`. In v0.3:
   newer; otherwise `python3`. With neither, a hook exits `0` in silence and `sb` prints
   `sb: needs Python 3.9+ (tried python, python3)` and exits `2`.
 - Proposed mechanism (the builder may choose another that meets AC15): one POSIX `sh` launcher,
-  `bin/sb-python`, used by the four hook commands and by `bin/sb`. On the normal path it must not
-  start an interpreter twice; a `python` that is missing, is Python 2 or is the Windows store
-  stub falls through to `python3`.
+  `bin/sb-python`, used by the four hook commands and by `bin/sb`. A `python` that is missing, is
+  Python 2 or is the Windows store stub falls through to `python3`. Detecting that needs one
+  cheap probe (`python -I -S -c ...`, under 10 ms measured), so the normal path starts an
+  interpreter twice; the 80 ms ceiling of AC15 is what binds (measured p95 59-62 ms).
 - `tests/sb_cli_test.sh` resolves the interpreter the same way. Tests of the other plugins are
   out of scope.
 - Windows stays untested (the suite is Bash). This change removes one known blocker; it does not
@@ -420,7 +421,7 @@ Notes need no change: dropped keys are ignored (§5.2). Until the marker moves, 
 | --- | --- | --- |
 | P1 | The body rules of D63 are the builder's wording of what the user asked for. So is `--no-ask` in §6.3, which the user did not request: it lets an unattended ingest skip the "now or at the end" question. | Confirm or correct when validating this spec. |
 | P2 | Should `sb init` write `.obsidian/app.json` when it does not exist, instead of printing the setting (D57)? | Not in 0.3.0: whether Obsidian keeps a pre-written file is unverified. |
-| P3 | The fate of the recall hook. | Decided by AC12, after 0.3.0. |
+| P3 | The fate of the recall hook. | AC12 found no difference in correctness on the 3-note fixture (§13). Recommendation: keep it on by default, which is the current state; the human decides. |
 | P4 | Does the `sh` launcher of §6.6 run where Claude Code runs hooks on Windows? | Unverified; not a goal of 0.3.0. |
 
 ## 12. Sources
@@ -433,3 +434,36 @@ Notes need no change: dropped keys are ignored (§5.2). Until the marker moves, 
 - Claude Code documentation, plugin manifest, hooks and permissions:
   <https://code.claude.com/docs/en/plugins/manifest-reference>,
   <https://code.claude.com/docs/en/hooks>, <https://code.claude.com/docs/en/permissions>
+
+## 13. Eval results (2026-11-10)
+
+How: `claude -p --model haiku` in fresh scaffolded vaults, the plugin loaded with `--plugin-dir`, the
+`Skill` tool and `Bash(sb *)` allowed, the rubrics applied by hand by the main session. The
+`claude plugin eval` sandbox cannot run Bash on this machine. Three runs per case, about US$0.5 in
+all. Raw run directories are in the session scratchpad, not in the repository
+(`**/evals/results/` is git-ignored).
+
+| Case | Result | Notes |
+| --- | --- | --- |
+| `find-implicit`, recall on | cites `[[Spaced Repetition]]` and reads the note in 3 of 3 | answers in 3-4 turns, without calling the `find` skill |
+| `find-implicit`, recall off (hook removed from a copy of the plugin) | 3 of 3 | calls the `find` skill, 5-6 turns |
+| `ingest-gap` | 3 of 3: names the missing date and reason, asks "now or at the end", writes nothing | 0 of 3 before the skill text was hardened |
+| `ingest-1ton` with `--no-ask` | 3 of 3: new note, `[!agent]` callouts on the two human notes (original lines untouched), `Zettelkasten` untouched, second ingest `seen` | |
+| `no-padding` | 2 of 3 clean, 1 with a light attribution ("The source's rule of thumb:") | passes the "at least 2 of 3" bar |
+
+Findings that changed the code or the skill text:
+
+- The first round ran without the `Skill` tool allowed; every skill call failed and the agent worked
+  from `CLAUDE.md`. That was the harness, not the plugin, and the round was discarded.
+- With the skill loading, the "now or at the end" question was still skipped (the agent wrote first
+  and said it chose not to ask). The gap step was moved before any write, made a hard stop, and
+  defined as what the source leaves unsaid about the subject, not source metadata.
+- The independent review reproduced seven provenance defects (copy taken for a move, control
+  characters in file names reaching the frontmatter, inbox name collisions, CRLF rewritten,
+  unquoted `source`, non-canonical URL, symlinked `bin/sb`); all were fixed with tests.
+
+AC12 conclusion: with a working skill, recall on and off are equal in correctness on this fixture
+(3 of 3 each); recall saves two turns. The sample is three notes and three runs, so it cannot show
+a benefit for large vaults or a harm. The hook costs under 2,000 characters and about 50 ms per
+prompt. Recommendation: keep it on by default; the user can switch it off with the `recall`
+plugin setting.
