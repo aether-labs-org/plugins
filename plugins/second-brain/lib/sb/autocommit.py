@@ -40,7 +40,7 @@ def run(cwd, env=None, today=None, session_id="", outside=False):
             return "skipped: not a git work tree"
         if any((Path(gitdir.stdout.strip()) / name).exists() for name in IN_PROGRESS):
             return "skipped: merge or rebase in progress"
-        status = _git(vault, "status", "--porcelain")
+        status = _git(vault, "status", "--porcelain", "-uall")
         if status.returncode != 0:
             return "skipped: git status failed: %s" % status.stderr.strip()
         changed = [line for line in status.stdout.splitlines() if line.strip()]

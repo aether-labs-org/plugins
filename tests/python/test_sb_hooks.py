@@ -116,6 +116,15 @@ class AutoCommitTests(unittest.TestCase):
         self.addCleanup(lambda: (os.environ.clear(), os.environ.update(old)))
         self.assertTrue(autocommit.run(str(self.root), env={}).startswith("skipped: git commit failed"))
 
+    def test_untracked_files_in_a_new_folder_are_counted_one_by_one(self):
+        folder = self.root / "wiki" / "Fresh"
+        folder.mkdir()
+        for name in ("A1", "A2", "A3"):
+            (folder / (name + ".md")).write_text(note(name), encoding="utf-8")
+        status = autocommit.run(str(self.root), env={}, today="2026-10-01", session_id="s1")
+        self.assertEqual(status, "committed: sb: session 2026-10-01 (3 files)")
+        self.assertIn("Sb-Files: 3", self.git("log", "-1", "--format=%B").stdout)
+
     def test_outside_flag_changes_the_message_and_trailers(self):
         self.dirty()
         status = autocommit.run(str(self.root), env={}, today="2026-10-01", session_id="s9", outside=True)

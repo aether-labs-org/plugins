@@ -99,6 +99,26 @@ class EntryPointTests(LauncherBase):
         self.assertTrue(os.access(PLUGIN / "bin" / "sb", os.X_OK))
         self.assertTrue(os.access(LAUNCHER, os.X_OK))
 
+    def test_bin_sb_through_a_symlink(self):
+        target = PLUGIN / "bin" / "sb"
+        absolute = Path(self.tmp.name) / "sb-abs"
+        absolute.symlink_to(target)
+        relative = Path(self.tmp.name) / "sub" / "sb-rel"
+        relative.parent.mkdir()
+        relative.symlink_to(os.path.relpath(str(target), str(relative.parent)))
+        chain = Path(self.tmp.name) / "sb-chain"
+        chain.symlink_to(absolute)
+        for link in (absolute, relative, chain):
+            done = subprocess.run([str(link), "--help"], capture_output=True, text=True)
+            self.assertEqual(done.returncode, 0, "%s: %s" % (link, done.stderr))
+            self.assertIn("second-brain vault tooling", done.stdout)
+
+    def test_sb_main_survives_a_safe_path_python(self):
+        env = dict(os.environ, PYTHONSAFEPATH="1")
+        done = subprocess.run([str(PLUGIN / "bin" / "sb"), "--help"], capture_output=True, text=True, env=env)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("second-brain vault tooling", done.stdout)
+
     def test_bin_sb_works_with_only_python3_and_reports_a_missing_interpreter(self):
         self.real("python3")
         env = {"PATH": str(self.bin)}
