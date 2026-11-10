@@ -5,11 +5,8 @@ AGENT_BLOCK_RE = re.compile(r"^>[ \t]*\[!agent\]", re.IGNORECASE | re.MULTILINE)
 
 
 def label(data, body):
-    """`unreviewed` | `has-agent-blocks` | `reviewed`. A missing `origin` means human."""
+    """`unreviewed` when an agent wrote the note and nobody reviewed it, else `reviewed`.
+    `mixed` counts as human; an `[!agent]` callout does not change the label."""
     origin = str(data.get("origin") or "").strip().lower()
     reviewed = str(data.get("reviewed") or "").strip()
-    if origin in ("agent", "mixed") and not reviewed:
-        return "unreviewed"
-    if AGENT_BLOCK_RE.search(body or ""):
-        return "has-agent-blocks"
-    return "reviewed"
+    return "unreviewed" if origin == "agent" and not reviewed else "reviewed"

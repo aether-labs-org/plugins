@@ -6,9 +6,7 @@ from pathlib import Path
 
 from sb_helpers import make_vault, note
 from sb.cli import main
-from sb.lint import INFO_CODES, lint
 from sb.tree import load, render_compact
-from sb.vault import load_config
 
 
 def about(description=None, protected=None, extra=""):
@@ -98,18 +96,6 @@ class TreeTests(unittest.TestCase):
         root = self.vault()
         (root / "wiki" / "Bare").mkdir()
         self.assertEqual(load(root)[0]["description"], "(no description)")
-
-    def test_sb111_is_info_and_does_not_fail(self):
-        root = self.vault({"Resources/A.md": note("A", body="[[B]]"),
-                           "Resources/B.md": note("B", body="[[A]]")})
-        findings = lint(root, load_config(root))
-        self.assertEqual([f.code for f in findings], ["SB111"])
-        self.assertEqual(INFO_CODES, {"SB111"})
-        out, err = io.StringIO(), io.StringIO()
-        self.assertEqual(main(["lint", "--vault", str(root)], out=out, err=err), 0)
-        self.assertIn("SB111", out.getvalue())
-        self.put(root, "Resources/_about.md", about("Res."))
-        self.assertEqual(lint(root, load_config(root)), [])
 
     def test_cli_tree(self):
         root = self.vault()

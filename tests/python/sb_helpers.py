@@ -8,13 +8,17 @@ PLUGIN = ROOT / "plugins" / "second-brain"
 sys.path.insert(0, str(PLUGIN / "lib"))
 
 
-def note(title, summary="A summary.", body="", origin="human", status="draft",
-         type="nota", created="2026-09-30", source="", reviewed=None):
+def note(title, summary="A summary.", body="", origin="human", status=None,
+         type=None, created="2026-09-30", source="", reviewed=None):
     """Return the text of a valid note. Pass summary=None / created=None to omit the key."""
     lines = ["---", "title: %s" % title]
     if summary is not None:
         lines.append("summary: %s" % summary)
-    lines += ["type: %s" % type, "status: %s" % status, "origin: %s" % origin]
+    if type is not None:
+        lines.append("type: %s" % type)
+    if status is not None:
+        lines.append("status: %s" % status)
+    lines.append("origin: %s" % origin)
     if created is not None:
         lines.append("created: %s" % created)
     lines.append("source: %s" % source)

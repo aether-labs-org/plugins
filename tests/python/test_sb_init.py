@@ -10,7 +10,7 @@ from unittest import mock
 from sb_helpers import make_vault, note
 from sb import init
 from sb.cli import main
-from sb.lint import INFO_CODES, lint
+from sb.lint import lint
 from sb.tree import load, render_compact
 from sb.vault import MARKER, load_config
 
@@ -50,7 +50,7 @@ class InitTests(unittest.TestCase):
                           "areas": ["Saúde", "Finanças"]})
         self.assertIn("pt-BR", (self.root / "CLAUDE.md").read_text(encoding="utf-8"))
         self.assertFalse((self.root / "_index.md").exists() or (self.root / "_log.md").exists())
-        self.assertEqual([f for f in lint(self.root, load_config(self.root)) if f.code not in INFO_CODES], [])
+        self.assertEqual([f for f in lint(self.root) if not f.info], [])
 
     def test_init_does_not_touch_obsidian_plugins(self):
         init.run(self.root)
@@ -129,8 +129,7 @@ class InitTests(unittest.TestCase):
         for name, folders in PROFILES.items():
             root = Path(self.tmp.name) / name
             init.run(root, language="pt-BR", profile=name, git=True)
-            self.assertEqual([f for f in lint(root, load_config(root)) if f.code not in INFO_CODES], [])
-            self.assertEqual([f for f in lint(root, load_config(root)) if f.code == "SB111"], [], name)
+            self.assertEqual([f for f in lint(root) if not f.info], [])
             self.assertLessEqual(len(render_compact(load(root))), 2000)
             self.assertEqual([f["path"] for f in load(root)], folders)
             config = json.loads((root / MARKER).read_text(encoding="utf-8"))

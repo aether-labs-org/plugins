@@ -14,7 +14,7 @@ FIXTURES = PLUGIN / "evals" / "_fixtures"
 def lint_codes(root):
     out = io.StringIO()
     code = main(["lint", "--json", "--vault", str(root)], out=out, err=io.StringIO())
-    return code, {f["code"] for f in json.loads(out.getvalue())} - {"SB111"}
+    return code, {f["code"] for f in json.loads(out.getvalue())}
 
 
 def build(tmp, notes_dir):

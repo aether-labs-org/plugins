@@ -67,11 +67,16 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(len(idx.search("omega")), 1)
 
     def test_result_shape_and_trust(self):
-        root = make_vault(self.tmp.name, {"Areas/X.md": note("X", summary="S.", origin="agent", body="gamma")})
+        root = make_vault(self.tmp.name, {"Areas/X.md": note("X", summary="S.", origin="agent", body="gamma"),
+                                          "Areas/Y.md": note("Y", summary="S.", origin="mixed", body="gamma")})
+        trusts = {r["name"]: r["trust"] for r in SearchIndex(root).search("gamma")}
+        self.assertEqual(trusts, {"X": "unreviewed", "Y": "reviewed"})
         r = SearchIndex(root).search("gamma")[0]
+        r = next(x for x in SearchIndex(root).search("gamma") if x["name"] == "X")
         self.assertEqual({k: r[k] for k in ("rel", "folder", "summary", "trust", "matched")},
                          {"rel": "wiki/Areas/X.md", "folder": "Areas", "summary": "S.",
                           "trust": "unreviewed", "matched": 1})
+        self.assertEqual(r["trust"], "unreviewed")
 
     def test_stopword_only_query_returns_nothing(self):
         root = make_vault(self.tmp.name, {"Resources/A.md": note("A")})

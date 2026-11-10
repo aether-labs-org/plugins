@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import frontmatter
 from .fsutil import write_atomic
-from .lint import INFO_CODES, lint as run_lint, render_text
+from .lint import lint as run_lint, render_text
 from .links import WIKILINK, extract, prose_lines, target_name
 from .vault import (LEGACY_MESSAGE, MARKER, VaultError, find_legacy_vault, find_vault, is_note_rel,
                     load_config, load_note, load_notes)
@@ -50,13 +50,13 @@ def cmd_lint(args, out, err):
     if root is None:
         return EXIT_USAGE
     try:
-        config = load_config(root)
+        load_config(root)
     except VaultError as exc:
         print("sb: %s" % exc, file=err)
         return EXIT_USAGE
-    findings = run_lint(root, config)
+    findings = run_lint(root)
     _emit(args, out, [f.as_dict() for f in findings], render_text(findings, args.verbose))
-    return EXIT_FINDINGS if any(f.code not in INFO_CODES for f in findings) else EXIT_OK
+    return EXIT_FINDINGS if any(not f.info for f in findings) else EXIT_OK
 
 
 def cmd_search(args, out, err):

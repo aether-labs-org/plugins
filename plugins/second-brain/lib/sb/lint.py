@@ -1,20 +1,16 @@
-"""Deterministic lint rules SB101-SB111 (spec sections 5 and 7.1)."""
+"""Deterministic lint rules SB101-SB109 (spec D49, D50, D55)."""
 import re
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import date
+from pathlib import Path
 
-from . import tree
 from .links import extract, is_asset, target_name
-from .vault import MARKER, SCHEMA_VERSION, asset_names, load_notes
+from .trust import label
+from .vault import asset_names, load_notes
 
-REQUIRED = ("title", "summary", "type", "status", "origin", "created")
-ENUMS = {
-    "type": {"nota", "fonte", "projeto", "conceito"},
-    "status": {"seed", "draft", "evergreen"},
-    "origin": {"agent", "human", "mixed"},
-}
-INFO_CODES = {"SB111"}
+REQUIRED = ("summary", "origin", "created")
+ENUMS = {"origin": {"agent", "human", "mixed"}}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -24,6 +20,7 @@ class Finding:
     path: str
     line: int
     message: str
+    info: bool = False
 
     def as_dict(self):
         return asdict(self)
@@ -70,16 +67,23 @@ def _source_finding(root, note, known):
     source = str(note.data.get("source", "")).strip()
     if not source or source.startswith(("http://", "https://")):
         return []
+    external = False
     if source.startswith("[[") and source.endswith("]]"):
         ok = target_name(source[2:-2].split("|")[0].split("#")[0]) in known
+    elif source.startswith("~/") or source.startswith("/"):
+        external = True
+        ok = Path(source).expanduser().exists()
     else:
         ok = (root / source).exists()
     if ok:
         return []
-    return [Finding("SB109", note.rel, 1, "source does not exist: %s" % source)]
+    message = "source does not exist: %s" % source
+    if external:
+        message += " (moved? ingest it again from its new place)"
+    return [Finding("SB109", note.rel, 1, message, info=external)]
 
 
-def lint(root, config):
+def lint(root):
     notes = load_notes(root)
     findings = []
     by_name, by_title = defaultdict(list), defaultdict(list)
@@ -102,14 +106,15 @@ def lint(root, config):
                 findings.append(Finding("SB101", note.rel, line, "broken link: [[%s]]" % target))
             elif target != note.name:
                 inbound[target].add(note.name)
-        if note.data.get("origin") == "agent" and not note.data.get("reviewed"):
+        if label(note.data, note.body) == "unreviewed":
             findings.append(Finding("SB106", note.rel, 1,
-                                    "agent-written note has no `reviewed` date"))
+                                    "agent-written note has no `reviewed` date", info=True))
         findings += _source_finding(root, note, known)
 
     for note in notes:
         if note.name not in inbound:
-            findings.append(Finding("SB103", note.rel, 1, "orphan note: nothing links here"))
+            findings.append(Finding("SB103", note.rel, 1, "orphan note: nothing links here",
+                                    info=True))
 
     for name, group in by_name.items():
         if len(group) > 1:
@@ -120,18 +125,6 @@ def lint(root, config):
             for note in group:
                 findings.append(Finding("SB104", note.rel, 1, "duplicate title across notes"))
 
-    for _, folder in tree.flatten(tree.load(root)):
-        if not (root / "wiki" / folder["path"] / "_about.md").is_file():
-            findings.append(Finding("SB111", "wiki/%s" % folder["path"], 1,
-                                    "folder has no _about.md"))
-    try:
-        version = int(config.get("schema_version", 0))
-    except (TypeError, ValueError):
-        version = 0
-    if version < SCHEMA_VERSION:
-        findings.append(Finding("SB107", MARKER, 1,
-                                "schema_version %s is older than %d"
-                                % (version, SCHEMA_VERSION)))
     return sorted(findings, key=lambda f: (f.path, f.line, f.code))
 
 
