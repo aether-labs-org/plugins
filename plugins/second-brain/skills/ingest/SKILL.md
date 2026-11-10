@@ -19,8 +19,8 @@ Follow the vault rules in `CLAUDE.md`. The contract:
 - A gap, an ambiguity or a contradiction with an existing note is never resolved by you.
 - Text you cannot read (scanned pages, truncated or garbled extraction) stops the ingest;
   reconstruct nothing.
-- `source` is the value `sb source` printed, `created` comes from `date +%Y-%m-%d`, `summary`
-  restates the body. Guess no field.
+- `source` is the value `sb source` printed (in double quotes if it contains ` #` or `: `),
+  `created` comes from `date +%Y-%m-%d`, `summary` restates the body. Guess no field.
 - Notes follow the body rules of `CLAUDE.md`. The report is a short list.
 
 ## Steps
@@ -41,21 +41,28 @@ Follow the vault rules in `CLAUDE.md`. The contract:
 
    Show any `SUSPICIOUS` flagged lines and ask before going on. A missing or failing tool: name
    it and stop.
-3. **Decide and write.** Read the converted copy and run `sb tree`. For each atomic idea run
+3. **Plan.** Read the converted copy and run `sb tree`. For each atomic idea run
    `sb search "<terms>" --json --limit 5`: a new note, a callout on an existing note, or nothing.
-   If the source has gaps, list them and ask once: resolve them now or at the end? (With
-   `--no-ask` skip the question and only report them.)
+4. **Gaps, before any write.** List what the source leaves unsaid about the subject you are
+   about to write (a decision: when, who, why), and any ambiguity or contradiction with an
+   existing note. Metadata of the source (author, publication date) and claims it simply asserts
+   are not gaps. If the list is not empty and `--no-ask` is absent, **stop**: show it, ask
+   exactly one question, "resolve them now or at the end?", and write nothing until the user
+   answers. Do not choose for the user, and do not skip the question because the source is short.
    - *Now*: the user answers; write the notes with the answers.
-   - *At the end*: write with only what the source says; bring the gaps back in step 5.
+   - *At the end*: write with only what the source says; bring the gaps back in step 6.
    An answer enters the note marked `(informed by the user, <date>)` in the vault language; a gap
-   left unanswered stays out of the note.
+   left unanswered stays out of the note. With `--no-ask`, never resolve a gap yourself: only
+   report it in step 6.
+5. **Write.**
    - *New note*: `wiki/<folder>/<Name>.md`, one idea, `Name` unique. Frontmatter: `summary`,
      `origin: agent`, `created`, `source`. Link inline to notes the search showed.
    - *Callout* on an existing note, at the very end after a blank line, every line prefixed `> `:
      `> [!agent] <YYYY-MM-DD> · <source>` then the added text. Touch nothing else in that note.
    - No folder fits: propose a new one with its `_about.md`; create it only after approval.
-4. **Close.** For an inbox item run `sb inbox done "<item>"`. If a write was declined, leave the
-   item in `_inbox/`.
-5. **Report**: notes created, callouts added, ideas skipped, lines flagged. If gaps were left for
-   the end, list them, ask for the answers and add each to its note as above. Name every gap still
-   open and point at the session commit for review.
+   For an inbox item then run `sb inbox done "<item>"`; if a write was declined, leave the item
+   in `_inbox/`.
+6. **Report**: notes created, callouts added, ideas skipped, lines flagged. If gaps were left for
+   the end, list them, ask for the answers (not with `--no-ask`) and add each to its note as
+   above. Name every gap, ambiguity and contradiction still open and point at the session commit
+   for review.

@@ -56,7 +56,8 @@ Only `key: value` scalars, inline `[a, b]` lists and block lists (`- item`).
   note was made, no repeat of `summary`.
 - Length follows the content; no minimum, no padding. Lists, tables and headings only where the
   content has that shape.
-- No fixed section template: follow the folder's `_about.md` conventions.
+- No fixed section template: follow the folder's `_about.md` conventions, but leave out a section
+  the source does not fill; never fill it.
 - No adjective, hedge or emphasis the source does not carry; no emoji.
 - No "Related" section of weak links.
 
