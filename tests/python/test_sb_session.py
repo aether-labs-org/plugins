@@ -8,7 +8,6 @@ from datetime import datetime
 from pathlib import Path
 
 from sb_helpers import PLUGIN, make_vault, note
-from sb import index
 from sb.session import start
 from sb.vault import load_notes
 
@@ -88,11 +87,6 @@ class SessionStartTests(unittest.TestCase):
         (self.root / ".sb" / ".gitignore").mkdir()          # a directory: cannot be read or written
         start(self.event(), str(self.root))
         self.assertFalse((self.root / ".sb" / "heartbeat.json").exists())
-
-    def test_index_regenerated(self):
-        (self.root / "_index.md").write_text("stale", encoding="utf-8")
-        start(self.event(), str(self.root))
-        self.assertEqual(index.drift(self.root, load_notes(self.root)), "")
 
     def test_outside_vault_is_none(self):
         outside = tempfile.mkdtemp()

@@ -4,7 +4,6 @@ import time
 from datetime import datetime
 from typing import Optional
 
-from . import index as index_mod
 from . import tree
 from .fsutil import write_atomic
 from .sanitize import clean_inline, escape_tags
@@ -80,11 +79,6 @@ def start(event, cwd) -> Optional[dict]:
     _heartbeat(root, event.get("session_id"))
     status = _sync_status(root, config, str(event.get("session_id") or ""))
     notes = load_notes(root)
-    try:
-        if index_mod.drift(root, notes):
-            write_atomic(root / "_index.md", index_mod.build(notes))
-    except OSError:
-        pass
     unreviewed = sum(1 for n in notes if label(n.data, n.body) == "unreviewed")
     compact = tree.render_compact(tree.load(root)) or "(no folders yet)"
     text = "%s%s\nStatus: inbox %d · unreviewed %d · sync %s\n%s" % (

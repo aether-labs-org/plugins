@@ -106,21 +106,20 @@ class SourceTests(unittest.TestCase):
         text = (self.root / out["path"]).read_text(encoding="utf-8")
         self.assertEqual(text.count("\nsuspicious:"), 1)
 
-    def test_inbox_done_moves_and_logs(self):
+    def test_inbox_done_moves_without_logging(self):
         (self.root / "_inbox/x.md").write_text("x", encoding="utf-8")
-        rel = inbox_done(self.root, "_inbox/x.md", "Titulo")
+        rel = inbox_done(self.root, "_inbox/x.md")
         self.assertEqual(rel, "_inbox/_done/x.md")
         self.assertFalse((self.root / "_inbox/x.md").exists())
-        self.assertIn("ingest | Titulo", (self.root / "_log.md").read_text(encoding="utf-8"))
+        self.assertFalse((self.root / "_log.md").exists())
 
     def test_inbox_done_never_overwrites(self):
         (self.root / "_inbox/_done/x.md").write_text("old", encoding="utf-8")
         (self.root / "_inbox/x.md").write_text("new", encoding="utf-8")
-        self.assertEqual(inbox_done(self.root, "_inbox/x.md", "T"), "_inbox/_done/x-2.md")
+        self.assertEqual(inbox_done(self.root, "_inbox/x.md"), "_inbox/_done/x-2.md")
         (self.root / "_inbox/x.md").write_text("newer", encoding="utf-8")
-        self.assertEqual(inbox_done(self.root, "_inbox/x.md", "T"), "_inbox/_done/x-3.md")
+        self.assertEqual(inbox_done(self.root, "_inbox/x.md"), "_inbox/_done/x-3.md")
         self.assertEqual((self.root / "_inbox/_done/x.md").read_text(encoding="utf-8"), "old")
-        self.assertIn("ingest | T", (self.root / "_log.md").read_text(encoding="utf-8"))
 
     def test_inbox_done_rejects_paths_outside_inbox(self):
         (self.root / "_raw/a.pdf").write_bytes(b"x")
@@ -128,7 +127,7 @@ class SourceTests(unittest.TestCase):
         for bad in ("_raw/a.pdf", "_inbox/_done/x.md", "wiki/Resources/A.md", "/etc/hostname",
                     "_inbox/missing.md"):
             with self.assertRaises(ValueError, msg=bad):
-                inbox_done(self.root, bad, "T")
+                inbox_done(self.root, bad)
 
 
 class SourceCliTests(unittest.TestCase):
@@ -204,9 +203,9 @@ class SourceCliTests(unittest.TestCase):
 
     def test_inbox_done_cli(self):
         (self.root / "_inbox/x.md").write_text("x", encoding="utf-8")
-        code, out, _ = self.run_cli("inbox", "done", "_inbox/x.md", "--title", "T", "--json")
+        code, out, _ = self.run_cli("inbox", "done", "_inbox/x.md", "--json")
         self.assertEqual((code, json.loads(out)["moved_to"]), (0, "_inbox/_done/x.md"))
-        code, _, err = self.run_cli("inbox", "done", "_raw/a.pdf", "--title", "T")
+        code, _, err = self.run_cli("inbox", "done", "_raw/a.pdf")
         self.assertEqual(code, 2)
 
 

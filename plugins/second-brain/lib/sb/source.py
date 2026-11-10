@@ -8,7 +8,6 @@ from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from . import logfile
 from .frontmatter import parse
 from .fsutil import write_atomic
 from .sanitize import clean_document, clean_inline
@@ -146,8 +145,8 @@ def save(root, source_id, text, tool, origin, today=None):
             "flagged": [{"line": n, "text": clean_inline(l, 200)} for n, l in lines]}
 
 
-def inbox_done(root, rel, title):
-    """Move an inbox item to `_inbox/_done/` without overwriting, log it, return the new rel."""
+def inbox_done(root, rel):
+    """Move an inbox item to `_inbox/_done/` without overwriting; return the new rel."""
     root = Path(root).resolve()
     path = Path(rel)
     path = path if path.is_absolute() else root / path
@@ -167,5 +166,4 @@ def inbox_done(root, rel, title):
         target = done / ("%s-%d%s" % (real.stem, counter, real.suffix))
         counter += 1
     os.rename(str(real), str(target))
-    logfile.append(root, "ingest", title)
     return target.relative_to(root).as_posix()

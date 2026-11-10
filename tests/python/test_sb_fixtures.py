@@ -21,7 +21,6 @@ def build(tmp, notes_dir):
     root = Path(tmp) / "vault"
     main(["init", "--vault", str(root), "--language", "en"], out=io.StringIO(), err=io.StringIO())
     shutil.copytree(FIXTURES / notes_dir, root / "wiki", dirs_exist_ok=True)
-    main(["index", "--write", "--vault", str(root)], out=io.StringIO(), err=io.StringIO())
     return root
 
 

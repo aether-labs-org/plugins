@@ -67,12 +67,6 @@ class LintTests(unittest.TestCase):
         self.assertEqual(paths, ["wiki/Areas/A.md", "wiki/Resources/A.md",
                                  "wiki/Resources/X.md", "wiki/Resources/Y.md"])
 
-    def test_sb105_index_drift_and_missing_index(self):
-        self.assertIn("SB105", self.codes(run(self.vault(index=False))))
-        ok = self.tmp.name + "/ok"
-        os.makedirs(ok)
-        self.assertNotIn("SB105", self.codes(run(make_vault(ok, dict(PAIR)))))
-
     def test_sb106_agent_note_needs_review(self):
         root = self.vault({"Resources/C.md": note("C", origin="agent", body="[[A]]"),
                            "Resources/D.md": note("D", origin="agent", reviewed="2026-10-01", body="[[A]]")})
@@ -103,7 +97,7 @@ class LintTests(unittest.TestCase):
             "Resources/S3.md": note("S3", source="[[Nope]]", body="[[A]]"),
             "Resources/S4.md": note("S4", source="[[A]]", body="[[A]]"),
             "Resources/S5.md": note("S5", source="https://example.com/x", body="[[A]]"),
-        }, index=False)
+        })
         (root / "_raw" / "here.pdf").write_bytes(b"%PDF")
         findings = run(root)
         flagged = sorted(f.path for f in findings if f.code == "SB109")

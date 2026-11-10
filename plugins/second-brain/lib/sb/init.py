@@ -3,8 +3,6 @@ import json
 import subprocess
 from pathlib import Path
 
-from . import index as index_mod
-from . import logfile
 from .fsutil import write_atomic
 from .vault import MARKER, SCHEMA_VERSION
 
@@ -14,7 +12,6 @@ PROFILES = ("personal", "work", "project", "squad")
 BASE_DIRS = ("_inbox/_done", "_raw", "_meta", "_views", ".claude")
 KEEP_DIRS = ("_inbox/_done", "_raw")      # empty at first: a .gitkeep lets a clone have them
 GITIGNORE_LINES = (".sb/", ".obsidian/workspace*", ".smart-env/")
-SQUAD_GITIGNORE_LINES = ("_index.md", "_log.md")
 # (path in the vault, template file) written when absent
 EXTRA_FILES = ((".claude/settings.json", "settings.json"),
                ("_meta/web-clipper-template.json", "web-clipper-template.json"),
@@ -46,7 +43,7 @@ def about_text(folder):
 
 
 def gitignore_lines(sync):
-    return GITIGNORE_LINES + (SQUAD_GITIGNORE_LINES if sync == "squad" else ())
+    return GITIGNORE_LINES
 
 
 def _clean_area(area):
@@ -115,8 +112,6 @@ def run(root, language="en", profile="personal", remote=None, git=False, areas=(
     for rel, source in EXTRA_FILES:
         _write_new(root, rel, (TEMPLATES / source).read_text(encoding="utf-8"), created, kept)
     _append_gitignore(root, gitignore_lines(spec["sync"]), created, kept)
-    _write_new(root, "_index.md", index_mod.build([]), created, kept)
-    _write_new(root, "_log.md", "", created, kept)
 
     if git and not (root / ".git").exists():
         try:
@@ -134,6 +129,5 @@ def run(root, language="en", profile="personal", remote=None, git=False, areas=(
               "sync": spec["sync"], "areas": clean}
     write_atomic(root / MARKER, json.dumps(marker, ensure_ascii=False, indent=2) + "\n")
     created.append(MARKER)
-    logfile.append(root, "init", "vault created")
     return {"status": "created", "root": str(root), "created": created, "kept": kept,
             "warnings": warnings}

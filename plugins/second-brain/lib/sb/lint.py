@@ -4,7 +4,6 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import date
 
-from . import index as index_mod
 from . import tree
 from .links import extract, is_asset, target_name
 from .vault import SCHEMA_VERSION, asset_names, load_notes
@@ -121,9 +120,6 @@ def lint(root, config):
             for note in group:
                 findings.append(Finding("SB104", note.rel, 1, "duplicate title across notes"))
 
-    if index_mod.drift(root, notes):
-        findings.append(Finding("SB105", "_index.md", 1,
-                                "_index.md is out of sync; run `sb index --write`"))
     for _, folder in tree.flatten(tree.load(root)):
         if not (root / "wiki" / folder["path"] / "_about.md").is_file():
             findings.append(Finding("SB111", "wiki/%s" % folder["path"], 1,

@@ -1,12 +1,9 @@
-"""PostToolUse: frontmatter feedback for a note the agent just wrote, and `_index.md` kept in
-sync (spec 5.5)."""
+"""PostToolUse: frontmatter feedback for a note the agent just wrote (spec 5.5)."""
 import os
 from pathlib import Path
 
-from . import index as index_mod
-from .fsutil import write_atomic
 from .lint import check_note
-from .vault import find_vault, is_note_rel, load_note, load_notes
+from .vault import find_vault, is_note_rel, load_note
 
 
 def check(event, cwd):
@@ -24,7 +21,6 @@ def check(event, cwd):
         return None
     if not is_note_rel(inside) or not path.is_file():
         return None
-    _sync_index(vault)
     findings = check_note(load_note(vault, path))
     if not findings:
         return None
@@ -34,12 +30,3 @@ def check(event, cwd):
     return {"hookSpecificOutput": {"hookEventName": "PostToolUse",
                                    "additionalContext": "\n".join(lines)}}
 
-
-def _sync_index(vault):
-    """Rewrite `_index.md` when it drifted. Never raises: feedback matters more."""
-    try:
-        notes = load_notes(vault)
-        if index_mod.drift(vault, notes):
-            write_atomic(vault / "_index.md", index_mod.build(notes))
-    except OSError:
-        pass

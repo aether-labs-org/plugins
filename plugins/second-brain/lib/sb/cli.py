@@ -8,10 +8,8 @@ from datetime import date
 from pathlib import Path
 
 from . import frontmatter
-from . import index as index_mod
-from . import logfile
 from .fsutil import write_atomic
-from .lint import INFO_CODES, check_note, lint as run_lint, render_text
+from .lint import INFO_CODES, lint as run_lint, render_text
 from .links import WIKILINK, extract, prose_lines, target_name
 from .vault import (MARKER, VaultError, find_vault, is_note_rel, load_config, load_note,
                     load_notes)
@@ -39,21 +37,6 @@ def _emit(args, out, payload, text=""):
         out.write("\n")
     elif text:
         out.write(text.rstrip("\n") + "\n")
-
-
-def cmd_index(args, out, err):
-    root = _vault(args, err)
-    if root is None:
-        return EXIT_USAGE
-    notes = load_notes(root)
-    if args.write:
-        write_atomic(root / "_index.md", index_mod.build(notes))
-        _emit(args, out, {"notes": len(notes), "written": True},
-              "wrote _index.md (%d notes)" % len(notes))
-        return EXIT_OK
-    diff = index_mod.drift(root, notes)
-    _emit(args, out, {"in_sync": not diff, "diff": diff}, diff)
-    return EXIT_FINDINGS if diff else EXIT_OK
 
 
 def cmd_lint(args, out, err):
@@ -137,24 +120,6 @@ def cmd_eval(args, out, err):
     return EXIT_OK
 
 
-def cmd_validate(args, out, err):
-    root = _vault(args, err)
-    if root is None:
-        return EXIT_USAGE
-    wiki = root / "wiki"
-    findings = []
-    for name in args.files:
-        path = Path(name).resolve()
-        try:
-            path.relative_to(wiki)
-        except ValueError:
-            continue
-        if path.suffix == ".md":
-            findings += check_note(load_note(root, path))
-    _emit(args, out, [f.as_dict() for f in findings], "\n".join(str(f) for f in findings))
-    return EXIT_FINDINGS if findings else EXIT_OK
-
-
 def _suggestions(note, notes):
     linked = {target for _, target in extract(note.body, note.body_line)}
     found = []
@@ -202,18 +167,6 @@ def cmd_links(args, out, err):
     for s in payload.get("suggestions", []):
         text.append("suggest [[%s]] (line %d, matched %r)" % (s["name"], s["line"], s["term"]))
     _emit(args, out, payload, "\n".join(text))
-    return EXIT_OK
-
-
-def cmd_log(args, out, err):
-    root = _vault(args, err)
-    if root is None:
-        return EXIT_USAGE
-    try:
-        logfile.append(root, args.event, args.title)
-    except ValueError as exc:
-        print("sb: %s" % exc, file=err)
-        return EXIT_USAGE
     return EXIT_OK
 
 
@@ -271,7 +224,7 @@ def cmd_inbox_done(args, out, err):
     if root is None:
         return EXIT_USAGE
     try:
-        rel = source.inbox_done(root, args.file, args.title)
+        rel = source.inbox_done(root, args.file)
     except (ValueError, OSError) as exc:
         print("sb: %s" % exc, file=err)
         return EXIT_USAGE
@@ -316,12 +269,6 @@ def build_parser():
     parser = argparse.ArgumentParser(prog="sb", description="second-brain vault tooling")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("index", parents=[common], help="rebuild or check _index.md")
-    group = p.add_mutually_exclusive_group(required=True)
-    group.add_argument("--write", action="store_true")
-    group.add_argument("--check", action="store_true")
-    p.set_defaults(func=cmd_index)
-
     p = sub.add_parser("lint", parents=[common], help="run the lint rules")
     p.add_argument("--verbose", action="store_true", help="one line per finding, never grouped")
     p.set_defaults(func=cmd_lint)
@@ -349,15 +296,6 @@ def build_parser():
     p.add_argument("--suggest", action="store_true", help="list unlinked exact title mentions")
     p.set_defaults(func=cmd_links)
 
-    p = sub.add_parser("validate", parents=[common], help="validate frontmatter of notes")
-    p.add_argument("files", nargs="+")
-    p.set_defaults(func=cmd_validate)
-
-    p = sub.add_parser("log", parents=[common], help="append to _log.md")
-    p.add_argument("event", choices=logfile.EVENTS)
-    p.add_argument("title")
-    p.set_defaults(func=cmd_log)
-
     p = sub.add_parser("source", help="provenance of a file or URL being ingested")
     ssub = p.add_subparsers(dest="source_command", required=True)
     q = ssub.add_parser("add", parents=[common], help="source id and notes already made from it")
@@ -374,7 +312,6 @@ def build_parser():
     isub = p.add_subparsers(dest="inbox_command", required=True)
     q = isub.add_parser("done", parents=[common], help="move an ingested item to _inbox/_done/")
     q.add_argument("file")
-    q.add_argument("--title", required=True, help="title for the ingest log line")
     q.set_defaults(func=cmd_inbox_done)
 
     p = sub.add_parser("init", parents=[common], help="create a vault in the target directory")

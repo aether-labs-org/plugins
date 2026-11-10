@@ -247,12 +247,6 @@ class SquadSyncTests(unittest.TestCase):
         for name in clones:
             for i in range(20):
                 self.assertIn("wiki/Resources/%s-%d.md" % (name, i), remote)
-        for clone in clones.values():
-            tracked = git(clone, "ls-files").split()
-            self.assertNotIn("_index.md", tracked)
-            self.assertNotIn("_log.md", tracked)
-        self.assertNotIn("_index.md", remote)
-        self.assertNotIn("_log.md", remote)
         for sha in git(self.bare, "rev-list", "main").split():
             message = git(self.bare, "log", "-1", "--format=%B", sha)
             if message.startswith("sb:"):

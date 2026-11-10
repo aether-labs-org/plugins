@@ -43,13 +43,13 @@ class InitTests(unittest.TestCase):
         for rel in ("_inbox/_done", "_raw", "wiki/Projects", "wiki/Areas/Saúde",
                     "wiki/Areas/Finanças", "wiki/Resources", "wiki/Archive"):
             self.assertTrue((self.root / rel).is_dir(), rel)
-        for rel in ("CLAUDE.md", "_index.md", "_log.md", ".gitignore", MARKER):
+        for rel in ("CLAUDE.md", ".gitignore", MARKER):
             self.assertTrue((self.root / rel).is_file(), rel)
         self.assertEqual(load_config(self.root),
                          {"schema_version": 2, "language": "pt-BR", "profile": "personal", "sync": "local",
                           "areas": ["Saúde", "Finanças"]})
         self.assertIn("pt-BR", (self.root / "CLAUDE.md").read_text(encoding="utf-8"))
-        self.assertIn("init | vault created", (self.root / "_log.md").read_text(encoding="utf-8"))
+        self.assertFalse((self.root / "_index.md").exists() or (self.root / "_log.md").exists())
         self.assertEqual([f for f in lint(self.root, load_config(self.root)) if f.code not in INFO_CODES], [])
 
     def test_init_does_not_touch_obsidian_plugins(self):
@@ -189,7 +189,7 @@ class InitTests(unittest.TestCase):
         local = (self.root / "a/.gitignore").read_text(encoding="utf-8").splitlines()
         squad = (self.root / "b/.gitignore").read_text(encoding="utf-8").splitlines()
         self.assertEqual(local, [".sb/", ".obsidian/workspace*", ".smart-env/"])
-        self.assertEqual(squad, [".sb/", ".obsidian/workspace*", ".smart-env/", "_index.md", "_log.md"])
+        self.assertEqual(squad, [".sb/", ".obsidian/workspace*", ".smart-env/"])
 
     def test_areas_without_an_areas_folder_are_ignored_with_a_warning(self):
         result = init.run(self.root, profile="project", areas=["x"])

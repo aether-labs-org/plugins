@@ -1,8 +1,10 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
 
 from sb_helpers import make_vault, note
+from sb.fsutil import write_atomic
 from sb.vault import MARKER, VaultError, asset_names, find_vault, load_config, load_notes
 
 
@@ -15,6 +17,13 @@ class VaultTests(unittest.TestCase):
         root = make_vault(self.tmp.name, {"Areas/A.md": note("A")})
         deep = root / "wiki" / "Areas"
         self.assertEqual(find_vault(deep), root.resolve())
+
+    def test_write_atomic_replaces_file_and_leaves_no_temp_files(self):
+        target = Path(self.tmp.name) / "x.md"
+        write_atomic(target, "one\n")
+        write_atomic(target, "two\n")
+        self.assertEqual(target.read_text(encoding="utf-8"), "two\n")
+        self.assertEqual(os.listdir(self.tmp.name), ["x.md"])
 
     def test_find_vault_returns_none_outside_a_vault(self):
         self.assertIsNone(find_vault(self.tmp.name))

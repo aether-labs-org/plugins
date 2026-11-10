@@ -40,13 +40,6 @@ class CliTests(unittest.TestCase):
         self.addCleanup(os.chdir, old)
         self.assertEqual(run("lint")[0], 0)
 
-    def test_index_write_then_check(self):
-        (self.root / "_index.md").write_text("stale", encoding="utf-8")
-        self.assertEqual(run("index", "--check", "--vault", str(self.root))[0], 1)
-        self.assertEqual(run("index", "--write", "--vault", str(self.root))[0], 0)
-        code, out, _ = run("index", "--check", "--json", "--vault", str(self.root))
-        self.assertEqual((code, json.loads(out)["in_sync"]), (0, True))
-
     def test_lint_text_and_json(self):
         (self.root / "wiki" / "Resources" / "A.md").write_text(
             note("A", summary=None, body="see [[B]] [[Nope]]"), encoding="utf-8")
@@ -77,20 +70,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("note not found", err)
 
-    def test_validate_checks_wiki_notes_only(self):
-        bad = self.root / "wiki" / "Resources" / "Bad.md"
-        bad.write_text(note("Bad", summary=None), encoding="utf-8")
-        outside = self.root / "_inbox" / "x.md"
-        outside.write_text("no frontmatter", encoding="utf-8")
-        self.assertEqual(run("validate", str(bad), "--vault", str(self.root))[0], 1)
-        self.assertEqual(run("validate", str(outside), "--vault", str(self.root))[0], 0)
-        self.assertEqual(run("validate", str(self.root / "wiki" / "Resources" / "A.md"),
-                             "--vault", str(self.root))[0], 0)
-
-    def test_log_appends_and_rejects_unknown_events(self):
-        self.assertEqual(run("log", "ingest", "My note", "--vault", str(self.root))[0], 0)
-        self.assertIn("ingest | My note", (self.root / "_log.md").read_text(encoding="utf-8"))
-        self.assertEqual(run("log", "bogus", "x", "--vault", str(self.root))[0], 2)
+    def test_removed_commands_are_unknown(self):
+        for argv in (("index", "--check"), ("validate", "x"), ("log", "init", "x")):
+            self.assertEqual(run(*argv, "--vault", str(self.root))[0], 2, argv)
 
     def test_executable_shim_runs(self):
         shim = PLUGIN / "bin" / "sb"
@@ -114,7 +96,6 @@ class EmptyVaultTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_vault(tmp)
             self.assertEqual(run("lint", "--vault", str(root))[0], 0)
-            self.assertEqual(run("index", "--check", "--vault", str(root))[0], 0)
 
 
 if __name__ == "__main__":
