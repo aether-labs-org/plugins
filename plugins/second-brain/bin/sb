@@ -1,11 +1,7 @@
-#!/usr/bin/env python3
-"""Entry point for the second-brain CLI."""
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
-
-from sb.cli import main  # noqa: E402
-
-if __name__ == "__main__":
-    sys.exit(main())
+#!/bin/sh
+# Entry point of the second-brain CLI: runs lib/sb_main.py through the interpreter launcher.
+case $0 in
+  */*) dir=${0%/*} ;;
+  *) dir=. ;;
+esac
+exec /bin/sh "$dir/sb-python" "$dir/../lib/sb_main.py" "$@"

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """SessionEnd hook entry point: local auto-commit. Always exits 0; status goes to stderr."""
 import json
 import os

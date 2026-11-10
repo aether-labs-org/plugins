@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/validate_note.py\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/sb-python\" --hook \"${CLAUDE_PLUGIN_ROOT}/hooks/validate_note.py\"",
             "timeout": 10
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/sb-python\" --hook \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"",
             "timeout": 60
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/autocommit.py\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/sb-python\" --hook \"${CLAUDE_PLUGIN_ROOT}/hooks/autocommit.py\"",
             "timeout": 30
           }
         ]
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/recall.py\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/sb-python\" --hook \"${CLAUDE_PLUGIN_ROOT}/hooks/recall.py\"",
             "timeout": 5
           }
         ]

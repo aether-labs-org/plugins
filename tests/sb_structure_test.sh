@@ -57,6 +57,11 @@ check "init is user-invoked only" $?
 [ "$(wc -l < "$p/templates/CLAUDE.md")" -lt 200 ]; check "vault CLAUDE.md template < 200 lines (AC1)" $?
 [ -x "$p/bin/sb" ]; check "bin/sb is executable" $?
 
+# No entry point names python3 outside the launcher (D61).
+others="$(grep -rIl python3 "$p/hooks" "$p/bin" "$p/lib" --exclude-dir=__pycache__ 2>/dev/null | grep -v '/bin/sb-python$')"
+[ -z "$others" ]; check "only bin/sb-python names python3" $?
+[ -x "$p/bin/sb" ] && [ -x "$p/bin/sb-python" ]; check "bin/sb and bin/sb-python are executable" $?
+
 # Every ${CLAUDE_PLUGIN_ROOT}/... path referenced anywhere must exist.
 while IFS= read -r ref; do
   [ -e "$p/$ref" ]; check "referenced path exists: $ref" $?

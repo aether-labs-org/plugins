@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """UserPromptSubmit hook entry point. Recall is advisory: any failure is silent (exit 0)."""
 import json
 import os

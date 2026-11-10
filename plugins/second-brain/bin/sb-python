@@ -1,0 +1,22 @@
+#!/bin/sh
+# Runs SCRIPT with the first usable interpreter: `python`, else `python3` (Python 3.9 or newer).
+# Usage: sb-python [--hook] SCRIPT [ARGS...]
+# One cheap probe per candidate lets a missing `python`, a Python 2 and the Windows store stub fall
+# through to `python3`. With no usable interpreter a hook (--hook) exits 0 in silence; any other
+# caller gets a message and exit status 2.
+hook=0
+if [ "$1" = "--hook" ]; then
+  hook=1
+  shift
+fi
+for py in python python3; do
+  if command -v "$py" >/dev/null 2>&1 &&
+     "$py" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 9))' >/dev/null 2>&1; then
+    exec "$py" "$@"
+  fi
+done
+if [ "$hook" = 1 ]; then
+  exit 0
+fi
+echo "sb: needs Python 3.9+ (tried python, python3)" >&2
+exit 2

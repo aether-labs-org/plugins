@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """SessionStart hook entry point. Any internal failure is silent (exit 0)."""
 import json
 import os
