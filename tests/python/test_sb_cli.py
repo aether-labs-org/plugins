@@ -81,7 +81,7 @@ class CliTests(unittest.TestCase):
             (root / LEGACY_MARKER).write_text('{"schema_version": 2}', encoding="utf-8")
             before = sorted(p.name for p in root.rglob("*"))
             for argv in (("lint",), ("search", "x"), ("tree",), ("inbox", "done", "_inbox/x.md"),
-                         ("source", "add", "x.md"), ("links", "A")):
+                         ("source", "x.md"), ("links", "A")):
                 code, _, err = run(*argv, "--vault", str(root))
                 self.assertEqual(code, 2, argv)
                 self.assertIn(LEGACY_MESSAGE, err)

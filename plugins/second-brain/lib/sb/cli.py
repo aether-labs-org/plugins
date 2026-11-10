@@ -165,50 +165,67 @@ def cmd_links(args, out, err):
     return EXIT_OK
 
 
-def cmd_source_add(args, out, err):
-    from . import source
-
-    root = _vault(args, err)
-    if root is None:
-        return EXIT_USAGE
-    try:
-        source_id, kind = source.source_id_for(root, args.target)
-        value = source.source_value(root, args.target)
-    except (ValueError, OSError) as exc:
-        print("sb: %s" % exc, file=err)
-        return EXIT_USAGE
-    notes = source.notes_for(root, source_id)
-    status = "seen" if notes else "new"
-    _emit(args, out, {"source_id": source_id, "source": value, "kind": kind, "status": status,
-                      "notes": notes},
-          "%s %s (%s)\nsource: %s%s" % (status, source_id, kind, value,
-                                       "".join("\n  " + n for n in notes)))
-    return EXIT_OK
-
-
 def _read_stdin(stream):
     stream = stream or sys.stdin
     data = stream.buffer.read() if hasattr(stream, "buffer") else stream.read()
     return data.decode("utf-8", "replace") if isinstance(data, bytes) else data
 
 
-def cmd_source_save(args, out, err):
+def _flagged_text(result):
+    if not result["suspicious"]:
+        return []
+    lines = ["SUSPICIOUS: %d line(s) look like instructions to a model:" % len(result["flagged"])]
+    return lines + ["  line %d: %s" % (f["line"], f["text"]) for f in result["flagged"]]
+
+
+def cmd_source(args, out, err):
     from . import source
 
     root = _vault(args, err)
     if root is None:
         return EXIT_USAGE
+    if args.save and args.relink:
+        print("sb: --save and --relink are exclusive", file=err)
+        return EXIT_USAGE
+    if args.save and not args.tool:
+        print("sb: --save needs --tool (the extraction tool used)", file=err)
+        return EXIT_USAGE
+    if args.tool and not args.save:
+        print("sb: --tool only goes with --save", file=err)
+        return EXIT_USAGE
     try:
-        result = source.save(root, args.source_id, _read_stdin(getattr(args, "stdin", None)),
-                             tool=args.tool, origin=args.origin)
+        if args.save:
+            result = source.save(root, args.target, _read_stdin(getattr(args, "stdin", None)),
+                                 tool=args.tool)
+            text = ["saved %s (removed %d characters)" % (result["path"], result["removed"])]
+            _emit(args, out, result, "\n".join(text + _flagged_text(result)))
+            return EXIT_OK
+        if args.relink:
+            result = source.relink(root, args.target)
+            text = ["relinked %s -> %s" % (result["moved_from"], result["source"])]
+            text += ["changed: " + rel for rel in result["changed"]]
+            _emit(args, out, result, "\n".join(text))
+            return EXIT_OK
+        info = source.inspect(root, args.target)
+        flagged = []
+        if info["status"] == "new" and source.is_text_file(root, args.target):
+            saved = source.save_text_file(root, args.target)
+            info["converted"] = saved["path"]
+            if saved["suspicious"]:
+                info["flagged"] = saved["flagged"]
+                flagged = _flagged_text(saved)
     except (ValueError, OSError) as exc:
         print("sb: %s" % exc, file=err)
         return EXIT_USAGE
-    text = ["saved %s (removed %d characters)" % (result["path"], result["removed"])]
-    if result["suspicious"]:
-        text.append("SUSPICIOUS: %d line(s) look like instructions to a model:" % len(result["flagged"]))
-        text += ["  line %d: %s" % (f["line"], f["text"]) for f in result["flagged"]]
-    _emit(args, out, result, "\n".join(text))
+    text = ["%s %s (%s)" % (info["status"], info["source"], info["kind"])]
+    text += ["notes: " + rel for rel in info["notes"]]
+    if info.get("moved_from"):
+        text.append("moved_from: " + info["moved_from"])
+    if info.get("changed"):
+        text.append("changed: yes")
+    if info["converted"]:
+        text.append("converted: " + info["converted"])
+    _emit(args, out, info, "\n".join(text + flagged))
     return EXIT_OK
 
 
@@ -291,17 +308,15 @@ def build_parser():
     p.add_argument("--suggest", action="store_true", help="list unlinked exact title mentions")
     p.set_defaults(func=cmd_links)
 
-    p = sub.add_parser("source", help="provenance of a file or URL being ingested")
-    ssub = p.add_subparsers(dest="source_command", required=True)
-    q = ssub.add_parser("add", parents=[common], help="source id and notes already made from it")
-    q.add_argument("target", help="file path or URL")
-    q.set_defaults(func=cmd_source_add)
-    q = ssub.add_parser("save", parents=[common],
-                        help="sanitise Markdown from stdin into .agents/second-brain/converted/")
-    q.add_argument("source_id")
-    q.add_argument("--tool", required=True, help="extraction tool used (pandoc, pdftotext, ...)")
-    q.add_argument("--origin", required=True, help="original path or URL")
-    q.set_defaults(func=cmd_source_save)
+    p = sub.add_parser("source", parents=[common],
+                       help="provenance of a file or URL being ingested")
+    p.add_argument("target", help="file path or URL")
+    p.add_argument("--save", action="store_true",
+                   help="sanitise Markdown from stdin into .agents/second-brain/converted/")
+    p.add_argument("--tool", help="extraction tool used (pandoc, pdftotext, ...); needs --save")
+    p.add_argument("--relink", action="store_true",
+                   help="after a move, point the converted copy and the notes at the current path")
+    p.set_defaults(func=cmd_source)
 
     p = sub.add_parser("inbox", help="inbox bookkeeping")
     isub = p.add_subparsers(dest="inbox_command", required=True)
