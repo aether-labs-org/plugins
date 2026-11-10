@@ -116,6 +116,31 @@ class AutoCommitTests(unittest.TestCase):
         self.addCleanup(lambda: (os.environ.clear(), os.environ.update(old)))
         self.assertTrue(autocommit.run(str(self.root), env={}).startswith("skipped: git commit failed"))
 
+    def test_outside_flag_changes_the_message_and_trailers(self):
+        self.dirty()
+        status = autocommit.run(str(self.root), env={}, today="2026-10-01", session_id="s9", outside=True)
+        self.assertEqual(status, "committed: sb: changes outside sessions (1 files)")
+        body = self.git("log", "-1", "--format=%B").stdout
+        self.assertTrue(body.startswith("sb: changes outside sessions (1 files)\n\nSb-Files: 1"))
+        self.assertNotIn("Sb-Session", body)
+
+    def test_session_commit_carries_both_trailers(self):
+        self.dirty()
+        autocommit.run(str(self.root), env={}, today="2026-10-01", session_id="s9")
+        body = self.git("log", "-1", "--format=%B").stdout
+        self.assertTrue(body.startswith("sb: session 2026-10-01 (1 files)\n\nSb-Session: s9\nSb-Files: 1"))
+
+    def test_hook_prints_only_commit_lines(self):
+        script = str(PLUGIN / "hooks" / "autocommit.py")
+        done = subprocess.run([sys.executable, script], input=json.dumps({"cwd": str(self.root)}),
+                              capture_output=True, text=True)
+        self.assertEqual((done.returncode, done.stderr), (0, ""))
+        self.dirty()
+        done = subprocess.run([sys.executable, script], input=json.dumps({"cwd": str(self.root)}),
+                              capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0)
+        self.assertTrue(done.stderr.startswith("second-brain: committed: sb: session"))
+
     def test_source_never_runs_git_push_itself(self):
         source = inspect.getsource(autocommit)
         self.assertNotIn('"push"', source)           # no git push argument of its own

@@ -17,7 +17,7 @@ def main():
             cwd, session_id = os.getcwd(), ""
         from sb.autocommit import run
         status = run(cwd, session_id=session_id)
-        if status.startswith("committed") or "push:" in status:
+        if status.startswith("committed"):
             print("second-brain: " + status, file=sys.stderr)
     except Exception as exc:
         print("second-brain: auto-commit error: %s" % exc, file=sys.stderr)

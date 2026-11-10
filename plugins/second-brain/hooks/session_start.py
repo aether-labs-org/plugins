@@ -11,7 +11,7 @@ def main():
     try:
         event = json.load(sys.stdin)
         from sb.session import start
-        output = start(event, os.getcwd())
+        output = start(event, os.getcwd(), os.environ)
     except Exception:
         return 0
     if output:

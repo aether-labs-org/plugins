@@ -19,10 +19,12 @@ check "second-brain depends on document-skills and obsidian" $?
 jq -e '.allowCrossMarketplaceDependenciesOn | index("anthropic-agent-skills") and index("obsidian-skills")' "$mp" >/dev/null
 check "marketplace allows the two dependency marketplaces" $?
 [ "$(jq -r .version "$pj")" = "0.2.4" ]; check "plugin version 0.2.4" $?
-jq -e '.hooks.SessionStart[0] | .matcher == "startup|resume|clear|compact" and (.hooks[0].command | contains("session_start.py"))' "$p/hooks/hooks.json" >/dev/null
+jq -e '.hooks.SessionStart[0] | .matcher == "startup|resume|clear|compact|fork" and (.hooks[0].command | contains("session_start.py"))' "$p/hooks/hooks.json" >/dev/null
 check "SessionStart hook is registered" $?
-jq -e '.hooks.SessionEnd[0].hooks[0].timeout == 60' "$p/hooks/hooks.json" >/dev/null
-check "SessionEnd hook timeout is 60" $?
+jq -e '.hooks.SessionStart[0].hooks[0].timeout == 60' "$p/hooks/hooks.json" >/dev/null
+check "SessionStart hook timeout is 60" $?
+jq -e '.hooks.SessionEnd[0].hooks[0].timeout == 30' "$p/hooks/hooks.json" >/dev/null
+check "SessionEnd hook timeout is 30" $?
 jq -e 'type == "array" and length > 0 and all(.[]; (.path | type == "string") and (.description | type == "string"))' "$p/templates/folders-default.json" >/dev/null
 check "folders-default.json is a non-empty array of {path, description}" $?
 [ ! -e "$p/templates/profiles" ]; check "templates/profiles does not exist" $?

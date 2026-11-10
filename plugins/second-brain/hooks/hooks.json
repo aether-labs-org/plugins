@@ -14,12 +14,12 @@
     ],
     "SessionStart": [
       {
-        "matcher": "startup|resume|clear|compact",
+        "matcher": "startup|resume|clear|compact|fork",
         "hooks": [
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"",
-            "timeout": 90
+            "timeout": 60
           }
         ]
       }
@@ -30,7 +30,7 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/autocommit.py\"",
-            "timeout": 60
+            "timeout": 30
           }
         ]
       }
