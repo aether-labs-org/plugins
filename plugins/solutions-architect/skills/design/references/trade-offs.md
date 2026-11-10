@@ -19,3 +19,14 @@
    flips it and put that weight to the user in the discussion round.
 9. **Revisit triggers.** Write the measurable events that reopen the decision (load above
    N req/s, cost per order above X, a service reaching a region) - they go in the ADR.
+
+## Market references
+
+When an option leans on what another company or a published pattern does:
+
+- **B1 - A precedent is not a criterion.** "Company X uses Y" shows that Y works under X's
+  conditions. It enters the analysis only through a comparison of conditions (scale, team size,
+  constraints, data shape), never as a score by itself - that is cargo cult.
+- **B2 - No consultation, no weight.** Only a source opened in this session can move a score or
+  the recommendation. A reference marked `not consulted` (dead link, no network, quoted from
+  memory) may appear, labelled, but changes nothing.

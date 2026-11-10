@@ -2,6 +2,7 @@
 
 **Data:** 2026-09-22
 **Status:** Fase 1 implementada (2026-09-22) no branch `feat/solutions-architect-phase1`; smoke dos evals em §15.2 (suíte completa adiada: sandbox de eval sem Bash nesta máquina). Pendente: suíte completa de evals; mínimo efetivo de IAM (H7), que exige um papel não-root
+**Nota (2026-11-06):** o plano [2026-11-05-solutions-architect-v0.3-discovery.md](2026-11-05-solutions-architect-v0.3-discovery.md) substitui, neste documento, o §8.1 (requirements como primeira etapa), o §10.1 (tabela de etapas) e o §12 (subagents), e a ordem do §15.4 (a Fase 2 deste roadmap vem depois da v0.3).
 **Repositório:** `aether-labs-org/plugins` (marketplace `aether-labs`)
 **Materiais de origem:** `~/Vault/second-brain/AI/solution_architect/` — *compass_artifact…*,
 *deep-research-report.md*, *Ferramental e Produtividade para Solution Architects.md* — mais a pesquisa

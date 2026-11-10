@@ -38,9 +38,16 @@
 | Option | Monthly USD | Per <business unit> | Assumptions |
 |---|---|---|---|
 
+## Market references
+<!-- Optional. One line each: pattern or company, source link, `consulted` or `not consulted`,
+     the conditions it worked under and what transfers. A `not consulted` reference carries no
+     weight in the scoring. Write "None" when no option leans on one. -->
+
 ## Discussion
-<!-- Questions put to the user, their answers, who decided and why. Or: "Not held - <reason>"
-     followed by the questions that would have been asked. -->
+<!-- Questions put to the user, their answers, who decided and why, with the source of each
+     point: `Source: user | inferred | default | agent`. A preference the user brought ready-made
+     is recorded as `Source: user`. Or: "Not held - <reason>" followed by the questions that
+     would have been asked. -->
 
 ## Decision
 Chosen option: **<A>**, because <one sentence tied to the drivers>.
