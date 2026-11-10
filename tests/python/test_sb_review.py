@@ -8,7 +8,6 @@ from unittest import mock
 
 from sb_helpers import ROOT, make_vault, note
 from sb.cli import main
-from sb.guard import decide
 from sb.lint import INFO_CODES, lint
 from sb.review import review_body, review_hash, split_trailing_agent_blocks
 
@@ -187,27 +186,6 @@ class ReviewCliTests(unittest.TestCase):
         after = self.path.read_text(encoding="utf-8")
         kept = [l for l in after.split("\n") if not l.startswith(("reviewed:", "reviewed_hash:"))]
         self.assertEqual(kept, before.split("\n"))
-
-
-class GuardStillDeniesReviewTests(unittest.TestCase):
-    def test_guard_still_denies_agent_sb_review(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = make_vault(tmp, {"Resources/A.md": note("A", origin="agent")}).resolve()
-            for command in ("sb review A", "sb review wiki/Resources/A.md --json",
-                            "python3 plugins/second-brain/bin/sb review A", "env X=1 sb review A",
-                            "bash -c 'sb review A'", "cd wiki && sb review A", "ls; sb review A"):
-                out = decide({"tool_name": "Bash", "tool_input": {"command": command}}, str(root))
-                self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny", command)
-                self.assertIn("! prefix", out["hookSpecificOutput"]["permissionDecisionReason"])
-
-    def test_guard_denies_the_agent_writing_reviewed_hash(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = make_vault(tmp, {"Resources/A.md": note("A", origin="agent")}).resolve()
-            new = (root / "wiki/Resources/A.md").read_text().replace(
-                "source: \n", "source: \nreviewed_hash: sha256:0123456789abcdef\n")
-            out = decide({"tool_name": "Write", "tool_input": {
-                "file_path": "wiki/Resources/A.md", "content": new}}, str(root))
-            self.assertEqual(out["hookSpecificOutput"]["permissionDecision"], "deny")
 
 
 if __name__ == "__main__":

@@ -180,7 +180,6 @@ class InitTests(unittest.TestCase):
         self.assertIn("Meeting minutes (they go in Meetings/ and link to the decision).",
                       decisions["anti_examples"])
         self.assertTrue(decisions["conventions"])
-        self.assertFalse(decisions["protected"])
 
     def test_settings_json_content(self):
         init.run(self.root)

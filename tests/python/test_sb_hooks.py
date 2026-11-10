@@ -169,29 +169,13 @@ class HookScriptTests(unittest.TestCase):
         self.assertIn("[[Quokka]]", out["additionalContext"])
         self.assertEqual((off.returncode, off.stdout), (0, ""))
 
-    def test_guard_hook_fails_closed_inside_a_vault(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = make_vault(tmp)
-            done = self.run_script("guard.py", "not json", root)
-        self.assertEqual(done.returncode, 2)
-        self.assertIn("second-brain", done.stderr)
-
-    def test_guard_hook_is_silent_outside_a_vault(self):
-        done = self.run_script("guard.py", "not json", tempfile.gettempdir())
-        self.assertEqual((done.returncode, done.stdout), (0, ""))
-
-    def test_guard_hook_blocks_on_failure(self):
-        spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-        self.assertEqual(spec["PreToolUse"][0]["hooks"][0]["onFailure"], "block")
-
     def test_autocommit_script_always_exits_zero(self):
         done = self.run_script("autocommit.py", "{}", tempfile.gettempdir())
         self.assertEqual(done.returncode, 0)
 
-    def test_hooks_json_wires_the_five_events(self):
+    def test_hooks_json_wires_the_four_events(self):
         spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-        self.assertEqual(sorted(spec), ["PostToolUse", "PreToolUse", "SessionEnd", "SessionStart", "UserPromptSubmit"])
-        self.assertEqual(spec["PreToolUse"][0]["matcher"], "Write|Edit|MultiEdit|NotebookEdit|Bash")
+        self.assertEqual(set(spec), {"PostToolUse", "SessionStart", "SessionEnd", "UserPromptSubmit"})
         self.assertEqual(spec["PostToolUse"][0]["matcher"], "Write|Edit|MultiEdit")
         self.assertNotIn("matcher", spec["SessionEnd"][0])
         self.assertNotIn("matcher", spec["UserPromptSubmit"][0])

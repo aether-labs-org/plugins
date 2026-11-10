@@ -12,12 +12,17 @@ from . import logfile
 from .frontmatter import parse
 from .fsutil import write_atomic
 from .sanitize import clean_document, clean_inline
-from .trust import norm
 from .vault import load_notes
 
 CONVERTED = "_raw/.converted"
 SHA_ID_RE = re.compile(r"^sha256:[0-9a-f]{16}$")
 DEFAULT_PORTS = {"http": "80", "https": "443"}
+
+
+def _norm(value):
+    if isinstance(value, (list, tuple)):
+        return ",".join(str(v).strip() for v in value)
+    return str(value if value is not None else "").strip()
 
 
 def _sha16(data):
@@ -69,7 +74,7 @@ def source_id_for(root, target):
         if path.suffix == ".md":
             fields = parse(data.decode("utf-8", "replace")).data
             for key in ("url", "source"):
-                value = norm(fields.get(key))
+                value = _norm(fields.get(key))
                 if _is_url(value):
                     return "url:" + canonical_url(value), "inbox"
         return "sha256:" + _sha16(data), "inbox"
@@ -90,7 +95,7 @@ def source_value(root, target):
         if path.suffix == ".md":
             fields = parse(path.read_bytes().decode("utf-8", "replace")).data
             for key in ("url", "source"):
-                value = norm(fields.get(key))
+                value = _norm(fields.get(key))
                 if _is_url(value):
                     return value
         return "_inbox/_done/" + path.name
@@ -103,7 +108,7 @@ def notes_for(root, source_id):
                        re.IGNORECASE | re.MULTILINE)
     found = []
     for note in load_notes(root):
-        if norm(note.data.get("source_id")) == source_id or block.search(note.body):
+        if _norm(note.data.get("source_id")) == source_id or block.search(note.body):
             found.append(note.rel)
     return sorted(found)
 

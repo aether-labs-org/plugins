@@ -19,8 +19,6 @@ check "second-brain depends on document-skills and obsidian" $?
 jq -e '.allowCrossMarketplaceDependenciesOn | index("anthropic-agent-skills") and index("obsidian-skills")' "$mp" >/dev/null
 check "marketplace allows the two dependency marketplaces" $?
 [ "$(jq -r .version "$pj")" = "0.2.4" ]; check "plugin version 0.2.4" $?
-jq -e '.hooks.PreToolUse[0].hooks[0].onFailure == "block"' "$p/hooks/hooks.json" >/dev/null
-check "guard hook is fail-closed (onFailure: block)" $?
 jq -e '.hooks.SessionStart[0] | .matcher == "startup|resume|clear|compact" and (.hooks[0].command | contains("session_start.py"))' "$p/hooks/hooks.json" >/dev/null
 check "SessionStart hook is registered" $?
 jq -e '.hooks.SessionEnd[0].hooks[0].timeout == 60' "$p/hooks/hooks.json" >/dev/null
