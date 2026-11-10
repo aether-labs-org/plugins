@@ -6,4 +6,3 @@ sb="$here/../../bin/sb"
 "$sb" init --vault . --language en >/dev/null
 cp -r "$here/../_fixtures/notes/." wiki/
 cp "$here/../_fixtures/inbox-multi/"*.md _inbox/
-"$sb" index --write --vault . >/dev/null

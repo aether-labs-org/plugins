@@ -33,7 +33,7 @@ class RecallTests(unittest.TestCase):
         ctx = out["hookSpecificOutput"]["additionalContext"]
         self.assertTrue(ctx.startswith("<second-brain-recall>")
                         and ctx.rstrip().endswith("</second-brain-recall>"))
-        self.assertIn("- [[Spaced Repetition]] (Resources) [reviewed]: Reviewing material at "
+        self.assertIn("- [[Spaced Repetition]] (Resources): Reviewing material at "
                       "growing intervals to fight forgetting.", ctx)
         self.assertLessEqual(len(ctx), MAX_CHARS)
 
@@ -69,6 +69,17 @@ class RecallTests(unittest.TestCase):
         self.assertIn("- [[Agentica]] (Areas) [unreviewed]: Resumo perigoso aqui", ctx)
         self.assertNotIn("‮", ctx)
 
+    def test_only_unreviewed_notes_carry_a_label(self):
+        (self.root / "wiki/Areas").mkdir()
+        (self.root / "wiki/Areas/Agentica.md").write_text(
+            note("Agentica", summary="Do agente.", origin="agent", body="quokka wombat"), encoding="utf-8")
+        (self.root / "wiki/Areas/Humana.md").write_text(
+            note("Humana", summary="Da pessoa.", body="quokka wombat"), encoding="utf-8")
+        lines = self.ctx("quokka wombat marsupiais").splitlines()
+        self.assertIn("- [[Agentica]] (Areas) [unreviewed]: Do agente.", lines)
+        self.assertIn("- [[Humana]] (Areas): Da pessoa.", lines)
+        self.assertFalse(any("[reviewed]" in line for line in lines))
+
     def test_summary_cannot_close_the_block(self):
         (self.root / "wiki/Areas").mkdir()
         (self.root / "wiki/Areas/Evil.md").write_text(
@@ -90,10 +101,10 @@ class RecallTests(unittest.TestCase):
         (self.root / "wiki/Areas").mkdir()
         (self.root / "wiki/Areas/Vazia.md").write_text(
             note("Vazia", summary=None, body="quokka wombat"), encoding="utf-8")
-        self.assertIn("[reviewed]: (no summary)", self.ctx("quokka wombat marsupiais"))
+        self.assertIn("(Areas): (no summary)", self.ctx("quokka wombat marsupiais"))
 
     def test_output_is_capped_by_dropping_trailing_lines(self):
-        results = [{"name": "N%d" % i + "x" * 118, "folder": "F" * 60, "trust": "has-agent-blocks",
+        results = [{"name": "N%d" % i + "x" * 118, "folder": "F" * 60, "trust": "unreviewed",
                     "summary": "s" * 160} for i in range(5)]
         text = render(results)
         self.assertLessEqual(len(text), MAX_CHARS)

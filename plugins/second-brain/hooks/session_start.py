@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """SessionStart hook entry point. Any internal failure is silent (exit 0)."""
 import json
 import os
@@ -11,7 +10,7 @@ def main():
     try:
         event = json.load(sys.stdin)
         from sb.session import start
-        output = start(event, os.getcwd())
+        output = start(event, os.getcwd(), os.environ)
     except Exception:
         return 0
     if output:

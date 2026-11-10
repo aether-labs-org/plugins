@@ -1,19 +1,16 @@
-"""SessionStart: folder tree and vault status for the model, heartbeat for `sb doctor` (spec 6.2)."""
-import json
-import time
-from datetime import datetime
+"""SessionStart: one status line for the model; git work only on startup and resume (spec 6.2)."""
 from typing import Optional
 
-from . import index as index_mod
-from . import tree
-from .fsutil import write_atomic
+from . import autocommit
 from .sanitize import clean_inline, escape_tags
 from .trust import label
-from .vault import VaultError, find_vault, load_config, load_notes
+from .vault import (LEGACY_MESSAGE, VaultError, find_legacy_vault, find_vault, load_config,
+                    load_notes, sync_mode)
 
-HEADER = ("<second-brain-vault>\n"
-          "Folders under wiki/ (from _about.md; follow their conventions when filing notes):\n")
-FOOTER = "</second-brain-vault>"
+HEAD = "<second-brain-vault>\n"
+FOOT = "\n</second-brain-vault>"
+MAX_CHARS = 300
+GIT_SOURCES = ("startup", "resume")      # clear, compact, fork and anything else: no git (D58)
 
 
 def _inbox_count(root):
@@ -24,69 +21,39 @@ def _inbox_count(root):
         return 0
 
 
-SLOW_PULL_SECONDS = 40     # past this the 90 s hook budget has no room left for a push
+def _wrap(line):
+    return {"hookSpecificOutput": {"hookEventName": "SessionStart",
+                                   "additionalContext": HEAD + line + FOOT}}
 
 
-def _clock():
-    return time.monotonic()
-
-
-def _sync_status(root, config, session_id):
-    """Pull, then retry a pending push (also after a crashed SessionEnd). Returns the status."""
-    if config.get("sync") != "squad":
-        return "local"
-    from . import sync
-
-    if not sync.enabled(root):
-        return "local (squad sync skipped: the vault is not its own git repository)"
-    started = _clock()
-    result = sync.pull(root, session_id=session_id)
-    if result != "ok":
-        return result               # conflict: <files> or skipped: <why>; nothing to push over it
-    if sync.pending(root) or sync.ahead(root):
-        if _clock() - started > SLOW_PULL_SECONDS:
-            return "push pending"   # no time left: the next session retries
-        if sync.push(root).startswith("pending"):
-            return "push pending"
-    return "ok"
-
-
-def _heartbeat(root, session_id):
-    try:
-        folder = root / ".sb"
-        folder.mkdir(exist_ok=True)
-        ignore = folder / ".gitignore"            # never committed, even in a hand-made squad vault
-        try:
-            current = ignore.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            current = ""
-        if "*" not in [line.strip() for line in current.split("\n")]:
-            write_atomic(ignore, (current.rstrip("\n") + "\n" if current.strip() else "") + "*\n")
-        beat = {"session_start": datetime.now().replace(microsecond=0).isoformat(),
-                "session_id": str(session_id or "")}
-        write_atomic(folder / "heartbeat.json", json.dumps(beat) + "\n")
-    except (OSError, ValueError):
-        pass
-
-
-def start(event, cwd) -> Optional[dict]:
-    root = find_vault(event.get("cwd") or cwd)
+def start(event, cwd, env=None) -> Optional[dict]:
+    where = event.get("cwd") or cwd
+    root = find_vault(where)
     if root is None:
+        if find_legacy_vault(where) is not None:
+            return _wrap(escape_tags(clean_inline("second-brain: " + LEGACY_MESSAGE, MAX_CHARS - 60)))
         return None
     try:
         config = load_config(root)
     except VaultError:
         config = {}
-    _heartbeat(root, event.get("session_id"))
-    status = _sync_status(root, config, str(event.get("session_id") or ""))
-    notes = load_notes(root)
-    try:
-        if index_mod.drift(root, notes):
-            write_atomic(root / "_index.md", index_mod.build(notes))
-    except OSError:
-        pass
-    unreviewed = sum(1 for n in notes if label(n.data, n.body) == "unreviewed")
-    compact = tree.render_compact(tree.load(root)) or "(no folders yet)"
-    text = "%s%s\nStatus: inbox %d · unreviewed %d · sync %s\n%s" % (
-        HEADER, compact, _inbox_count(root), unreviewed, escape_tags(clean_inline(status, 300)), FOOTER)
-    return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}
+    source = event.get("source") or "startup"
+    pull_vault = sync_mode(config) == "pull"
+    sync_text, unpushed = "local", 0
+    if source in GIT_SOURCES:
+        autocommit.run(root, env=env, outside=True)
+        if pull_vault:
+            from . import sync
+
+            if sync.enabled(root):
+                sync_text = sync.pull(root)
+                unpushed = sync.ahead(root)
+            else:
+                sync_text = "skipped: not a pull vault"
+    elif pull_vault:
+        sync_text = "not checked"
+    unreviewed = sum(1 for n in load_notes(root) if label(n.data, n.body) == "unreviewed")
+    head = "Status: inbox %d · unreviewed %d · sync " % (_inbox_count(root), unreviewed)
+    tail = " · unpushed %d" % unpushed if unpushed else ""
+    room = MAX_CHARS - len(HEAD) - len(head) - len(tail) - len(FOOT)
+    return _wrap(head + escape_tags(clean_inline(sync_text, room)) + tail)

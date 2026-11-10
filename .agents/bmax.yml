@@ -3,22 +3,6 @@ version: 1
 guides: [AGENTS.md, CLAUDE.md, docs/review.md, docs/architecture.md]
 githooks: { mode: native, pre-commit: commit, pre-push: slow, commit-msg: commit-message }
 scripts:
-  typecheck:
-    run: cd plugins/second-brain/obsidian && npx tsc --noEmit -skipLibCheck --pretty false
-    files: "*.{ts,mts}"
-    pass_files: false
-    format: errorformat
-    pattern: '^(?P<file>[^(]+)\((?P<line>\d+),(?P<col>\d+)\): (?P<severity>error|warning) (?P<rule>TS\d+): (?P<message>.*)$'
-    class: correctness
-    config: [plugins/second-brain/obsidian/tsconfig.json]
-  lint:
-    run: cd plugins/second-brain/obsidian && npx eslint -f json .
-    files: "*.{ts,mts,js,mjs}"
-    pass_files: false
-    format: eslint-json
-    class: heuristic
-    config: [plugins/second-brain/obsidian/eslint.config.mts]
-    guidance: Fix the finding; do not add an eslint-disable comment to silence it.
   secrets:
     run: gitleaks detect --no-git --no-banner --redact --report-format sarif --report-path {report}
     format: sarif
@@ -49,7 +33,7 @@ scripts:
     with:
       pattern: 'plugins/(baymax|solutions-architect)|\.\./(baymax|solutions-architect)'
       include: [plugins/second-brain]
-      exclude: [plugins/second-brain/evals, plugins/second-brain/obsidian/node_modules, plugins/second-brain/obsidian/dist]
+      exclude: [plugins/second-brain/evals]
       message: A plugin must not reference another plugin.
   isolation-solutions-architect:
     builtin: pattern
@@ -66,6 +50,6 @@ scripts:
     builtin: commit-message
     with: { pattern: '^(feat|fix|docs|refactor|test|chore|perf|build|ci|style|revert)(\(.+\))?!?: .+' }
 gates:
-  fast: { scripts: [guard, secrets, typecheck, lint, isolation-baymax, isolation-second-brain, isolation-solutions-architect], changes: worktree, ceiling: 30s }
-  commit: { scripts: [guard, secrets, memory, lint], changes: staged, ceiling: 30s }
+  fast: { scripts: [guard, secrets, isolation-baymax, isolation-second-brain, isolation-solutions-architect], changes: worktree, ceiling: 30s }
+  commit: { scripts: [guard, secrets, memory], changes: staged, ceiling: 30s }
   slow: { scripts: [guard, suite, merge-check], changes: branch, ceiling: 10m }

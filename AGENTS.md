@@ -1,7 +1,7 @@
 # AGENTS.md - aether-labs plugins
 
-Monorepo of Claude Code plugins: `plugins/baymax`, `plugins/second-brain` (with an Obsidian plugin in TypeScript under
-`obsidian/`) and `plugins/solutions-architect`. Bash test suite in `tests/`, Python helpers, npm for the Obsidian plugin only.
+Monorepo of Claude Code plugins: `plugins/baymax`, `plugins/second-brain` and `plugins/solutions-architect`. Bash test suite
+in `tests/`, Python helpers.
 
 ## Setup
 

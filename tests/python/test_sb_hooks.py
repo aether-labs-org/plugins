@@ -31,24 +31,12 @@ class PostCheckTests(unittest.TestCase):
         self.assertIn("SB102", context)
         self.assertIn("wiki/Resources/Bad.md", context)
 
-    def test_postcheck_regenerates_index(self):
-        from sb import index
-        from sb.vault import load_notes
-        new = self.root / "wiki" / "Resources" / "New.md"
-        new.write_text(note("New", summary="Brand new."), encoding="utf-8")
-        self.assertNotEqual(index.drift(self.root, load_notes(self.root)), "")
-        check(self.event(str(new)), str(self.root))
-        self.assertEqual(index.drift(self.root, load_notes(self.root)), "")
-        self.assertIn("[[New]]: Brand new.", (self.root / "_index.md").read_text(encoding="utf-8"))
-
     def test_postcheck_ignores_non_notes(self):
         about = self.root / "wiki" / "Resources" / "_about.md"
         about.write_text("---\ndescription: x\n---\n", encoding="utf-8")
         (self.root / "wiki" / "Resources" / "New.md").write_text(note("New"), encoding="utf-8")
-        before = (self.root / "_index.md").read_text(encoding="utf-8")
         self.assertIsNone(check(self.event(str(about)), str(self.root)))
         self.assertIsNone(check(self.event("_inbox/x.md"), str(self.root)))
-        self.assertEqual((self.root / "_index.md").read_text(encoding="utf-8"), before)
 
     def test_silent_for_valid_notes_other_files_and_non_vaults(self):
         self.assertIsNone(check(self.event("wiki/Resources/A.md"), str(self.root)))
@@ -128,6 +116,40 @@ class AutoCommitTests(unittest.TestCase):
         self.addCleanup(lambda: (os.environ.clear(), os.environ.update(old)))
         self.assertTrue(autocommit.run(str(self.root), env={}).startswith("skipped: git commit failed"))
 
+    def test_untracked_files_in_a_new_folder_are_counted_one_by_one(self):
+        folder = self.root / "wiki" / "Fresh"
+        folder.mkdir()
+        for name in ("A1", "A2", "A3"):
+            (folder / (name + ".md")).write_text(note(name), encoding="utf-8")
+        status = autocommit.run(str(self.root), env={}, today="2026-10-01", session_id="s1")
+        self.assertEqual(status, "committed: sb: session 2026-10-01 (3 files)")
+        self.assertIn("Sb-Files: 3", self.git("log", "-1", "--format=%B").stdout)
+
+    def test_outside_flag_changes_the_message_and_trailers(self):
+        self.dirty()
+        status = autocommit.run(str(self.root), env={}, today="2026-10-01", session_id="s9", outside=True)
+        self.assertEqual(status, "committed: sb: changes outside sessions (1 files)")
+        body = self.git("log", "-1", "--format=%B").stdout
+        self.assertTrue(body.startswith("sb: changes outside sessions (1 files)\n\nSb-Files: 1"))
+        self.assertNotIn("Sb-Session", body)
+
+    def test_session_commit_carries_both_trailers(self):
+        self.dirty()
+        autocommit.run(str(self.root), env={}, today="2026-10-01", session_id="s9")
+        body = self.git("log", "-1", "--format=%B").stdout
+        self.assertTrue(body.startswith("sb: session 2026-10-01 (1 files)\n\nSb-Session: s9\nSb-Files: 1"))
+
+    def test_hook_prints_only_commit_lines(self):
+        script = str(PLUGIN / "hooks" / "autocommit.py")
+        done = subprocess.run([sys.executable, script], input=json.dumps({"cwd": str(self.root)}),
+                              capture_output=True, text=True)
+        self.assertEqual((done.returncode, done.stderr), (0, ""))
+        self.dirty()
+        done = subprocess.run([sys.executable, script], input=json.dumps({"cwd": str(self.root)}),
+                              capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0)
+        self.assertTrue(done.stderr.startswith("second-brain: committed: sb: session"))
+
     def test_source_never_runs_git_push_itself(self):
         source = inspect.getsource(autocommit)
         self.assertNotIn('"push"', source)           # no git push argument of its own
@@ -169,29 +191,13 @@ class HookScriptTests(unittest.TestCase):
         self.assertIn("[[Quokka]]", out["additionalContext"])
         self.assertEqual((off.returncode, off.stdout), (0, ""))
 
-    def test_guard_hook_fails_closed_inside_a_vault(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = make_vault(tmp)
-            done = self.run_script("guard.py", "not json", root)
-        self.assertEqual(done.returncode, 2)
-        self.assertIn("second-brain", done.stderr)
-
-    def test_guard_hook_is_silent_outside_a_vault(self):
-        done = self.run_script("guard.py", "not json", tempfile.gettempdir())
-        self.assertEqual((done.returncode, done.stdout), (0, ""))
-
-    def test_guard_hook_blocks_on_failure(self):
-        spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-        self.assertEqual(spec["PreToolUse"][0]["hooks"][0]["onFailure"], "block")
-
     def test_autocommit_script_always_exits_zero(self):
         done = self.run_script("autocommit.py", "{}", tempfile.gettempdir())
         self.assertEqual(done.returncode, 0)
 
-    def test_hooks_json_wires_the_five_events(self):
+    def test_hooks_json_wires_the_four_events(self):
         spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-        self.assertEqual(sorted(spec), ["PostToolUse", "PreToolUse", "SessionEnd", "SessionStart", "UserPromptSubmit"])
-        self.assertEqual(spec["PreToolUse"][0]["matcher"], "Write|Edit|MultiEdit|NotebookEdit|Bash")
+        self.assertEqual(set(spec), {"PostToolUse", "SessionStart", "SessionEnd", "UserPromptSubmit"})
         self.assertEqual(spec["PostToolUse"][0]["matcher"], "Write|Edit|MultiEdit")
         self.assertNotIn("matcher", spec["SessionEnd"][0])
         self.assertNotIn("matcher", spec["UserPromptSubmit"][0])

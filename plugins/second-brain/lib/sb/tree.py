@@ -8,7 +8,6 @@ from .sanitize import clean_inline, escape_tags
 NO_DESCRIPTION = "(no description)"
 SECTIONS = {"conventions": "conventions", "examples": "examples", "anti-examples": "anti_examples"}
 HEADING_RE = re.compile(r"^##[ \t]+(.+?)[ \t]*$")
-TRUE_VALUES = ("true", "yes", "1")
 DESCRIPTION_CHARS = 120
 NAME_CHARS = 80
 
@@ -17,13 +16,9 @@ def _skipped(name):
     return name.startswith(("_", "."))
 
 
-def _is_true(value):
-    return str(value if value is not None else "").strip().lower() in TRUE_VALUES
-
-
 def read_about(folder):
-    """`description`, `protected` and the three sections of `<folder>/_about.md`."""
-    result = {"description": NO_DESCRIPTION, "protected": False,
+    """`description` and the three sections of `<folder>/_about.md`."""
+    result = {"description": NO_DESCRIPTION,
               "conventions": "", "examples": "", "anti_examples": ""}
     try:
         text = (Path(folder) / "_about.md").read_text(encoding="utf-8")
@@ -33,7 +28,6 @@ def read_about(folder):
     description = parsed.data.get("description")
     if isinstance(description, str) and description.strip():
         result["description"] = " ".join(description.split())
-    result["protected"] = _is_true(parsed.data.get("protected"))
     current, chunks = None, {}
     for line in parsed.body.split("\n"):
         heading = HEADING_RE.match(line)
@@ -90,15 +84,3 @@ def render_compact(folders, limit=2000):
             return text
     return ""
 
-
-def folder_protected(root, note_rel):
-    """True when any folder above `note_rel` (relative to the vault) has `protected: true`."""
-    parts = note_rel.split("/")
-    if parts[0] != "wiki":
-        return False
-    folder = Path(root) / "wiki"
-    for part in parts[1:-1]:
-        folder = folder / part
-        if read_about(folder)["protected"]:
-            return True
-    return False

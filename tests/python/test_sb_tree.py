@@ -6,9 +6,7 @@ from pathlib import Path
 
 from sb_helpers import make_vault, note
 from sb.cli import main
-from sb.lint import INFO_CODES, lint
-from sb.tree import folder_protected, load, render_compact
-from sb.vault import load_config
+from sb.tree import load, render_compact
 
 
 def about(description=None, protected=None, extra=""):
@@ -53,13 +51,11 @@ class TreeTests(unittest.TestCase):
         folders = load(root)
         self.assertEqual([f["path"] for f in folders], ["Archive", "Decisions"])
         decisions = folders[1]
-        self.assertTrue(decisions["protected"])
         self.assertEqual(decisions["conventions"], "One per decision.")
         self.assertEqual(decisions["examples"], "Use Postgres.")
         self.assertEqual(decisions["anti_examples"], "Minutes.")
         self.assertEqual(decisions["children"], [])
         self.assertEqual(folders[0]["conventions"], "")
-        self.assertFalse(folders[0]["protected"])
 
     def test_nested_paths_are_relative_to_wiki(self):
         root = self.vault()
@@ -100,27 +96,6 @@ class TreeTests(unittest.TestCase):
         root = self.vault()
         (root / "wiki" / "Bare").mkdir()
         self.assertEqual(load(root)[0]["description"], "(no description)")
-
-    def test_folder_protected_inherits(self):
-        root = self.vault()
-        self.put(root, "Areas/_about.md", about("Areas.", True))
-        self.put(root, "Resources/_about.md", about("Res.", False))
-        self.assertTrue(folder_protected(root, "wiki/Areas/Saude/X.md"))
-        self.assertTrue(folder_protected(root, "wiki/Areas/X.md"))
-        self.assertFalse(folder_protected(root, "wiki/Resources/X.md"))
-        self.assertFalse(folder_protected(root, "wiki/Other/X.md"))
-
-    def test_sb111_is_info_and_does_not_fail(self):
-        root = self.vault({"Resources/A.md": note("A", body="[[B]]"),
-                           "Resources/B.md": note("B", body="[[A]]")})
-        findings = lint(root, load_config(root))
-        self.assertEqual([f.code for f in findings], ["SB111"])
-        self.assertEqual(INFO_CODES, {"SB111", "SB112"})
-        out, err = io.StringIO(), io.StringIO()
-        self.assertEqual(main(["lint", "--vault", str(root)], out=out, err=err), 0)
-        self.assertIn("SB111", out.getvalue())
-        self.put(root, "Resources/_about.md", about("Res."))
-        self.assertEqual(lint(root, load_config(root)), [])
 
     def test_cli_tree(self):
         root = self.vault()

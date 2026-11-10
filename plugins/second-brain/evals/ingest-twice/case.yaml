@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: ingest-twice
-description: Ingesting the same item twice yields one note, an updated index and a log entry.
+description: Ingesting the same item twice yields one note and moves the item to _inbox/_done/.
 tags: [ingest]
 context:
   scaffold_script: scaffold.sh

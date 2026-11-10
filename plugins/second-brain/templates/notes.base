@@ -1,0 +1,21 @@
+filters:
+  and:
+    - file.inFolder("wiki")
+    - 'file.name != "_about"'
+properties:
+  file.name:
+    displayName: Note
+  summary:
+    displayName: Summary
+  origin:
+    displayName: Origin
+  created:
+    displayName: Created
+views:
+  - type: table
+    name: All notes
+    order:
+      - file.name
+      - summary
+      - origin
+      - created

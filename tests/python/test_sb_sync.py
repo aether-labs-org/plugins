@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -9,6 +10,8 @@ from pathlib import Path
 
 from sb_helpers import PLUGIN, make_vault, note
 from sb import autocommit, init, session, sync
+
+LIB = PLUGIN / "lib" / "sb"
 
 
 def git(path, *args, check=True):
@@ -25,7 +28,7 @@ def configure(path, who):
 
 
 @unittest.skipUnless(shutil.which("git"), "git not installed")
-class SquadSyncTests(unittest.TestCase):
+class PullSyncTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -35,7 +38,7 @@ class SquadSyncTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(self.bare), "symbolic-ref", "HEAD", "refs/heads/main"],
                        check=True)
         self.a = base / "A"
-        init.run(self.a, language="en", profile="squad", git=True, remote=str(self.bare))
+        init.run(self.a, language="en", git=True, remote=str(self.bare))
         git(self.a, "symbolic-ref", "HEAD", "refs/heads/main")
         configure(self.a, "ana")
         self.write(self.a, "Resources/X.md", note("X", body="line one\nline two\nline three"))
@@ -54,9 +57,13 @@ class SquadSyncTests(unittest.TestCase):
     def end(self, clone, session_id):
         return autocommit.run(str(clone), env={}, today="2026-11-02", session_id=session_id)
 
-    def start(self, clone, session_id="s"):
-        out = session.start({"cwd": str(clone), "session_id": session_id}, str(clone))
+    def start(self, clone, session_id="s", source="startup"):
+        out = session.start({"cwd": str(clone), "session_id": session_id, "source": source},
+                            str(clone), {})
         return out["hookSpecificOutput"]["additionalContext"]
+
+    def push_by_hand(self, clone):
+        git(clone, "push", "-q")
 
     def remote_files(self):
         return git(self.bare, "ls-tree", "-r", "--name-only", "main").split("\n")
@@ -70,31 +77,36 @@ class SquadSyncTests(unittest.TestCase):
     def test_trailers(self):
         self.write(self.a, "Resources/New.md", note("New"))
         status = self.end(self.a, "sess-42")
-        self.assertTrue(status.startswith("committed: sb: session 2026-11-02 (1 files)"), status)
+        self.assertEqual(status, "committed: sb: session 2026-11-02 (1 files)")
         body = git(self.a, "log", "-1", "--format=%B")
         self.assertIn("Sb-Session: sess-42", body)
         self.assertIn("Sb-Files: 1", body)
         self.assertTrue(body.startswith("sb: session 2026-11-02 (1 files)\n\nSb-Session"))
 
-    def test_enabled_needs_squad_and_toplevel(self):
+    def test_enabled_needs_pull_and_toplevel(self):
         self.assertTrue(sync.enabled(self.a))
-        (Path(self.tmp.name) / "local").mkdir()
-        (Path(self.tmp.name) / "outer").mkdir()
-        local = make_vault(Path(self.tmp.name) / "local", config={"sync": "local"})
+        base = Path(self.tmp.name)
+        (base / "local").mkdir()
+        local = make_vault(base / "local", config={"sync": "local"})
         subprocess.run(["git", "init", "-q", str(local)], check=True)
         self.assertFalse(sync.enabled(local))
         self.assertTrue(sync.pull(local).startswith("skipped"))
-        self.assertTrue(sync.push(local).startswith("skipped"))
-        nested_parent = Path(self.tmp.name) / "outer"
-        subprocess.run(["git", "init", "-q", str(nested_parent)], check=True)
-        (nested_parent / "vault").mkdir()
-        nested = make_vault(nested_parent / "vault", config={"sync": "squad"})
+        (base / "squad").mkdir()
+        squad = make_vault(base / "squad", config={"sync": "squad"})   # the v0.2 value counts as local
+        subprocess.run(["git", "init", "-q", str(squad)], check=True)
+        self.assertFalse(sync.enabled(squad))
+        outer = base / "outer"
+        outer.mkdir()
+        subprocess.run(["git", "init", "-q", str(outer)], check=True)
+        (outer / "vault").mkdir()
+        nested = make_vault(outer / "vault", config={"sync": "pull"})
         self.assertFalse(sync.enabled(nested))
         self.assertTrue(sync.pull(nested).startswith("skipped"))
 
     def test_pull_rebases_clean_history(self):
         self.write(self.a, "Resources/FromA.md", note("FromA"))
         self.end(self.a, "a1")
+        self.push_by_hand(self.a)
         self.write(self.b, "Resources/FromB.md", note("FromB"))
         git(self.b, "add", "-A")
         git(self.b, "commit", "-q", "-m", "b local")
@@ -104,22 +116,37 @@ class SquadSyncTests(unittest.TestCase):
         self.assertEqual(git(self.b, "log", "-1", "--format=%s").strip(), "b local")
         self.assert_clean_state(self.b)
 
-    def test_dirty_tree_is_committed_before_pull(self):
+    def test_dirty_tree_is_skipped_not_committed(self):
         self.write(self.a, "Resources/FromA.md", note("FromA"))
         self.end(self.a, "a1")
+        self.push_by_hand(self.a)
         self.write(self.b, "Resources/Dirty.md", note("Dirty"))
-        self.assertEqual(sync.pull(self.b, session_id="b1"), "ok")
+        before = git(self.b, "rev-parse", "HEAD")
+        self.assertEqual(sync.pull(self.b),
+                         "skipped: uncommitted changes (auto_commit is off or git commit failed)")
+        self.assertEqual(git(self.b, "rev-parse", "HEAD"), before)
+        self.assertIn("?? wiki/Resources/Dirty.md", git(self.b, "status", "--porcelain"))
+        self.assertFalse((self.b / "wiki/Resources/FromA.md").exists())
+        self.assert_clean_state(self.b)
+
+    def test_session_start_commits_outside_changes_then_pulls(self):
+        self.write(self.a, "Resources/FromA.md", note("FromA"))
+        self.end(self.a, "a1")
+        self.push_by_hand(self.a)
+        self.write(self.b, "Resources/Dirty.md", note("Dirty"))
+        context = self.start(self.b)
+        self.assertIn("sync ok", context)
         subjects = git(self.b, "log", "--format=%s").splitlines()
-        self.assertIn("sb: local changes before sync", subjects)
+        self.assertIn("sb: changes outside sessions (1 files)", subjects)
         self.assertTrue((self.b / "wiki/Resources/Dirty.md").exists())
         self.assertTrue((self.b / "wiki/Resources/FromA.md").exists())
         self.assertEqual(git(self.b, "status", "--porcelain"), "")
-        self.assertIn("Sb-Session: b1", git(self.b, "log", "--grep", "local changes", "--format=%B"))
-        self.assert_clean_state(self.b)
+        self.assertIn("unpushed 1", context)
 
     def test_conflict_aborts_and_keeps_both_commits(self):
         self.write(self.a, "Resources/X.md", note("X", body="line one\nA changed\nline three"))
         self.end(self.a, "a1")
+        self.push_by_hand(self.a)
         self.write(self.b, "Resources/X.md", note("X", body="line one\nB changed\nline three"))
         git(self.b, "add", "-A")
         git(self.b, "commit", "-q", "-m", "b edit")
@@ -129,23 +156,10 @@ class SquadSyncTests(unittest.TestCase):
         self.assertIn("B changed", (self.b / "wiki/Resources/X.md").read_text(encoding="utf-8"))
         self.assertIn("sb: session", git(self.bare, "log", "main", "--format=%s"))
 
-    def test_push_failure_is_retried_next_session(self):
-        moved = self.bare.with_name("remote-away.git")
-        self.bare.rename(moved)
-        self.write(self.a, "Resources/Later.md", note("Later"))
-        status = self.end(self.a, "a1")
-        self.assertIn("push: pending", status)
-        self.assertTrue(sync.pending(self.a))
-        self.assertTrue((self.a / ".sb/push-pending").exists())
-        moved.rename(self.bare)
-        context = self.start(self.a, "a2")
-        self.assertFalse((self.a / ".sb/push-pending").exists())
-        self.assertIn("sync ok", context)
-        self.assertIn("wiki/Resources/Later.md", self.remote_files())
-
     def test_conflict_shows_in_the_session_status_line(self):
         self.write(self.a, "Resources/X.md", note("X", body="line one\nA changed\nline three"))
         self.end(self.a, "a1")
+        self.push_by_hand(self.a)
         self.write(self.b, "Resources/X.md", note("X", body="line one\nB changed\nline three"))
         git(self.b, "add", "-A")
         git(self.b, "commit", "-q", "-m", "b edit")
@@ -155,16 +169,27 @@ class SquadSyncTests(unittest.TestCase):
     def test_session_start_pulls(self):
         self.write(self.a, "Resources/FromA.md", note("FromA"))
         self.end(self.a, "a1")
+        self.push_by_hand(self.a)
         self.assertIn("sync ok", self.start(self.b))
         self.assertTrue((self.b / "wiki/Resources/FromA.md").exists())
 
-    def test_session_end_hook_timeout_is_60(self):
-        spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-        self.assertEqual(spec["SessionEnd"][0]["hooks"][0]["timeout"], 60)
+    def test_unpushed_shows_in_the_status_line(self):
+        self.assertNotIn("unpushed", self.start(self.a))
+        self.write(self.a, "Resources/Later.md", note("Later"))
+        self.end(self.a, "a1")
+        self.assertIn("unpushed 1", self.start(self.a, "a2"))
+        self.assertNotIn("Later", self.remote_files())
+        self.push_by_hand(self.a)
+        self.assertNotIn("unpushed", self.start(self.a, "a3"))
+        self.assertIn("wiki/Resources/Later.md", self.remote_files())
 
-    def test_session_start_hook_timeout_is_90(self):
-        spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-        self.assertEqual(spec["SessionStart"][0]["hooks"][0]["timeout"], 90)
+    def test_clear_does_not_pull_or_report_unpushed(self):
+        self.write(self.a, "Resources/FromA.md", note("FromA"))
+        self.end(self.a, "a1")
+        self.push_by_hand(self.a)
+        context = self.start(self.b, source="clear")
+        self.assertIn("sync not checked", context)
+        self.assertFalse((self.b / "wiki/Resources/FromA.md").exists())
 
     def test_rebase_left_in_progress_is_reported_and_nothing_else_runs(self):
         gitdir = self.b / ".git"
@@ -179,35 +204,9 @@ class SquadSyncTests(unittest.TestCase):
         self.assertTrue((gitdir / "rebase-merge").exists())          # left for the human
         self.assertIn("?? wiki/Resources/Dirty.md", git(self.b, "status", "--porcelain"))
 
-    def test_merge_in_progress_keeps_the_old_skip_message(self):
+    def test_merge_in_progress_is_skipped(self):
         (self.b / ".git" / "MERGE_HEAD").write_text("0" * 40 + "\n", encoding="utf-8")
         self.assertEqual(sync.pull(self.b), "skipped: merge or rebase in progress")
-
-    def test_slow_pull_skips_the_push_retry(self):
-        from unittest import mock
-        self.write(self.a, "Resources/Later.md", note("Later"))
-        moved = self.bare.with_name("remote-away.git")
-        self.bare.rename(moved)
-        self.end(self.a, "a1")                                      # push fails: push-pending
-        moved.rename(self.bare)
-        clock = iter([0.0, 41.0])
-        with mock.patch("sb.session._clock", side_effect=lambda: next(clock)), \
-                mock.patch("sb.sync.push", side_effect=AssertionError("push must not run")):
-            context = self.start(self.a, "a2")
-        self.assertIn("sync push pending", context)
-        self.assertTrue(sync.pending(self.a))                       # still pending for the next session
-
-    def test_fast_pull_still_retries_the_push(self):
-        from unittest import mock
-        self.write(self.a, "Resources/Later.md", note("Later"))
-        moved = self.bare.with_name("remote-away.git")
-        self.bare.rename(moved)
-        self.end(self.a, "a1")
-        moved.rename(self.bare)
-        clock = iter([0.0, 3.0])
-        with mock.patch("sb.session._clock", side_effect=lambda: next(clock)):
-            self.start(self.a, "a2")
-        self.assertFalse(sync.pending(self.a))
 
     def test_simulation_two_clones_twenty_sessions(self):
         started = time.time()
@@ -219,6 +218,7 @@ class SquadSyncTests(unittest.TestCase):
                 self.start(clone, "%s-%d" % (name, i))
                 self.write(clone, "Resources/%s-%d.md" % (name, i), note("%s %d" % (name, i)))
                 self.end(clone, "%s-%d" % (name, i))
+                self.push_by_hand(clone)
             if i in (5, 10, 15):
                 conflicts += 1
                 for name, clone in clones.items():
@@ -227,6 +227,7 @@ class SquadSyncTests(unittest.TestCase):
                     self.write(clone, shared, note("X", body="line one\n%s edit %d\nline three"
                                                    % (name, i)))
                     self.end(clone, "%s-%d-x" % (name, i))
+                self.push_by_hand(self.a)
                 result = sync.pull(self.b)
                 self.assertTrue(result.startswith("conflict: "), result)
                 self.assert_clean_state(self.b)
@@ -237,7 +238,7 @@ class SquadSyncTests(unittest.TestCase):
                 git(self.b, "add", "-A")
                 subprocess.run(["git", "-C", str(self.b), "rebase", "--continue"],
                                capture_output=True, env=dict(os.environ, GIT_EDITOR="true"))
-                self.assertEqual(sync.push(self.b), "ok")
+                self.push_by_hand(self.b)
                 self.assert_clean_state(self.b)
         self.assertEqual(conflicts, 3)
         for name, clone in clones.items():
@@ -248,18 +249,34 @@ class SquadSyncTests(unittest.TestCase):
             for i in range(20):
                 self.assertIn("wiki/Resources/%s-%d.md" % (name, i), remote)
         for clone in clones.values():
-            tracked = git(clone, "ls-files").split()
-            self.assertNotIn("_index.md", tracked)
-            self.assertNotIn("_log.md", tracked)
-        self.assertNotIn("_index.md", remote)
-        self.assertNotIn("_log.md", remote)
+            for path in (Path(clone) / "wiki").rglob("*.md"):
+                self.assertNotIn("<<<<<<<", path.read_text(encoding="utf-8"), str(path))
         for sha in git(self.bare, "rev-list", "main").split():
             message = git(self.bare, "log", "-1", "--format=%B", sha)
-            if message.startswith("sb:"):
+            if message.startswith("sb: session"):
                 self.assertRegex(message, r"Sb-Session: \S+")
                 self.assertRegex(message, r"Sb-Files: \d+")
         self.assertEqual(git(self.a, "rev-parse", "HEAD"), git(self.b, "rev-parse", "HEAD"))
         self.assertLess(time.time() - started, 60)
+
+
+class StaticSyncTests(unittest.TestCase):
+    def test_no_module_runs_git_push(self):
+        sources = list(LIB.glob("*.py")) + list((PLUGIN / "hooks").glob("*.py"))
+        self.assertGreater(len(sources), 10)
+        for path in sources:
+            text = path.read_text(encoding="utf-8")
+            self.assertIsNone(re.search(r"""["']push["']""", text), str(path))
+
+    def test_removed_push_machinery_is_gone(self):
+        for name in ("push", "pending", "PENDING", "PRE_SYNC_MESSAGE"):
+            self.assertFalse(hasattr(sync, name), name)
+
+    def test_hook_timeouts_and_matcher(self):
+        spec = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+        self.assertEqual(spec["SessionStart"][0]["hooks"][0]["timeout"], 60)
+        self.assertEqual(spec["SessionEnd"][0]["hooks"][0]["timeout"], 30)
+        self.assertEqual(spec["SessionStart"][0]["matcher"], "startup|resume|clear|compact|fork")
 
 
 if __name__ == "__main__":

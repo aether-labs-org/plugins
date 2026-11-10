@@ -13,7 +13,7 @@ ITEM_RE = re.compile(r"^\s*-\s+(.*)$")
 UNSUPPORTED_START = ("|", ">", "{", "&", "*", "!")
 # A fence line is `---` with only spaces, tabs and CR around it; a blank line is only those. Never
 # str.strip(): it also strips \x1c-\x1f, \x85 and others that JS trim() treats differently
-# (the companion's src/frontmatter.ts and the review hash must agree).
+# (other readers of the frontmatter, such as Obsidian, must agree).
 FENCE_RE = re.compile(r"[ \t\r]*---[ \t\r]*")
 BLANK_RE = re.compile(r"[ \t\r]*")
 
@@ -93,6 +93,23 @@ def _value(value, number, errors):
             return []
         return [_unquote(item.strip()) for item in value[1:-1].split(",") if item.strip()]
     return value
+
+
+RISKY_START = "|>{[&*!'\"%@`#-?,"
+
+
+def scalar(value):
+    """A value the restricted parser reads back unchanged: plain when that is safe, else quoted
+    (a leading indicator, a ` #` comment, or `: `). A value holding both quote kinds loses its
+    double quotes."""
+    text = str(value)
+    if not text or (text[:1] not in RISKY_START and " #" not in text and not text.endswith(":")):
+        return text
+    if '"' not in text:
+        return '"%s"' % text
+    if "'" not in text:
+        return "'%s'" % text
+    return '"%s"' % text.replace('"', "'")
 
 
 def set_keys(text, updates):

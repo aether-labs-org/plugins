@@ -1,10 +1,9 @@
-"""SessionEnd-hook git logic: commit vault changes locally (spec D7). Local commits only."""
+"""Git logic of the session hooks: commit vault changes locally (spec D7, D46). Local commits only."""
 import os
 import subprocess
 from datetime import date
 from pathlib import Path
 
-from . import sync
 from .vault import find_vault
 
 OFF_VALUES = {"false", "0", "no", "off"}
@@ -20,15 +19,12 @@ def _git(vault, *args):
                           timeout=30)
 
 
-def _push_note(vault):
-    return "; push: %s" % sync.push(vault)
-
-
-def run(cwd, env=None, today=None, session_id="", message=None, push=True):
+def run(cwd, env=None, today=None, session_id="", outside=False):
     """Return 'committed: <message>' or 'skipped: <reason>'. Never raises.
 
-    In a squad vault (sync.enabled) a push follows the commit when `push` is true, and its
-    outcome is appended: `committed: <message>; push: ok|pending: <why>`.
+    The session commit is `sb: session YYYY-MM-DD (N files)` with the Sb-Session and Sb-Files
+    trailers. With `outside=True` (changes made between sessions) it is
+    `sb: changes outside sessions (N files)` with the Sb-Files trailer only.
     """
     env = os.environ if env is None else env
     vault = find_vault(cwd)
@@ -44,25 +40,25 @@ def run(cwd, env=None, today=None, session_id="", message=None, push=True):
             return "skipped: not a git work tree"
         if any((Path(gitdir.stdout.strip()) / name).exists() for name in IN_PROGRESS):
             return "skipped: merge or rebase in progress"
-        status = _git(vault, "status", "--porcelain")
+        status = _git(vault, "status", "--porcelain", "-uall")
         if status.returncode != 0:
             return "skipped: git status failed: %s" % status.stderr.strip()
         changed = [line for line in status.stdout.splitlines() if line.strip()]
         if not changed:
-            if push and sync.enabled(vault) and (sync.pending(vault) or sync.ahead(vault)):
-                return "skipped: no changes" + _push_note(vault)
             return "skipped: no changes"
         added = _git(vault, "add", "-A")
         if added.returncode != 0:
             return "skipped: git add failed: %s" % added.stderr.strip()
-        message = message or "sb: session %s (%d files)" % (
-            today or date.today().isoformat(), len(changed))
-        trailers = "Sb-Session: %s\nSb-Files: %d" % (session_id or "unknown", len(changed))
+        if outside:
+            message = "sb: changes outside sessions (%d files)" % len(changed)
+            trailers = "Sb-Files: %d" % len(changed)
+        else:
+            message = "sb: session %s (%d files)" % (today or date.today().isoformat(), len(changed))
+            trailers = "Sb-Session: %s\nSb-Files: %d" % (session_id or "unknown", len(changed))
         committed = _git(vault, "commit", "-q", "-m", message, "-m", trailers)
         if committed.returncode != 0:
             return "skipped: git commit failed: %s" % (committed.stderr.strip()
                                                        or committed.stdout.strip())
-        pushed = _push_note(vault) if push and sync.enabled(vault) else ""
-        return "committed: %s%s" % (message, pushed)
+        return "committed: %s" % message
     except (OSError, subprocess.SubprocessError) as exc:
         return "skipped: %s" % exc

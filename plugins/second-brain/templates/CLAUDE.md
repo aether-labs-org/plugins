@@ -1,88 +1,68 @@
 # Second Brain
 
-This directory is a **local-first Second Brain**: plain markdown notes, operated by Claude Code
-through the `second-brain` plugin. Run `claude` from this directory.
-
-Notes are written in **{{language}}**.
+Local-first Second Brain: plain markdown notes, operated by Claude Code through the `second-brain`
+plugin. Run `claude` from this directory. Notes are written in **{{language}}**.
 
 ## Map
 
-- `wiki/` — curated knowledge. The human reads it. File notes by the folder descriptions in the
-  `<second-brain-vault>` block (from each folder's `_about.md`; `sb tree` prints them). `_about.md`
-  is human-edited and is not a note. In squad vaults `_index.md` and `_log.md` are local to each
-  clone.
-- `_inbox/` — raw captures. The human writes, the agent processes. Processed items go to
-  `_inbox/_done/`.
-- `_raw/` — immutable source files (PDFs, articles, transcripts). The human places them here.
-  **Read-only for the agent.** `_raw/.converted/` holds sanitised Markdown copies that
-  `sb source save` generates during ingest: generated, read-only, never edit.
-- `_index.md` — generated catalogue, one line per note. Never edit by hand; a hook rewrites it
-  whenever a note changes (`sb index --write` does the same by hand).
-- `_log.md` — append-only event log. Use `sb log`.
-- `.second-brain.json` — vault marker and configuration (`schema_version`, language, profile, sync, areas).
-
-Everything outside `wiki/` is system. The `_` prefix marks paths the agent operates.
+- `wiki/<folder>/` — notes. File them by each folder's `_about.md` (`sb tree` prints them).
+- `_inbox/` — raw captures; processed items go to `_inbox/_done/`.
+- `_raw/` — originals the human wants versioned. Read-only for the agent.
+- `_assets/` — images and attachments that notes embed; flat.
+- `_views/` — Obsidian Bases (`unreviewed.base`, `notes.base`).
+- `.agents/second-brain/` — `config.json`, `converted/` (sanitised copies of ingested sources,
+  read-only) and `cache/`.
 
 ## Rules
 
-1. Knowledge lives in `wiki/`. Never write outside it unless asked, except `_inbox/`,
-   `_index.md` and `_log.md` through the skills.
-2. **Never invent.** Synthesise only what is written in this vault or in the source being
-   ingested. Never invent facts, links or connections. Cite the source note as `[[Note]]`.
-3. `_raw/` is read-only. Never delete anything without asking first.
-4. The human owns the interpretation. The agent does the clerical work: formatting, links,
-   index. Trust fields (`reviewed`, `reviewed_hash`, `protected`, `origin`) are set by the human
-   only, through the second-brain-companion plugin in Obsidian or `sb review`; the agent never
-   writes them and never runs `sb review`. Notes the agent creates carry
-   `origin: agent`. Additions to human or reviewed notes go in blocks at the end of the note:
-   `> [!agent] <YYYY-MM-DD> · <source_id>`, every line prefixed `> `.
-5. Search before answering from memory: `sb search "<terms>"`. A `<second-brain-recall>` block
-   lists candidate notes; open them before answering. Answer from the notes first; anything you
-   add that they do not say goes after it, marked "(conhecimento geral)". Mark unreviewed notes
-   in answers. Open `_raw/` only to verify a source.
-6. Link only to notes that exist. Note names are unique, so `[[Name]]` survives folder moves.
-7. `CLAUDE.md`, `.claude/` and `.second-brain.json` are edited by the human, not the agent.
+1. Never invent. Write only what this vault or the source being ingested says; cite `[[Note]]`.
+   Never fill a gap: a missing date, reason or name stays missing; ask.
+2. Search before answering: `sb search "<terms>"`. Open the candidates and answer from them first;
+   anything you add that they do not say goes after it, marked "(conhecimento geral)". Say when a
+   note is unreviewed.
+3. `_raw/` and `.agents/second-brain/converted/` are read-only. Delete nothing without asking.
+4. Notes you create carry `origin: agent`. Set `reviewed` only when the user asks for that note.
+5. An addition to a human or reviewed note goes at its end as
+   `> [!agent] <YYYY-MM-DD> · <source>`, every line prefixed `> `.
+6. Keep `created` and `source`. Do not rename notes. Run `sb tree` before creating one. Link only
+   to notes that exist, inline on the term.
+7. `CLAUDE.md` and `.claude/` are edited by the human.
 
 ## What deserves a note
 
-Persist something only if it is **useful**, **new or surprising**, **carries the author's
-interpretation**, and **will be reused**. Skip what is ephemeral, already mastered, or trivially
-found on the web. Raw captures stay in `_inbox/` unorganised.
+Something **useful**, **new or surprising**, with the author's interpretation, that **will be
+reused**. Skip the ephemeral, the mastered and what is trivially found on the web.
 
-## Note format
+## Frontmatter
 
 ```yaml
 ---
-title: Note title
-summary: One line. Required. This is what triage reads.
-type: nota            # nota | fonte | projeto | conceito
-status: seed          # seed | draft | evergreen
-origin: agent         # agent | human | mixed
-created: 2026-01-31   # ISO date
-source: _raw/x.pdf    # path under _raw/ or _inbox/, a URL, or [[Note]]
-source_id: sha256:0123456789abcdef   # set by ingest; or url:<canonical url>
-protected: true       # optional, human only: every agent change asks first
-reviewed:             # optional ISO date, set by the human
-reviewed_hash: sha256:0123456789abcdef   # set with `reviewed`; `sb lint` reports SB110 if the text changes
-tags: [a, b]          # optional, few, lowercase
-aliases: [Other name] # optional list of alternative names; search uses them
+summary: One line. Required; search and recall show it.
+origin: agent          # agent | human. Required.
+created: 2026-11-10    # ISO date. Required.
+source: ~/a.pdf        # optional: vault path, ~/ or absolute path, or URL
+reviewed: 2026-11-12   # optional, set by the human
+tags: [a, b]           # optional
+aliases: [Other name]  # optional; search uses them
+title: Other title     # optional; default is the file name
 ---
 ```
 
-Frontmatter is a restricted subset: `key: value` scalars, inline `[a, b]` lists and block lists
-(`- item`).
-Notes are atomic. Prefer links and frontmatter to tag taxonomies.
+Only `key: value` scalars, inline `[a, b]` lists and block lists (`- item`).
 
-## Workflow
+## Body
 
-- `/second-brain:capture` — drop raw text into `_inbox/`.
-- `/second-brain:ingest` — turn a source (inbox clip, `_raw/` file, pdf, docx, pptx, xlsx, URL)
-  into atomic notes or `[!agent]` blocks, with provenance.
-- `/second-brain:find` — answer from the vault with `sb search`, citing notes.
-- `/second-brain:link` — propose links between notes.
-- `/second-brain:update` — revise an existing note.
-- `/second-brain:lint` — check the vault; proposes fixes, applies none without approval.
-- `sb search`, `sb lint`, `sb index --check`, `sb links <note> --suggest` run directly in a terminal.
+- Start with the content: no preamble, no closing recap, no comment on the source or on how the
+  note was made, no repeat of `summary`.
+- Length follows the content; no minimum, no padding. Lists, tables and headings only where the
+  content has that shape.
+- No fixed section template: follow the folder's `_about.md` conventions, but leave out a section
+  the source does not fill; never fill it.
+- No adjective, hedge or emphasis the source does not carry; no emoji.
+- No "Related" section of weak links.
 
-Changes are committed locally by the plugin when this directory has a `.git` (setting
-`auto_commit`). Review with `git diff`; revert with `git`.
+## Skills
+
+`/second-brain:capture`, `ingest`, `find`, `lint`. In a terminal: `sb search`, `sb lint`,
+`sb tree`, `sb links <note> --suggest`. The plugin commits each session to git; review with
+`git log -p`.

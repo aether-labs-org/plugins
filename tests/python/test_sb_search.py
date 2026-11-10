@@ -8,6 +8,7 @@ from unittest import mock
 from sb_helpers import make_vault, note
 from sb import cli
 from sb.search import STOPWORDS, SearchIndex, fold, tokenize
+from sb.vault import CACHE_DIR
 
 
 class TokenizerTests(unittest.TestCase):
@@ -66,11 +67,16 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(len(idx.search("omega")), 1)
 
     def test_result_shape_and_trust(self):
-        root = make_vault(self.tmp.name, {"Areas/X.md": note("X", summary="S.", origin="agent", body="gamma")})
+        root = make_vault(self.tmp.name, {"Areas/X.md": note("X", summary="S.", origin="agent", body="gamma"),
+                                          "Areas/Y.md": note("Y", summary="S.", origin="mixed", body="gamma")})
+        trusts = {r["name"]: r["trust"] for r in SearchIndex(root).search("gamma")}
+        self.assertEqual(trusts, {"X": "unreviewed", "Y": "reviewed"})
         r = SearchIndex(root).search("gamma")[0]
+        r = next(x for x in SearchIndex(root).search("gamma") if x["name"] == "X")
         self.assertEqual({k: r[k] for k in ("rel", "folder", "summary", "trust", "matched")},
                          {"rel": "wiki/Areas/X.md", "folder": "Areas", "summary": "S.",
                           "trust": "unreviewed", "matched": 1})
+        self.assertEqual(r["trust"], "unreviewed")
 
     def test_stopword_only_query_returns_nothing(self):
         root = make_vault(self.tmp.name, {"Resources/A.md": note("A")})
@@ -90,8 +96,8 @@ class SearchTests(unittest.TestCase):
 
     def test_corrupt_db_is_rebuilt(self):
         root = make_vault(self.tmp.name, {"Resources/A.md": note("A", body="alpha")})
-        (root / ".sb").mkdir()
-        (root / ".sb/search.db").write_bytes(b"not a database")
+        (root / CACHE_DIR).mkdir(parents=True)
+        (root / CACHE_DIR / "search.db").write_bytes(b"not a database")
         self.assertEqual(SearchIndex(root).search("alpha")[0]["name"], "A")
 
     def test_malformed_note_is_indexed(self):
@@ -101,10 +107,13 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(SearchIndex(root).search("epsilon")[0]["name"], "Bad")
         self.assertEqual(SearchIndex(root).search("zeta")[0]["name"], "NoFm")
 
-    def test_sb_dir_ignores_itself(self):
-        root = make_vault(self.tmp.name, {"Resources/A.md": note("A")})
-        SearchIndex(root).search("a")
-        self.assertEqual((root / ".sb/.gitignore").read_text(), "*\n")
+    def test_cache_lives_under_agents_second_brain_cache(self):
+        root = make_vault(self.tmp.name, {"Resources/A.md": note("A", body="alpha")})
+        SearchIndex(root).search("alpha")
+        self.assertEqual(CACHE_DIR, ".agents/second-brain/cache")
+        self.assertTrue((root / CACHE_DIR / "search.db").is_file())
+        self.assertEqual((root / CACHE_DIR / ".gitignore").read_text(), "*\n")
+        self.assertFalse((root / ".sb").exists())
 
     def test_underscore_paths_are_not_indexed(self):
         root = make_vault(self.tmp.name, {"Resources/A.md": note("A"), "Resources/_about.md": "theta"})

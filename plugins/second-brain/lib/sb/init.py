@@ -1,67 +1,78 @@
-"""Vault scaffolding: the backend of /second-brain:init (spec sections 6.3 and 7)."""
+"""Vault scaffolding: the backend of /second-brain:init (spec 5.1, 6.1, D52, D53, D57)."""
 import json
-import re
-import shutil
 import subprocess
 from pathlib import Path
 
-from . import index as index_mod
-from . import logfile
+from .frontmatter import scalar
 from .fsutil import write_atomic
 from .vault import MARKER, SCHEMA_VERSION
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = PLUGIN_ROOT / "templates"
-# The built Obsidian companion (spec 7.2): copied into the vault, never enabled from here.
-BUNDLE = PLUGIN_ROOT / "obsidian" / "dist"
-COMPANION = ".obsidian/plugins/second-brain-companion"
-PROFILES = ("personal", "work", "project", "squad")
-BASE_DIRS = ("_inbox/_done", "_raw", "_meta", "_views", ".claude")
-KEEP_DIRS = ("_inbox/_done", "_raw")      # empty at first: a .gitkeep lets a clone have them
-GITIGNORE_LINES = (".sb/", ".obsidian/workspace*", ".smart-env/")
-SQUAD_GITIGNORE_LINES = ("_index.md", "_log.md")
+BASE_DIRS = ("_inbox/_done", "_raw", "_assets", "_meta", "_views", ".claude")
+KEEP_DIRS = ("_inbox/_done", "_raw", "_assets")      # empty at first: a .gitkeep lets a clone have them
+GITIGNORE_LINES = (".agents/second-brain/cache/", ".obsidian/workspace*", ".smart-env/")
 # (path in the vault, template file) written when absent
 EXTRA_FILES = ((".claude/settings.json", "settings.json"),
                ("_meta/web-clipper-template.json", "web-clipper-template.json"),
-               ("_views/unreviewed.base", "unreviewed.base"))
+               ("_views/unreviewed.base", "unreviewed.base"),
+               ("_views/notes.base", "notes.base"))
+ASSETS_HINT = ("Obsidian: Settings, Files and links, Default location for new attachments, "
+               "set it to the folder _assets")
+MAX_DEPTH = 2
 
 
-def _bundle_files():
-    return sorted(p for p in BUNDLE.iterdir() if p.is_file()) if BUNDLE.is_dir() else []
+def default_folders():
+    """The folders `sb init` creates when none are given: Projects, Areas, Resources, Archive."""
+    return parse_folders((TEMPLATES / "folders-default.json").read_text(encoding="utf-8"))
 
 
-def manifest_version(path):
-    """The `version` string of a plugin manifest, or None when absent, unreadable or not a string."""
+def _check_path(path):
+    if not isinstance(path, str) or not path or path != path.strip():
+        raise ValueError("folder path must be a non-empty string without surrounding spaces: %r" % (path,))
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in path):
+        raise ValueError("folder path has control characters: %r" % path)
+    if path.startswith("/") or "\\" in path or ":" in path.split("/")[0][1:2]:
+        raise ValueError("folder path must be relative with forward slashes: %r" % path)
+    parts = path.split("/")
+    if len(parts) > MAX_DEPTH:
+        raise ValueError("folder path has more than %d levels: %r" % (MAX_DEPTH, path))
+    for part in parts:
+        if not part or part != part.strip():
+            raise ValueError("folder path has an empty or padded segment: %r" % path)
+        if part in (".", "..") or part.startswith(("_", ".")):
+            raise ValueError("folder segment may not be %r or start with _ or .: %r" % (part, path))
+
+
+def parse_folders(text):
+    """Validate a JSON array of `{path, description, conventions?}` and return clean dicts."""
     try:
-        version = json.loads(Path(path).read_text(encoding="utf-8")).get("version")
-    except (OSError, ValueError, AttributeError):
-        return None
-    return version if isinstance(version, str) and version else None
-
-
-def version_key(version):
-    """Numeric sort key of a dotted version (`0.10.0` is newer than `0.9.0`)."""
-    return tuple(int(n) for n in re.findall(r"\d+", version or ""))
-
-
-def _companion_installed(root):
-    plugin = Path(root) / COMPANION
-    return (plugin / "manifest.json").is_file() and (plugin / "main.js").is_file()
-
-
-def _install_companion(root):
-    """Copy every file of the bundle into the vault's companion folder (overwriting ours,
-    never touching data.json or anything else)."""
-    target = Path(root) / COMPANION
-    target.mkdir(parents=True, exist_ok=True)
-    for source in sorted(_bundle_files(), key=lambda p: p.name == "manifest.json"):   # manifest last
-        shutil.copyfile(str(source), str(target / source.name))
-
-
-def load_profile(name):
-    if name not in PROFILES:
-        raise ValueError("unknown profile %r (expected one of %s)" % (name, ", ".join(PROFILES)))
-    return json.loads((TEMPLATES / "profiles" / ("%s.json" % name)).read_text(encoding="utf-8"))
+        data = json.loads(text)
+    except ValueError as exc:
+        raise ValueError("folders must be JSON: %s" % exc) from exc
+    if not isinstance(data, list):
+        raise ValueError("folders must be a JSON array of {path, description, conventions?}")
+    found, seen = [], set()
+    for item in data:
+        if not isinstance(item, dict):
+            raise ValueError("each folder must be an object with path and description: %r" % (item,))
+        path = item.get("path")
+        _check_path(path)
+        description = item.get("description")
+        if not isinstance(description, str) or not description.strip():
+            raise ValueError("folder %r needs a non-empty description" % path)
+        conventions = item.get("conventions", "")
+        if conventions is None:
+            conventions = ""
+        if not isinstance(conventions, str):
+            raise ValueError("conventions of %r must be a string" % path)
+        key = path.casefold()
+        if key in seen:
+            raise ValueError("duplicate folder path (ignoring case): %r" % path)
+        seen.add(key)
+        found.append({"path": path, "description": " ".join(description.split()),
+                      "conventions": conventions.strip()})
+    return found
 
 
 def enclosing_repo(target):
@@ -74,23 +85,10 @@ def enclosing_repo(target):
 
 
 def about_text(folder):
-    parts = ["---", "description: %s" % folder["description"],
-             "protected: %s" % ("true" if folder.get("protected") else "false"), "---", ""]
-    for heading, key in (("Conventions", "conventions"), ("Examples", "examples"),
-                         ("Anti-examples", "anti_examples")):
-        parts += ["## %s" % heading, folder.get(key, "").strip(), ""]
+    parts = ["---", "description: %s" % scalar(folder["description"]), "---", ""]
+    if folder.get("conventions"):
+        parts += ["## Conventions", folder["conventions"].strip(), ""]
     return "\n".join(parts)
-
-
-def gitignore_lines(sync):
-    return GITIGNORE_LINES + (SQUAD_GITIGNORE_LINES if sync == "squad" else ())
-
-
-def _clean_area(area):
-    name = " ".join(str(area).split())
-    if not name or name.startswith(".") or "/" in name or "\\" in name:
-        return ""
-    return name
 
 
 def _write_new(root, name, text, created, kept):
@@ -106,43 +104,34 @@ def _write_new(root, name, text, created, kept):
 def _append_gitignore(root, lines, created, kept):
     path = root / ".gitignore"
     existed = path.exists()
-    existing = path.read_text(encoding="utf-8") if existed else ""
+    if existed:
+        with open(str(path), encoding="utf-8", newline="") as handle:
+            existing = handle.read()
+    else:
+        existing = ""
     present = set(existing.splitlines())
     missing = [line for line in lines if line not in present]
     if not missing:
         kept.append(".gitignore")
         return
+    eol = "\r\n" if "\r\n" in existing else "\n"
     if existing and not existing.endswith("\n"):
-        existing += "\n"
-    write_atomic(path, existing + "".join(line + "\n" for line in missing))
+        existing += eol
+    write_atomic(path, existing + "".join(line + eol for line in missing))
     (kept if existed else created).append(".gitignore")
 
 
-def run(root, language="en", profile="personal", remote=None, git=False, areas=()):
+def run(root, language="en", folders=None, remote=None, git=False):
     root = Path(root)
-    spec = load_profile(profile)
     if (root / MARKER).exists():
         return {"status": "exists", "root": str(root), "created": [], "kept": [MARKER],
-                "warnings": []}
+                "warnings": [], "hints": []}
+    folders = default_folders() if folders is None else folders
     root.mkdir(parents=True, exist_ok=True)
     created, kept, warnings = [], [], []
-    folder_names = [f["path"] for f in spec["folders"]]
-
-    clean = []
-    for area in areas:
-        if not str(area).strip():
-            continue
-        name = _clean_area(area)
-        if not name:
-            warnings.append("ignored invalid area name %r" % area)
-        elif "Areas" not in folder_names:
-            warnings.append("ignored area %r: the %s profile has no Areas folder" % (area, profile))
-        else:
-            clean.append(name)
-    for rel in (*BASE_DIRS, *("wiki/%s" % n for n in folder_names),
-                *("wiki/Areas/%s" % a for a in clean)):
+    for rel in (*BASE_DIRS, *("wiki/%s" % f["path"] for f in folders)):
         (root / rel).mkdir(parents=True, exist_ok=True)
-    for folder in spec["folders"]:
+    for folder in folders:
         _write_new(root, "wiki/%s/_about.md" % folder["path"], about_text(folder), created, kept)
 
     template = (TEMPLATES / "CLAUDE.md").read_text(encoding="utf-8")
@@ -151,17 +140,11 @@ def run(root, language="en", profile="personal", remote=None, git=False, areas=(
         _write_new(root, rel + "/.gitkeep", "", created, kept)
     for rel, source in EXTRA_FILES:
         _write_new(root, rel, (TEMPLATES / source).read_text(encoding="utf-8"), created, kept)
-    _append_gitignore(root, gitignore_lines(spec["sync"]), created, kept)
-    if _companion_installed(root):
-        kept.append(COMPANION)
-    elif not _bundle_files():
-        warnings.append("companion bundle not found at %s: the Obsidian companion was not installed"
-                        % BUNDLE)
-    else:
-        _install_companion(root)
-        created.append(COMPANION)
-    _write_new(root, "_index.md", index_mod.build([]), created, kept)
-    _write_new(root, "_log.md", "", created, kept)
+    _append_gitignore(root, GITIGNORE_LINES, created, kept)
+    settings = root / ".claude" / "settings.json"
+    if ".claude/settings.json" in kept and "Edit(/_raw/**)" not in settings.read_text(encoding="utf-8", errors="replace"):
+        warnings.append(".claude/settings.json was kept but has no Edit(/_raw/**) deny rule; "
+                        "add the deny rules of the plugin's templates/settings.json by hand")
 
     if git and not (root / ".git").exists():
         try:
@@ -175,181 +158,10 @@ def run(root, language="en", profile="personal", remote=None, git=False, areas=(
         if done.returncode != 0:
             warnings.append("git remote add failed: %s" % (done.stderr.strip() or done.stdout.strip()))
 
-    marker = {"schema_version": SCHEMA_VERSION, "language": language, "profile": profile,
-              "sync": spec["sync"], "areas": clean}
+    marker = {"schema_version": SCHEMA_VERSION, "language": language,
+              "sync": "pull" if remote else "local"}
+    (root / MARKER).parent.mkdir(parents=True, exist_ok=True)
     write_atomic(root / MARKER, json.dumps(marker, ensure_ascii=False, indent=2) + "\n")
     created.append(MARKER)
-    logfile.append(root, "init", "vault created")
     return {"status": "created", "root": str(root), "created": created, "kept": kept,
-            "warnings": warnings}
-
-
-SETTINGS = ".claude/settings.json"
-
-
-def merge_settings(existing_text, template_text):
-    """Additive merge of the settings template into an existing `.claude/settings.json`.
-
-    Adds missing `enabledPlugins` keys, `extraKnownMarketplaces` entries and `permissions.deny`
-    rules; never changes or removes an existing value, keeps the order of existing keys and
-    appends new ones. A section of an unexpected type is left alone. Returns
-    `(new_text, added)` (`added == 0`: nothing to write), or `None` when `existing_text` is not
-    a JSON object."""
-    try:
-        data = json.loads(existing_text)
-    except ValueError:
-        return None
-    if not isinstance(data, dict):
-        return None
-    template = json.loads(template_text)
-    added = 0
-    for section in ("enabledPlugins", "extraKnownMarketplaces"):
-        wanted = template.get(section) or {}
-        if section not in data:
-            data[section] = dict(wanted)
-            added += len(wanted)
-        elif isinstance(data[section], dict):
-            for key, value in wanted.items():
-                if key not in data[section]:
-                    data[section][key] = value
-                    added += 1
-    wanted = (template.get("permissions") or {}).get("deny") or []
-    if "permissions" not in data:
-        data["permissions"] = {"deny": list(wanted)}
-        added += len(wanted)
-    elif isinstance(data["permissions"], dict):
-        if "deny" not in data["permissions"]:
-            data["permissions"]["deny"] = list(wanted)
-            added += len(wanted)
-        elif isinstance(data["permissions"]["deny"], list):
-            for rule in wanted:
-                if rule not in data["permissions"]["deny"]:
-                    data["permissions"]["deny"].append(rule)
-                    added += 1
-    if not added:
-        return existing_text, 0
-    return json.dumps(data, ensure_ascii=False, indent=2) + "\n", added
-
-
-def _known_folders(profile):
-    """Top-level folder specs by name; the chosen profile wins over the others."""
-    found = {}
-    for name in ([profile] if profile in PROFILES else []) + list(PROFILES):
-        for folder in load_profile(name)["folders"]:
-            found.setdefault(folder["path"], folder)
-    return found
-
-
-def _tracked(root, rel):
-    done = subprocess.run(["git", "-C", str(root), "ls-files", "--error-unmatch", rel],
-                          capture_output=True, text=True)
-    return done.returncode == 0
-
-
-def upgrade(root, profile=None, yes=False):
-    """Bring a v0.1 (or partial) vault up to schema 2. Adds missing files only; with
-    `yes=False` it only reports the plan. Returns `{"actions", "kept", "applied"}`."""
-    from .tree import flatten, load as load_tree
-    from .vault import load_config
-
-    root = Path(root)
-    if profile is not None and profile not in PROFILES:
-        raise ValueError("unknown profile %r (expected one of %s)" % (profile, ", ".join(PROFILES)))
-    config = load_config(root)
-    actions, kept, warnings = [], [], []
-    writes = []                                     # (path, text) applied when `yes`
-    post = []                                       # callables applied after the writes
-
-    chosen = profile or config.get("profile") or "personal"
-    known = _known_folders(chosen)
-    for _, folder in flatten(load_tree(root)):
-        rel = "wiki/%s/_about.md" % folder["path"]
-        if (root / rel).exists():
-            continue
-        spec = known.get(folder["path"]) if "/" not in folder["path"] else None
-        if spec is None:
-            spec = {"description": "(describe this folder)", "protected": False}
-            actions.append("add %s (placeholder description)" % rel)
-        else:
-            actions.append("add %s" % rel)
-        writes.append((root / rel, about_text(spec)))
-
-    for rel, source in EXTRA_FILES:
-        if rel == SETTINGS and (root / rel).is_file():
-            template_text = (TEMPLATES / source).read_text(encoding="utf-8")
-            try:
-                merged = merge_settings((root / rel).read_text(encoding="utf-8"), template_text)
-            except (OSError, UnicodeDecodeError):
-                merged = None
-            if merged is None:
-                kept.append(rel)
-                warnings.append("%s is not a valid JSON object: left untouched; fix it by hand "
-                                "(templates/settings.json in the plugin is the reference)" % rel)
-            elif merged[1] == 0:
-                kept.append(rel)
-            else:
-                actions.append("merge %s (+%d entries)" % (rel, merged[1]))
-                writes.append((root / rel, merged[0]))
-        elif (root / rel).exists():
-            kept.append(rel)
-        else:
-            actions.append("add %s" % rel)
-            writes.append((root / rel, (TEMPLATES / source).read_text(encoding="utf-8")))
-    for rel in KEEP_DIRS:
-        keep = rel + "/.gitkeep"
-        if (root / keep).exists():
-            kept.append(keep)
-        else:
-            actions.append("add %s" % keep)
-            writes.append((root / keep, ""))
-    if (root / "CLAUDE.md").exists():
-        kept.append("CLAUDE.md")
-
-    bundled = manifest_version(BUNDLE / "manifest.json")
-    if bundled is None or not _bundle_files():
-        warnings.append("companion bundle not found at %s: the Obsidian companion was not checked"
-                        % BUNDLE)
-    elif not _companion_installed(root):
-        actions.append("add %s (companion %s)" % (COMPANION, bundled))
-        post.append(lambda: _install_companion(root))
-    else:
-        installed = manifest_version(root / COMPANION / "manifest.json")
-        if installed is None or version_key(bundled) > version_key(installed):
-            actions.append("update companion %s -> %s" % (installed or "?", bundled))
-            post.append(lambda: _install_companion(root))
-        else:
-            kept.append(COMPANION)
-
-    sync = load_profile(profile)["sync"] if profile else (config.get("sync") or "local")
-    lines = gitignore_lines(sync)
-    path = root / ".gitignore"
-    existing = path.read_text(encoding="utf-8") if path.exists() else ""
-    missing = [line for line in lines if line not in set(existing.splitlines())]
-    if missing:
-        actions.append("add to .gitignore: %s" % ", ".join(missing))
-        text = existing + ("\n" if existing and not existing.endswith("\n") else "")
-        writes.append((path, text + "".join(line + "\n" for line in missing)))
-
-    if sync == "squad" and (root / ".git").exists():
-        for rel in ("_index.md", "_log.md"):
-            if _tracked(root, rel):
-                actions.append("git rm --cached %s (stays on disk; local in squad vaults)" % rel)
-                post.append(lambda rel=rel: subprocess.run(
-                    ["git", "-C", str(root), "rm", "--cached", "-q", rel],
-                    capture_output=True, text=True, check=True))
-
-    wanted = dict(config, schema_version=SCHEMA_VERSION, profile=chosen, sync=sync)
-    if wanted != config:
-        actions.append("update %s: schema_version %s, profile %s, sync %s"
-                       % (MARKER, SCHEMA_VERSION, chosen, sync))
-
-    if yes and actions:
-        for target, text in writes:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            write_atomic(target, text)
-        for step in post:
-            step()
-        if wanted != config:
-            write_atomic(root / MARKER, json.dumps(wanted, ensure_ascii=False, indent=2) + "\n")
-    return {"actions": actions, "kept": kept, "warnings": warnings,
-            "applied": bool(yes and actions)}
+            "warnings": warnings, "hints": [ASSETS_HINT]}

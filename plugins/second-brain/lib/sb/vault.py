@@ -6,9 +6,15 @@ from pathlib import Path
 
 from .frontmatter import parse
 
-MARKER = ".second-brain.json"
-SCHEMA_VERSION = 2
-ASSET_SKIP_DIRS = {".git", ".sb", ".obsidian", ".trash"}
+STATE_DIR = ".agents/second-brain"
+MARKER = STATE_DIR + "/config.json"
+LEGACY_MARKER = ".second-brain.json"
+CACHE_DIR = STATE_DIR + "/cache"
+CONVERTED_DIR = STATE_DIR + "/converted"
+SCHEMA_VERSION = 3
+LEGACY_MESSAGE = ("this vault uses schema 2 (.second-brain.json); "
+                  "see 'Migrating from 0.2' in the second-brain README")
+ASSET_SKIP_DIRS = {".git", ".agents", ".obsidian", ".trash"}
 
 
 class VaultError(Exception):
@@ -33,6 +39,22 @@ def find_vault(start):
         if (candidate / MARKER).is_file():
             return candidate
     return None
+
+
+def find_legacy_vault(start):
+    """Nearest directory at or above `start` that holds the schema 2 marker and no schema 3 one."""
+    here = Path(start).resolve()
+    for candidate in (here, *here.parents):
+        if (candidate / MARKER).is_file():
+            return None
+        if (candidate / LEGACY_MARKER).is_file():
+            return candidate
+    return None
+
+
+def sync_mode(config):
+    """`pull` when the config says so, else `local` (any other value, even a v0.2 `squad`)."""
+    return "pull" if isinstance(config, dict) and config.get("sync") == "pull" else "local"
 
 
 def load_config(root):

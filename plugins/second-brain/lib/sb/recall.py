@@ -56,8 +56,8 @@ def _line(result):
     name = escape_tags(clean_inline(result["name"], 120))
     summary = escape_tags(clean_inline(result["summary"], 160)) or "(no summary)"
     folder = escape_tags(clean_inline(result["folder"], 60))
-    return "- [[%s]]%s [%s]: %s" % (name, " (%s)" % folder if folder else "",
-                                    result["trust"], summary)
+    return "- [[%s]]%s%s: %s" % (name, " (%s)" % folder if folder else "",
+                                 " [unreviewed]" if result["trust"] == "unreviewed" else "", summary)
 
 
 def render(results):

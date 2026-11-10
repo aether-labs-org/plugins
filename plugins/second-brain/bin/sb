@@ -1,11 +1,21 @@
-#!/usr/bin/env python3
-"""Entry point for the second-brain CLI."""
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
-
-from sb.cli import main  # noqa: E402
-
-if __name__ == "__main__":
-    sys.exit(main())
+#!/bin/sh
+# Entry point of the second-brain CLI: runs lib/sb_main.py through the interpreter launcher.
+# Follows symlinks, so a link to this file (for example on a PATH directory) still finds its siblings.
+self=$0
+while [ -h "$self" ]; do
+  link=$(readlink "$self")
+  case $link in
+    /*) self=$link ;;
+    *)
+      case $self in
+        */*) self=${self%/*}/$link ;;
+        *) self=$link ;;
+      esac
+      ;;
+  esac
+done
+case $self in
+  */*) dir=${self%/*} ;;
+  *) dir=. ;;
+esac
+exec /bin/sh "$dir/sb-python" "$dir/../lib/sb_main.py" "$@"

@@ -1,7 +1,20 @@
 import unittest
 
 import sb_helpers  # noqa: F401  (sets sys.path)
-from sb.frontmatter import parse, set_keys
+from sb.frontmatter import parse, scalar, set_keys
+
+
+class ScalarTests(unittest.TestCase):
+    def test_scalar_round_trips_through_parse(self):
+        for value in ("plain text", "~/a #1: b.pdf", "[x] list-like", "#start", "it's a: test",
+                      'say "hi" # now', "- dash", "> quote", "*star", "{x}", "100%", "a: b: c"):
+            text = "---\nkey: %s\n---\n" % scalar(value)
+            parsed = parse(text)
+            self.assertEqual((parsed.data.get("key"), parsed.errors), (value, []), value)
+
+    def test_plain_values_stay_plain(self):
+        self.assertEqual(scalar("~/Documents/r.pdf"), "~/Documents/r.pdf")
+        self.assertEqual(scalar("Active efforts: now"), "Active efforts: now")
 
 
 class ParseTests(unittest.TestCase):
