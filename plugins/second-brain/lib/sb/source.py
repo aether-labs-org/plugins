@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import unicodedata
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -57,6 +58,15 @@ def canonical_url(url):
     return "%s://%s%s%s" % (scheme, host, path, "?" + query if query else "")
 
 
+def _check_chars(value):
+    """A source is one line of plain text: no control or format character (newline, CR, ESC,
+    zero-width...), or it could forge a frontmatter key or a callout header."""
+    for char in str(value):
+        if unicodedata.category(char) in ("Cc", "Cf"):
+            raise ValueError("a source may not contain control characters (found %r)" % char)
+    return value
+
+
 def _is_url(target):
     return re.match(r"^https?://", str(target).strip(), re.IGNORECASE) is not None
 
@@ -91,6 +101,26 @@ def _clip_url(path):
     return ""
 
 
+def _same_bytes(path, data):
+    try:
+        return path.read_bytes() == data
+    except OSError:
+        return False
+
+
+def done_name(root, path):
+    """The file name an `_inbox/` item gets in `_inbox/_done/`: its own name, else `<stem>-2<ext>`,
+    `-3`..., taking the first one that is free or already holds the same bytes."""
+    done = Path(root) / "_inbox" / "_done"
+    data = Path(path).read_bytes()
+    counter = 1
+    while True:
+        name = path.name if counter == 1 else "%s-%d%s" % (path.stem, counter, path.suffix)
+        if not (done / name).exists() or _same_bytes(done / name, data):
+            return name
+        counter += 1
+
+
 def _locate(root, path):
     """`(source value, kind)` for an existing file."""
     resolved = path.resolve()
@@ -100,7 +130,12 @@ def _locate(root, path):
         rel = None
     if rel is not None:
         if rel.parts[:1] == ("_inbox",):
-            return (_clip_url(path) or "_inbox/_done/" + path.name), "inbox"
+            url = _clip_url(path)
+            if url:
+                return canonical_url(url), "inbox"
+            if rel.parts[1:2] == ("_done",):
+                return rel.as_posix(), "inbox"
+            return "_inbox/_done/" + done_name(root, path), "inbox"
         return rel.as_posix(), "file"
     try:
         return "~/" + resolved.relative_to(Path.home().resolve()).as_posix(), "file"
@@ -110,9 +145,10 @@ def _locate(root, path):
 
 def source_value(root, target):
     """The exact value for a note's `source:` field (spec 5.3)."""
+    _check_chars(target)
     if _is_url(target):
-        return str(target).strip()
-    return _locate(root, _resolve(root, target))[0]
+        return canonical_url(target)
+    return _check_chars(_locate(root, _resolve(root, target))[0])
 
 
 def _converted_dir(root):
@@ -181,15 +217,24 @@ def _citations(note):
 
 def _identity(root, target):
     """What names the source: `(path or None, value, kind, hash or '', legacy id)`."""
+    _check_chars(target)
     if _is_url(target):
-        value = str(target).strip()
-        return None, value, "url", "", "url:" + canonical_url(value)
+        value = canonical_url(target)
+        return None, value, "url", "", "url:" + value
     path = _resolve(root, target)
     value, kind = _locate(root, path)
+    _check_chars(value)
     if kind == "inbox" and _is_url(value):
         return path, value, kind, "", "url:" + canonical_url(value)
     digest = content_hash(path.read_bytes())
     return path, value, kind, digest, digest
+
+
+def _exists(root, value):
+    """Does the path a note cites still exist? (`~/` expands, absolute as is, else in the vault.)"""
+    value = str(value)
+    path = Path(value).expanduser() if value.startswith("~/") else Path(value)
+    return (path if path.is_absolute() else Path(root) / path).exists()
 
 
 def _page_name(value):
@@ -222,8 +267,9 @@ def inspect(root, target):
         info["status"] = "seen"
     name = _page_name(value) if not digest else "%s.md" % digest.replace(":", "-")
     info["converted"] = next((c["rel"] for c in copies if c["name"] == name), None)
-    if digest and moved and not direct:
-        info["moved_from"] = sorted(set(moved.values()))[0]
+    gone = sorted(v for v in set(moved.values()) if v and not _exists(root, v))
+    if digest and moved and not direct and gone:
+        info["moved_from"] = gone[0]
         info["converted"] = info["converted"] or (same_hash[0]["rel"] if same_hash else None)
     if digest and via_source:
         mine = [c for c in copies if c["source"] == wanted and c["hash"]]
@@ -272,14 +318,20 @@ def is_text_file(root, target):
 
 
 def _replace_header_source(path, old, new):
-    lines = path.read_text(encoding="utf-8").split("\n")
+    lines = _read_text(path).split("\n")
     for i, line in enumerate(lines[1:HEADER_LINES], 1):
         if line.strip() == "---":
             break
-        if line.startswith("source:") and _normalize(_read_header_line(line)) == old:
-            lines[i] = "source: " + _quote(new)
+        if line.startswith("source:") and _normalize(_read_header_line(line.rstrip("\r"))) == old:
+            lines[i] = "source: " + _quote(new) + ("\r" if line.endswith("\r") else "")
             break
     write_atomic(path, "\n".join(lines))
+
+
+def _read_text(path):
+    """A file's text with its line endings untouched (no universal-newline translation)."""
+    with open(str(path), encoding="utf-8", newline="") as handle:
+        return handle.read()
 
 
 def _read_header_line(line):
@@ -299,20 +351,23 @@ def relink(root, target):
     if not old:
         raise ValueError("nothing to relink: %s was not moved" % info["source"])
     new = info["source"]
+    written = frontmatter.scalar(new)
+    if frontmatter.parse("---\nsource: %s\n---\n" % written).data.get("source") != new:
+        raise ValueError("cannot write this source into frontmatter safely: %s" % new)
     path, _, _, digest, legacy = _identity(root, target)
     old_n = _normalize(old)
     for copy in _copies(root):
         if copy["hash"] == digest and copy["source"] == old_n:
             _replace_header_source(Path(root) / copy["rel"], old_n, new)
     changed = []
-    header = re.compile(r"^(>[ \t]*\[!agent\][^\n]*·[ \t]*)%s([ \t]*)$" % re.escape(old),
+    header = re.compile(r"^(>[ \t]*\[!agent\][^\n]*·[ \t]*)%s([ \t\r]*)$" % re.escape(old),
                         re.IGNORECASE | re.MULTILINE)
     for note in load_notes(root):
         source, legacy_id, callouts = _citations(note)
-        text = note.path.read_text(encoding="utf-8")
+        text = _read_text(note.path)
         updated = text
-        if source == old_n or (legacy_id == legacy and source and source != _normalize(new)):
-            updated = frontmatter.set_keys(updated, {"source": new})
+        if source == old_n:
+            updated = frontmatter.set_keys(updated, {"source": written})
         updated = header.sub(lambda m: m.group(1) + new + m.group(2), updated)
         if updated != text:
             write_atomic(note.path, updated)
@@ -337,9 +392,6 @@ def inbox_done(root, rel):
         raise ValueError("no such file: %s" % rel)
     done = root / "_inbox" / "_done"
     done.mkdir(parents=True, exist_ok=True)
-    target, counter = done / real.name, 2
-    while target.exists():
-        target = done / ("%s-%d%s" % (real.stem, counter, real.suffix))
-        counter += 1
+    target = done / done_name(root, real)
     os.rename(str(real), str(target))
     return target.relative_to(root).as_posix()

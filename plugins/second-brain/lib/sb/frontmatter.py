@@ -95,6 +95,23 @@ def _value(value, number, errors):
     return value
 
 
+RISKY_START = "|>{[&*!'\"%@`#-?,"
+
+
+def scalar(value):
+    """A value the restricted parser reads back unchanged: plain when that is safe, else quoted
+    (a leading indicator, a ` #` comment, or `: `). A value holding both quote kinds loses its
+    double quotes."""
+    text = str(value)
+    if not text or (text[:1] not in RISKY_START and " #" not in text and not text.endswith(":")):
+        return text
+    if '"' not in text:
+        return '"%s"' % text
+    if "'" not in text:
+        return "'%s'" % text
+    return '"%s"' % text.replace('"', "'")
+
+
 def set_keys(text, updates):
     """Set scalar frontmatter keys without reformatting anything else.
 

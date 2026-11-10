@@ -96,6 +96,35 @@ class InitTests(unittest.TestCase):
             self.assertIn(rel, result["kept"])
             self.assertEqual((self.root / rel).read_text(encoding="utf-8"), text, rel)
 
+    def test_gitignore_keeps_crlf_endings(self):
+        self.root.mkdir()
+        (self.root / ".gitignore").write_bytes(b"node_modules/\r\ndist/\r\n")
+        init.run(self.root)
+        data = (self.root / ".gitignore").read_bytes()
+        self.assertEqual(data, b"node_modules/\r\ndist/\r\n" + b"".join(
+            line.encode() + b"\r\n" for line in GITIGNORE))
+        # an LF file stays LF, and a file without a final newline gets one first
+        other = Path(self.tmp.name) / "lf"
+        other.mkdir()
+        (other / ".gitignore").write_bytes(b"a\nb")
+        init.run(other)
+        self.assertEqual((other / ".gitignore").read_bytes(), b"a\nb\n" + b"".join(
+            line.encode() + b"\n" for line in GITIGNORE))
+
+    def test_kept_settings_without_the_raw_deny_rule_warn(self):
+        (self.root / ".claude").mkdir(parents=True)
+        (self.root / ".claude/settings.json").write_text("{}", encoding="utf-8")
+        result = init.run(self.root)
+        self.assertEqual(len([w for w in result["warnings"] if "Edit(/_raw/**)" in w]), 1, result["warnings"])
+        self.assertEqual((self.root / ".claude/settings.json").read_text(encoding="utf-8"), "{}")
+        fresh = init.run(Path(self.tmp.name) / "fresh")
+        self.assertEqual(fresh["warnings"], [])
+        ok = Path(self.tmp.name) / "ok"
+        (ok / ".claude").mkdir(parents=True)
+        (ok / ".claude/settings.json").write_text('{"permissions": {"deny": ["Edit(/_raw/**)"]}}',
+                                                  encoding="utf-8")
+        self.assertEqual(init.run(ok)["warnings"], [])
+
     def test_gitignore_lines_are_appended_once(self):
         self.root.mkdir()
         (self.root / ".gitignore").write_text("node_modules/\n", encoding="utf-8")

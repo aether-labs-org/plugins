@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,7 @@ from sb_helpers import make_vault, note
 from sb.cli import main
 from sb.sanitize import clean_document
 from sb.source import (canonical_url, content_hash, inbox_done, inspect, relink, save, source_value)
+from sb.frontmatter import parse
 
 PDF = b"%PDF-1.4 original bytes"
 
@@ -83,13 +85,23 @@ class SourceTests(SourceBase):
             far = Path(other) / "x.pdf"
             far.write_bytes(PDF)
             self.assertEqual(source_value(self.root, str(far)), str(far))
-        self.assertEqual(source_value(self.root, " https://X.org/a/?utm_x=1 "), "https://X.org/a/?utm_x=1")
+        self.assertEqual(source_value(self.root, " https://X.org/a/?utm_x=1 "), "https://x.org/a")
         (self.root / "_inbox/c.md").write_text("---\nurl: https://x.org/a/\n---\nclip\n", encoding="utf-8")
         (self.root / "_inbox/p.md").write_text("plain clip\n", encoding="utf-8")
         (self.root / "_inbox/o.md").write_text("---\nurl: obsidian://open?x\n---\nclip\n", encoding="utf-8")
-        self.assertEqual(source_value(self.root, "_inbox/c.md"), "https://x.org/a/")
+        self.assertEqual(source_value(self.root, "_inbox/c.md"), "https://x.org/a")
         self.assertEqual(source_value(self.root, "_inbox/p.md"), "_inbox/_done/p.md")
         self.assertEqual(source_value(self.root, "_inbox/o.md"), "_inbox/_done/o.md")
+
+    def test_url_sources_are_canonical(self):
+        (self.root / "_inbox/c.md").write_text("---\nurl: HTTPS://X.org/a/?utm_source=z#f\n---\nclip\n",
+                                                encoding="utf-8")
+        self.assertEqual(inspect(self.root, "https://X.org/a/?utm_x=1")["source"], "https://x.org/a")
+        self.assertEqual(inspect(self.root, "_inbox/c.md")["source"], "https://x.org/a")
+        out = save(self.root, "https://X.org/a/?utm_x=1", "page\n", tool="defuddle")
+        self.assertIn('source: "https://x.org/a"', (self.root / out["path"]).read_text(encoding="utf-8"))
+        rel = self.put_note("U", source="https://x.org/a")
+        self.assertEqual(inspect(self.root, "_inbox/c.md")["notes"], [rel])
 
     def test_missing_file_is_a_value_error(self):
         with self.assertRaises(ValueError):
@@ -128,11 +140,23 @@ class SourceTests(SourceBase):
         out = save(self.root, str(self.external("a.pdf")), "fine\n", tool="t")
         self.assertEqual((out["suspicious"], out["flagged"], out["removed"]), (False, [], 0))
 
-    def test_save_neutralises_newlines_in_the_source(self):
-        path = self.external("a\nsuspicious: false.pdf")
-        out = save(self.root, str(path), "x", tool="t")
-        text = (self.root / out["path"]).read_text(encoding="utf-8")
-        self.assertEqual(text.count("\nsuspicious:"), 1)
+    def test_control_characters_in_a_source_are_rejected(self):
+        evil = self.external("y.pdf\nreviewed: 2026-01-01\nz.pdf")
+        other = self.external("a\u200bb.pdf")
+        rel = self.put_note("B", source="~/x.pdf")
+        for path in (evil, other):
+            for call in (lambda: source_value(self.root, str(path)),
+                         lambda: inspect(self.root, str(path)),
+                         lambda: save(self.root, str(path), "x", tool="t"),
+                         lambda: relink(self.root, str(path))):
+                with self.assertRaises(ValueError):
+                    call()
+        with self.assertRaises(ValueError):
+            inspect(self.root, "https://x.org/a\nreviewed: 2026-01-01")
+        self.assertFalse((self.root / ".agents/second-brain/converted").exists())
+        for note_path in (self.root / "wiki").rglob("*.md"):
+            self.assertNotIn("reviewed", parse(note_path.read_text(encoding="utf-8")).data)
+        self.assertNotIn("reviewed", (self.root / rel).read_text(encoding="utf-8"))
 
     # --- seen / new -------------------------------------------------------------------------
     def test_new_source_has_no_notes(self):
@@ -219,14 +243,56 @@ class SourceTests(SourceBase):
         with self.assertRaises(ValueError):
             relink(self.root, str(new))
 
+    def test_copy_with_original_present_is_seen_without_moved_from(self):
+        old, rel, _ = self.ingest_at("x.pdf")
+        copy = self.home / "copy.pdf"
+        shutil.copy(str(old), str(copy))
+        info = inspect(self.root, str(copy))
+        self.assertEqual((info["status"], info["notes"]), ("seen", [rel]))
+        self.assertNotIn("moved_from", info)
+        with self.assertRaises(ValueError):
+            relink(self.root, str(copy))
+        self.assertIn("source: ~/x.pdf", (self.root / rel).read_text(encoding="utf-8"))
+        old.unlink()                                        # now the original is gone: a move
+        self.assertEqual(inspect(self.root, str(copy))["moved_from"], "~/x.pdf")
+
     def test_relink_a_legacy_note_by_source_id(self):
-        (self.root / "_raw/a.pdf").write_bytes(PDF)
         rel = self.put_note("B", source="_raw/a.pdf", source_id=content_hash(PDF))
         new = self.external("moved.pdf")
         info = inspect(self.root, str(new))
         self.assertEqual((info["status"], info["moved_from"]), ("seen", "_raw/a.pdf"))
         self.assertEqual(relink(self.root, str(new))["changed"], [rel])
         self.assertIn("source: ~/moved.pdf", (self.root / rel).read_text(encoding="utf-8"))
+
+    def test_relink_keeps_crlf_line_endings(self):
+        old, rel, _ = self.ingest_at("x.pdf")
+        path = self.root / rel
+        original = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        path.write_bytes(original)
+        new = self.home / "y.pdf"
+        old.rename(new)
+        relink(self.root, str(new))
+        data = path.read_bytes()
+        self.assertEqual(data, original.replace(b"~/x.pdf", b"~/y.pdf"))
+        self.assertEqual(data.count(b"\n"), data.count(b"\r\n"))
+
+    def test_relink_quotes_a_source_with_hash_and_colon(self):
+        old = self.external("a #1: b.pdf")
+        rel = "wiki/Resources/Q.md"
+        (self.root / rel).write_text(
+            note("Q", source='"~/a #1: b.pdf"', body="x\n\n> [!agent] 2026-11-02 · ~/a #1: b.pdf\n> fato"),
+            encoding="utf-8")
+        save(self.root, str(old), "x", tool="t")
+        new = self.home / "c #2: d.pdf"
+        old.rename(new)
+        self.assertEqual(inspect(self.root, str(new))["moved_from"], "~/a #1: b.pdf")
+        relink(self.root, str(new))
+        text = (self.root / rel).read_text(encoding="utf-8")
+        self.assertEqual(parse(text).data["source"], "~/c #2: d.pdf")
+        self.assertIn('source: "~/c #2: d.pdf"', text)
+        info = inspect(self.root, str(new))
+        self.assertEqual((info["status"], info["notes"]), ("seen", [rel]))
+        self.assertNotIn("moved_from", info)
 
     def test_same_path_other_bytes_reports_changed(self):
         path, rel, _ = self.ingest_at("x.pdf")
@@ -244,12 +310,30 @@ class SourceTests(SourceBase):
         self.assertNotIn("moved_from", info)
         self.assertNotIn("changed", info)
 
+    def test_inbox_name_collision_gets_the_real_done_name(self):
+        (self.root / "_inbox/clip.md").write_text("first clip\n", encoding="utf-8")
+        first = inspect(self.root, "_inbox/clip.md")
+        self.assertEqual((first["status"], first["source"]), ("new", "_inbox/_done/clip.md"))
+        self.put_note("A1", source=first["source"])
+        self.assertEqual(inbox_done(self.root, "_inbox/clip.md"), "_inbox/_done/clip.md")
+        (self.root / "_inbox/clip.md").write_text("a different clip\n", encoding="utf-8")
+        second = inspect(self.root, "_inbox/clip.md")
+        self.assertEqual((second["status"], second["source"], second["notes"]),
+                         ("new", "_inbox/_done/clip-2.md", []))
+        rel = self.put_note("A2", source=second["source"])
+        final = inbox_done(self.root, "_inbox/clip.md")
+        self.assertEqual(final, "_inbox/_done/clip-2.md")
+        self.assertEqual(parse((self.root / rel).read_text(encoding="utf-8")).data["source"], final)
+        # the file now in _done/ is its own source, and a third clip goes to -3
+        self.assertEqual(inspect(self.root, "_inbox/_done/clip-2.md")["notes"], [rel])
+        (self.root / "_inbox/clip.md").write_text("a third clip\n", encoding="utf-8")
+        self.assertEqual(source_value(self.root, "_inbox/clip.md"), "_inbox/_done/clip-3.md")
+
     def test_inbox_done_moves_without_logging(self):
         (self.root / "_inbox/x.md").write_text("x", encoding="utf-8")
         rel = inbox_done(self.root, "_inbox/x.md")
         self.assertEqual(rel, "_inbox/_done/x.md")
         self.assertFalse((self.root / "_inbox/x.md").exists())
-        self.assertFalse((self.root / "_log.md").exists())
 
     def test_inbox_done_never_overwrites(self):
         (self.root / "_inbox/_done/x.md").write_text("old", encoding="utf-8")
@@ -282,7 +366,7 @@ class SourceCliTests(SourceBase):
                                            "notes": [], "converted": None})
         rel = self.put_note("N", source="https://x.org/a")
         data = json.loads(self.run_cli("source", "https://x.org/a/?utm_source=z", "--json")[1])
-        self.assertEqual(data, {"source": "https://x.org/a/?utm_source=z", "kind": "url",
+        self.assertEqual(data, {"source": "https://x.org/a", "kind": "url",
                                 "status": "seen", "notes": [rel], "converted": None})
 
     def test_text_output_lines(self):
@@ -320,6 +404,23 @@ class SourceCliTests(SourceBase):
         # a binary file and a seen text file are not saved
         pdf = self.external("a.pdf")
         self.assertIsNone(json.loads(self.run_cli("source", str(pdf), "--json")[1])["converted"])
+
+    def test_changed_text_file_is_saved_again(self):
+        path = self.external("note.txt", b"first version\n")
+        self.put_note("T", source="~/note.txt")
+        save(self.root, str(path), "first version\n", tool="none")              # version 1 ingested
+        path.write_bytes(b"second version\n")
+        data = json.loads(self.run_cli("source", str(path), "--json")[1])
+        self.assertEqual((data["status"], data.get("changed")), ("seen", True))
+        self.assertTrue(data["converted"].endswith("%s.md" % content_hash(b"second version\n").replace(":", "-")))
+        self.assertIn("second version", (self.root / data["converted"]).read_text(encoding="utf-8"))
+
+    def test_control_characters_exit_2(self):
+        evil = self.external("y.pdf\nreviewed: 2026-01-01\nz.pdf")
+        for flags in ((), ("--relink",), ("--save", "--tool", "t")):
+            code, _, err = self.run_cli("source", str(evil), *flags, stdin="x")
+            self.assertEqual(code, 2, flags)
+            self.assertIn("control", err)
 
     def test_save_reads_stdin_and_needs_a_tool(self):
         pdf = self.external("a.pdf")

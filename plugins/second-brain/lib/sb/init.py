@@ -3,6 +3,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from .frontmatter import scalar
 from .fsutil import write_atomic
 from .vault import MARKER, SCHEMA_VERSION
 
@@ -19,7 +20,6 @@ EXTRA_FILES = ((".claude/settings.json", "settings.json"),
 ASSETS_HINT = ("Obsidian: Settings, Files and links, Default location for new attachments, "
                "set it to the folder _assets")
 MAX_DEPTH = 2
-YAML_RISKY_START = "|>{[&*!'\"%@`#"
 
 
 def default_folders():
@@ -84,15 +84,8 @@ def enclosing_repo(target):
     return None
 
 
-def _scalar(text):
-    """A frontmatter value the restricted parser reads back unchanged."""
-    if text[:1] in YAML_RISKY_START or " #" in text:
-        return '"%s"' % text.replace('"', "'")
-    return text
-
-
 def about_text(folder):
-    parts = ["---", "description: %s" % _scalar(folder["description"]), "---", ""]
+    parts = ["---", "description: %s" % scalar(folder["description"]), "---", ""]
     if folder.get("conventions"):
         parts += ["## Conventions", folder["conventions"].strip(), ""]
     return "\n".join(parts)
@@ -111,15 +104,20 @@ def _write_new(root, name, text, created, kept):
 def _append_gitignore(root, lines, created, kept):
     path = root / ".gitignore"
     existed = path.exists()
-    existing = path.read_text(encoding="utf-8") if existed else ""
+    if existed:
+        with open(str(path), encoding="utf-8", newline="") as handle:
+            existing = handle.read()
+    else:
+        existing = ""
     present = set(existing.splitlines())
     missing = [line for line in lines if line not in present]
     if not missing:
         kept.append(".gitignore")
         return
+    eol = "\r\n" if "\r\n" in existing else "\n"
     if existing and not existing.endswith("\n"):
-        existing += "\n"
-    write_atomic(path, existing + "".join(line + "\n" for line in missing))
+        existing += eol
+    write_atomic(path, existing + "".join(line + eol for line in missing))
     (kept if existed else created).append(".gitignore")
 
 
@@ -143,6 +141,10 @@ def run(root, language="en", folders=None, remote=None, git=False):
     for rel, source in EXTRA_FILES:
         _write_new(root, rel, (TEMPLATES / source).read_text(encoding="utf-8"), created, kept)
     _append_gitignore(root, GITIGNORE_LINES, created, kept)
+    settings = root / ".claude" / "settings.json"
+    if ".claude/settings.json" in kept and "Edit(/_raw/**)" not in settings.read_text(encoding="utf-8", errors="replace"):
+        warnings.append(".claude/settings.json was kept but has no Edit(/_raw/**) deny rule; "
+                        "add the deny rules of the plugin's templates/settings.json by hand")
 
     if git and not (root / ".git").exists():
         try:

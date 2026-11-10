@@ -208,7 +208,7 @@ def cmd_source(args, out, err):
             return EXIT_OK
         info = source.inspect(root, args.target)
         flagged = []
-        if info["status"] == "new" and source.is_text_file(root, args.target):
+        if (info["status"] == "new" or info.get("changed")) and source.is_text_file(root, args.target):
             saved = source.save_text_file(root, args.target)
             info["converted"] = saved["path"]
             if saved["suspicious"]:
