@@ -20,5 +20,3 @@ aliases:
 ---
 Cardinalidade é o número de séries temporais distintas que uma métrica gera, combinando os valores de todas as suas labels. Labels com valores ilimitados, como ID de usuário ou URL completa, multiplicam as séries e encarecem armazenamento e consultas. Prefira labels com poucos valores, como rota normalizada e código de status. Detalhes por requisição vão para logs ou traces.
 NOTE
-
-"$sb" index --write --vault . >/dev/null

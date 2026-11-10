@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: ingest-gap
+description: A clipped decision that gives neither its date nor its reason is ingested without inventing either; the reply names both gaps and asks whether to resolve them now or at the end.
+tags: [ingest]
+context:
+  scaffold_script: scaffold.sh
