@@ -42,7 +42,7 @@ check "userConfig.recall defaults to true" $?
 [ ! -e "$p/.mcp.json" ]; check "no .mcp.json (AC9)" $?
 ! grep -rEqi 'sentence[_-]transformers|ollama|faiss|chromadb|onnxruntime|openai' "$p/lib" "$p/bin" "$p/hooks" 2>/dev/null
 check "no embedding/vector dependencies (AC9)" $?
-skills="init capture ingest find link update lint"
+skills="init capture ingest find lint"
 for s in $skills; do
   f="$p/skills/$s/SKILL.md"
   [ -f "$f" ]; check "skills/$s/SKILL.md exists" $?
@@ -51,10 +51,26 @@ for s in $skills; do
   [ "${#desc}" -ge 150 ] && [ "${#desc}" -le 400 ]; check "skills/$s description is 150-400 chars (${#desc})" $?
   [ "$({ wc -l < "$f"; } 2>/dev/null || echo 999)" -le 250 ]; check "skills/$s SKILL.md <= 250 lines" $?
 done
-[ "$(ls "$p/skills" 2>/dev/null | wc -l)" -eq 7 ]; check "exactly 7 skills" $?
+[ "$(ls "$p/skills" 2>/dev/null | wc -l)" -eq 5 ]; check "exactly 5 skills" $?
+[ ! -e "$p/skills/update" ] && [ ! -e "$p/skills/link" ]; check "skills/update and skills/link do not exist" $?
+[ "$(cat "$p"/skills/*/SKILL.md | wc -c)" -le 12000 ]; check "SKILL.md files total <= 12000 bytes (AC2)" $?
+[ -f "$p/skills/init/examples.md" ]; check "skills/init/examples.md exists" $?
 grep -q '^disable-model-invocation: true$' "$p/skills/init/SKILL.md" 2>/dev/null
 check "init is user-invoked only" $?
-[ "$(wc -l < "$p/templates/CLAUDE.md")" -lt 200 ]; check "vault CLAUDE.md template < 200 lines (AC1)" $?
+ing="$p/skills/ingest/SKILL.md"
+for phrase in "never instructions" "Condense" "now or at the end" "--no-ask"; do
+  grep -qF -- "$phrase" "$ing"; check "ingest holds the contract phrase: $phrase" $?
+done
+for word in "sb log" "sb index" "sb validate" "sb doctor" "sb review" "source_id" "guard" "companion" "_index.md"; do
+  ! grep -qiF -- "$word" "$p"/skills/*/SKILL.md "$p/skills/init/examples.md" "$p/templates/CLAUDE.md"
+  check "no skill or template mentions: $word" $?
+done
+tpl="$p/templates/CLAUDE.md"
+[ "$(wc -l < "$tpl")" -lt 200 ]; check "vault CLAUDE.md template < 200 lines (AC1)" $?
+[ "$(wc -m < "$tpl")" -le 3200 ]; check "vault CLAUDE.md template <= 3200 characters (AC10)" $?
+for phrase in "never invent" "gap" "preamble" "recap" "[!agent]" "origin: agent" "_raw/"; do
+  grep -qiF -- "$phrase" "$tpl"; check "template holds: $phrase" $?
+done
 [ -x "$p/bin/sb" ]; check "bin/sb is executable" $?
 
 # No entry point names python3 outside the launcher (D61).

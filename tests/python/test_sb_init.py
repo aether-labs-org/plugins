@@ -205,6 +205,18 @@ class InitTests(unittest.TestCase):
         text = (self.root / "CLAUDE.md").read_text(encoding="utf-8")
         self.assertIn('marked "(conhecimento geral)"', " ".join(text.split()))
 
+    def test_vault_template_is_short_and_holds_the_body_rules(self):
+        init.run(self.root)
+        text = (self.root / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertLessEqual(len(text), 3200)
+        lowered = text.lower()
+        for phrase in ("never invent", "gap", "preamble", "recap", "[!agent]", "origin: agent", "_raw/"):
+            self.assertIn(phrase, lowered)
+        for word in ("sb log", "sb index", "sb review", "source_id", "guard", "companion", "_index.md",
+                     "protected", "reviewed_hash"):
+            self.assertNotIn(word, lowered)
+        self.assertNotIn("{{", text)
+
     @unittest.skipUnless(shutil.which("git"), "git not installed")
     def test_git_flag_runs_git_init(self):
         init.run(self.root, git=True)
