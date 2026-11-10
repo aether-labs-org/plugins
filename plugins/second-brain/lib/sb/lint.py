@@ -6,7 +6,7 @@ from datetime import date
 
 from . import tree
 from .links import extract, is_asset, target_name
-from .vault import SCHEMA_VERSION, asset_names, load_notes
+from .vault import MARKER, SCHEMA_VERSION, asset_names, load_notes
 
 REQUIRED = ("title", "summary", "type", "status", "origin", "created")
 ENUMS = {
@@ -129,7 +129,7 @@ def lint(root, config):
     except (TypeError, ValueError):
         version = 0
     if version < SCHEMA_VERSION:
-        findings.append(Finding("SB107", ".second-brain.json", 1,
+        findings.append(Finding("SB107", MARKER, 1,
                                 "schema_version %s is older than %d"
                                 % (version, SCHEMA_VERSION)))
     return sorted(findings, key=lambda f: (f.path, f.line, f.code))

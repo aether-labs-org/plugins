@@ -1,6 +1,6 @@
 """Deterministic, accent-insensitive vault search (spec 4.2).
 
-The index is a SQLite FTS5 table in `<vault>/.sb/search.db`, refreshed incrementally from file
+The index is a SQLite FTS5 table in `<vault>/.agents/second-brain/cache/search.db`, refreshed incrementally from file
 `(mtime_ns, size)` on every query. Without FTS5 (or when the database cannot be used) the same
 fields are scored in memory. Text is folded (NFKD, no combining marks, casefolded) before it is
 indexed and before it is queried, so "Repetição" and "repeticao" meet.
@@ -17,7 +17,7 @@ from typing import Optional
 
 from .sanitize import clean_inline
 from .trust import label
-from .vault import is_note_rel, load_note
+from .vault import CACHE_DIR, is_note_rel, load_note
 
 SCHEMA = "1"
 WORD_RE = re.compile(r"\w+")
@@ -143,7 +143,7 @@ def _is_locked(exc):
 class SearchIndex:
     def __init__(self, root, use_fts: Optional[bool] = None):
         self.root = Path(root)
-        self.dir = self.root / ".sb"
+        self.dir = self.root / CACHE_DIR
         self.db_path = self.dir / "search.db"
         self._warned = False
         self._mem = {}                          # rel -> {"sig": (mtime_ns, size), "entry": {...}}
@@ -163,7 +163,7 @@ class SearchIndex:
 
     def _prepare_dir(self):
         try:
-            self.dir.mkdir(exist_ok=True)
+            self.dir.mkdir(parents=True, exist_ok=True)
             gitignore = self.dir / ".gitignore"
             if not gitignore.exists():
                 gitignore.write_text("*\n", encoding="utf-8")

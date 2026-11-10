@@ -8,6 +8,7 @@ from unittest import mock
 from sb_helpers import make_vault, note
 from sb import cli
 from sb.search import STOPWORDS, SearchIndex, fold, tokenize
+from sb.vault import CACHE_DIR
 
 
 class TokenizerTests(unittest.TestCase):
@@ -90,8 +91,8 @@ class SearchTests(unittest.TestCase):
 
     def test_corrupt_db_is_rebuilt(self):
         root = make_vault(self.tmp.name, {"Resources/A.md": note("A", body="alpha")})
-        (root / ".sb").mkdir()
-        (root / ".sb/search.db").write_bytes(b"not a database")
+        (root / CACHE_DIR).mkdir(parents=True)
+        (root / CACHE_DIR / "search.db").write_bytes(b"not a database")
         self.assertEqual(SearchIndex(root).search("alpha")[0]["name"], "A")
 
     def test_malformed_note_is_indexed(self):
@@ -101,10 +102,13 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(SearchIndex(root).search("epsilon")[0]["name"], "Bad")
         self.assertEqual(SearchIndex(root).search("zeta")[0]["name"], "NoFm")
 
-    def test_sb_dir_ignores_itself(self):
-        root = make_vault(self.tmp.name, {"Resources/A.md": note("A")})
-        SearchIndex(root).search("a")
-        self.assertEqual((root / ".sb/.gitignore").read_text(), "*\n")
+    def test_cache_lives_under_agents_second_brain_cache(self):
+        root = make_vault(self.tmp.name, {"Resources/A.md": note("A", body="alpha")})
+        SearchIndex(root).search("alpha")
+        self.assertEqual(CACHE_DIR, ".agents/second-brain/cache")
+        self.assertTrue((root / CACHE_DIR / "search.db").is_file())
+        self.assertEqual((root / CACHE_DIR / ".gitignore").read_text(), "*\n")
+        self.assertFalse((root / ".sb").exists())
 
     def test_underscore_paths_are_not_indexed(self):
         root = make_vault(self.tmp.name, {"Resources/A.md": note("A"), "Resources/_about.md": "theta"})

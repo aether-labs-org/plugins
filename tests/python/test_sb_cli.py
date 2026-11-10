@@ -9,6 +9,7 @@ from pathlib import Path
 
 from sb_helpers import PLUGIN, make_vault, note
 from sb.cli import main
+from sb.vault import LEGACY_MARKER, LEGACY_MESSAGE, MARKER
 
 
 def run(*argv):
@@ -51,7 +52,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue({"SB101", "SB102"} <= {f["code"] for f in json.loads(out)})
 
     def test_lint_on_malformed_marker_exits_2(self):
-        (self.root / ".second-brain.json").write_text("{nope", encoding="utf-8")
+        (self.root / MARKER).write_text("{nope", encoding="utf-8")
         code, _, err = run("lint", "--vault", str(self.root))
         self.assertEqual(code, 2)
         self.assertIn("cannot read", err)
@@ -73,6 +74,36 @@ class CliTests(unittest.TestCase):
     def test_removed_commands_are_unknown(self):
         for argv in (("index", "--check"), ("validate", "x"), ("log", "init", "x")):
             self.assertEqual(run(*argv, "--vault", str(self.root))[0], 2, argv)
+
+    def test_legacy_vault_exits_2_with_the_migration_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / LEGACY_MARKER).write_text('{"schema_version": 2}', encoding="utf-8")
+            before = sorted(p.name for p in root.rglob("*"))
+            for argv in (("lint",), ("search", "x"), ("tree",), ("inbox", "done", "_inbox/x.md"),
+                         ("source", "add", "x.md"), ("links", "A")):
+                code, _, err = run(*argv, "--vault", str(root))
+                self.assertEqual(code, 2, argv)
+                self.assertIn(LEGACY_MESSAGE, err)
+            old = os.getcwd()
+            os.chdir(root)
+            try:
+                code, _, err = run("lint")
+            finally:
+                os.chdir(old)
+            self.assertEqual(code, 2)
+            self.assertIn(LEGACY_MESSAGE, err)
+            self.assertEqual(sorted(p.name for p in root.rglob("*")), before)
+
+    def test_init_refuses_a_legacy_vault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / LEGACY_MARKER).write_text('{"schema_version": 2}', encoding="utf-8")
+            before = sorted(p.name for p in root.rglob("*"))
+            code, _, err = run("init", "--vault", str(root))
+            self.assertEqual(code, 2)
+            self.assertIn(LEGACY_MESSAGE, err)
+            self.assertEqual(sorted(p.name for p in root.rglob("*")), before)
 
     def test_executable_shim_runs(self):
         shim = PLUGIN / "bin" / "sb"

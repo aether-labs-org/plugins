@@ -46,7 +46,7 @@ class InitTests(unittest.TestCase):
         for rel in ("CLAUDE.md", ".gitignore", MARKER):
             self.assertTrue((self.root / rel).is_file(), rel)
         self.assertEqual(load_config(self.root),
-                         {"schema_version": 2, "language": "pt-BR", "profile": "personal", "sync": "local",
+                         {"schema_version": 3, "language": "pt-BR", "profile": "personal", "sync": "local",
                           "areas": ["Saúde", "Finanças"]})
         self.assertIn("pt-BR", (self.root / "CLAUDE.md").read_text(encoding="utf-8"))
         self.assertFalse((self.root / "_index.md").exists() or (self.root / "_log.md").exists())
@@ -98,7 +98,7 @@ class InitTests(unittest.TestCase):
         init.run(self.root)
         text = (self.root / ".gitignore").read_text(encoding="utf-8")
         self.assertEqual(text.splitlines(),
-                         ["node_modules/", ".sb/", ".obsidian/workspace*", ".smart-env/"])
+                         ["node_modules/", ".agents/second-brain/cache/", ".obsidian/workspace*", ".smart-env/"])
 
     def test_invalid_area_names_are_skipped_with_a_warning(self):
         result = init.run(self.root, areas=["ok", "../escape", ".hidden", "a/b", "  "])
@@ -116,8 +116,8 @@ class InitTests(unittest.TestCase):
 
         with mock.patch.object(init, "write_atomic", spy):
             init.run(self.root)
-        self.assertEqual(calls[-1], MARKER)
-        self.assertLess(calls.index("CLAUDE.md"), calls.index(MARKER))
+        self.assertEqual(calls[-1], Path(MARKER).name)
+        self.assertLess(calls.index("CLAUDE.md"), calls.index(Path(MARKER).name))
 
     @unittest.skipUnless(shutil.which("git"), "git not installed")
     def test_git_flag_runs_git_init(self):
@@ -133,9 +133,9 @@ class InitTests(unittest.TestCase):
             self.assertEqual([f for f in lint(root, load_config(root)) if f.code == "SB111"], [], name)
             self.assertLessEqual(len(render_compact(load(root))), 2000)
             self.assertEqual([f["path"] for f in load(root)], folders)
-            config = json.loads((root / ".second-brain.json").read_text(encoding="utf-8"))
+            config = json.loads((root / MARKER).read_text(encoding="utf-8"))
             self.assertEqual(config["sync"], "squad" if name == "squad" else "local")
-            self.assertEqual((config["schema_version"], config["profile"]), (2, name))
+            self.assertEqual((config["schema_version"], config["profile"]), (3, name))
             for rel in (".claude/settings.json", "_meta/web-clipper-template.json",
                         "_views/unreviewed.base"):
                 self.assertTrue((root / rel).is_file(), (name, rel))
@@ -188,8 +188,8 @@ class InitTests(unittest.TestCase):
         init.run(self.root / "b", profile="squad")
         local = (self.root / "a/.gitignore").read_text(encoding="utf-8").splitlines()
         squad = (self.root / "b/.gitignore").read_text(encoding="utf-8").splitlines()
-        self.assertEqual(local, [".sb/", ".obsidian/workspace*", ".smart-env/"])
-        self.assertEqual(squad, [".sb/", ".obsidian/workspace*", ".smart-env/"])
+        self.assertEqual(local, [".agents/second-brain/cache/", ".obsidian/workspace*", ".smart-env/"])
+        self.assertEqual(squad, [".agents/second-brain/cache/", ".obsidian/workspace*", ".smart-env/"])
 
     def test_areas_without_an_areas_folder_are_ignored_with_a_warning(self):
         result = init.run(self.root, profile="project", areas=["x"])

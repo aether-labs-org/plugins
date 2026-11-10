@@ -27,9 +27,10 @@ def note(title, summary="A summary.", body="", origin="human", status="draft",
 def make_vault(tmp, notes=None, config=None):
     """Build a vault under tmp. `notes` maps a path under wiki/ to the file text."""
     root = Path(tmp)
-    cfg = {"schema_version": 2, "language": "en", "areas": []}
+    cfg = {"schema_version": 3, "language": "en", "sync": "local"}
     cfg.update(config or {})
-    (root / ".second-brain.json").write_text(json.dumps(cfg), encoding="utf-8")
+    (root / ".agents/second-brain").mkdir(parents=True, exist_ok=True)
+    (root / ".agents/second-brain/config.json").write_text(json.dumps(cfg), encoding="utf-8")
     for rel in ("_inbox/_done", "_raw", "wiki"):
         (root / rel).mkdir(parents=True, exist_ok=True)
     for rel, text in (notes or {}).items():

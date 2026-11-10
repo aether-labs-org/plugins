@@ -11,8 +11,8 @@ from . import frontmatter
 from .fsutil import write_atomic
 from .lint import INFO_CODES, lint as run_lint, render_text
 from .links import WIKILINK, extract, prose_lines, target_name
-from .vault import (MARKER, VaultError, find_vault, is_note_rel, load_config, load_note,
-                    load_notes)
+from .vault import (LEGACY_MESSAGE, MARKER, VaultError, find_legacy_vault, find_vault, is_note_rel,
+                    load_config, load_note, load_notes)
 
 EXIT_OK, EXIT_FINDINGS, EXIT_USAGE = 0, 1, 2
 
@@ -21,13 +21,19 @@ def _vault(args, err):
     if args.vault:
         root = Path(args.vault).resolve()
         if not (root / MARKER).is_file():
-            print("sb: %s is not a second-brain vault (%s not found)" % (root, MARKER), file=err)
+            if find_legacy_vault(root) is not None:
+                print("sb: " + LEGACY_MESSAGE, file=err)
+            else:
+                print("sb: %s is not a second-brain vault (%s not found)" % (root, MARKER), file=err)
             return None
         return root
     root = find_vault(Path.cwd())
     if root is None:
-        print("sb: no %s found from %s upward; run /second-brain:init" % (MARKER, Path.cwd()),
-              file=err)
+        if find_legacy_vault(Path.cwd()) is not None:
+            print("sb: " + LEGACY_MESSAGE, file=err)
+        else:
+            print("sb: no %s found from %s upward; run /second-brain:init" % (MARKER, Path.cwd()),
+                  file=err)
     return root
 
 
@@ -225,6 +231,9 @@ def cmd_init(args, out, err):
     from . import init as init_mod
 
     target = Path(args.vault).resolve() if args.vault else Path.cwd()
+    if find_legacy_vault(target) is not None:
+        print("sb: " + LEGACY_MESSAGE, file=err)
+        return EXIT_USAGE
     parent = find_vault(target)
     if parent is not None and parent != target:
         print("sb: %s is inside the existing vault %s" % (target, parent), file=err)
@@ -288,7 +297,7 @@ def build_parser():
     q.add_argument("target", help="file path or URL")
     q.set_defaults(func=cmd_source_add)
     q = ssub.add_parser("save", parents=[common],
-                        help="sanitise Markdown from stdin into _raw/.converted/")
+                        help="sanitise Markdown from stdin into .agents/second-brain/converted/")
     q.add_argument("source_id")
     q.add_argument("--tool", required=True, help="extraction tool used (pandoc, pdftotext, ...)")
     q.add_argument("--origin", required=True, help="original path or URL")

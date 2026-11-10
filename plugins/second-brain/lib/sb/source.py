@@ -1,5 +1,5 @@
 """Provenance for ingest (spec 5.2): source ids, lookup of the notes made from a source,
-sanitised converted copies under `_raw/.converted/`, and the inbox move."""
+sanitised converted copies under `.agents/second-brain/converted/`, and the inbox move."""
 import hashlib
 import json
 import os
@@ -11,9 +11,9 @@ from urllib.parse import urlsplit
 from .frontmatter import parse
 from .fsutil import write_atomic
 from .sanitize import clean_document, clean_inline
-from .vault import load_notes
+from .vault import CONVERTED_DIR, load_notes
 
-CONVERTED = "_raw/.converted"
+CONVERTED = CONVERTED_DIR
 SHA_ID_RE = re.compile(r"^sha256:[0-9a-f]{16}$")
 DEFAULT_PORTS = {"http": "80", "https": "443"}
 
@@ -125,7 +125,7 @@ def _quote(value, limit=500):
 
 
 def save(root, source_id, text, tool, origin, today=None):
-    """Write the sanitised extraction to `_raw/.converted/` with a provenance header."""
+    """Write the sanitised extraction to `.agents/second-brain/converted/` with a provenance header."""
     name = _converted_name(source_id)
     clean, removed, flagged = clean_document(text)
     suspicious = bool(flagged)

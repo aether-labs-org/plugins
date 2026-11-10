@@ -11,7 +11,7 @@ TEMPLATES = PLUGIN_ROOT / "templates"
 PROFILES = ("personal", "work", "project", "squad")
 BASE_DIRS = ("_inbox/_done", "_raw", "_meta", "_views", ".claude")
 KEEP_DIRS = ("_inbox/_done", "_raw")      # empty at first: a .gitkeep lets a clone have them
-GITIGNORE_LINES = (".sb/", ".obsidian/workspace*", ".smart-env/")
+GITIGNORE_LINES = (".agents/second-brain/cache/", ".obsidian/workspace*", ".smart-env/")
 # (path in the vault, template file) written when absent
 EXTRA_FILES = ((".claude/settings.json", "settings.json"),
                ("_meta/web-clipper-template.json", "web-clipper-template.json"),
@@ -127,6 +127,7 @@ def run(root, language="en", profile="personal", remote=None, git=False, areas=(
 
     marker = {"schema_version": SCHEMA_VERSION, "language": language, "profile": profile,
               "sync": spec["sync"], "areas": clean}
+    (root / MARKER).parent.mkdir(parents=True, exist_ok=True)
     write_atomic(root / MARKER, json.dumps(marker, ensure_ascii=False, indent=2) + "\n")
     created.append(MARKER)
     return {"status": "created", "root": str(root), "created": created, "kept": kept,
