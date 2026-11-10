@@ -6,7 +6,7 @@ import json
 import os
 import re
 import unicodedata
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -109,13 +109,17 @@ def _same_bytes(path, data):
 
 
 def done_name(root, path):
-    """The file name an `_inbox/` item gets in `_inbox/_done/`: its own name, else `<stem>-2<ext>`,
-    `-3`..., taking the first one that is free or already holds the same bytes."""
+    """The file name an `_inbox/` item gets in `_inbox/_done/`: `<stem>-<mtime as YYYYMMDD-HHMMSS><ext>`,
+    so items that share a name stay apart; if that is taken by other bytes, `-2`, `-3`... follow.
+    Deterministic, so the `source:` recorded before the move is the path the move produces. A name
+    that is free or already holds the same bytes is taken."""
+    path = Path(path)
     done = Path(root) / "_inbox" / "_done"
-    data = Path(path).read_bytes()
+    data = path.read_bytes()
+    base = "%s-%s" % (path.stem, datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y%m%d-%H%M%S"))
     counter = 1
     while True:
-        name = path.name if counter == 1 else "%s-%d%s" % (path.stem, counter, path.suffix)
+        name = "%s%s" % (base if counter == 1 else "%s-%d" % (base, counter), path.suffix)
         if not (done / name).exists() or _same_bytes(done / name, data):
             return name
         counter += 1
@@ -377,7 +381,7 @@ def relink(root, target):
 
 
 def inbox_done(root, rel):
-    """Move an inbox item to `_inbox/_done/` without overwriting; return the new rel."""
+    """Move an inbox item to `_inbox/_done/` under a timestamped name, without overwriting; return the new rel."""
     root = Path(root).resolve()
     path = Path(rel)
     path = path if path.is_absolute() else root / path

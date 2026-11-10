@@ -60,7 +60,7 @@ Follow the vault rules in `CLAUDE.md`. The contract:
    - *Callout* on an existing note, at the very end after a blank line, every line prefixed `> `:
      `> [!agent] <YYYY-MM-DD> · <source>` then the added text. Touch nothing else in that note.
    - No folder fits: propose a new one with its `_about.md`; create it only after approval.
-   For an inbox item then run `sb inbox done "<item>"`; if a write was declined, leave the item
+   For an inbox item then run `sb inbox done "<item>"` (it adds a timestamp suffix to the name; `source` from step 1 already has it); if a write was declined, leave the item
    in `_inbox/`.
 6. **Report**: notes created, callouts added, ideas skipped, lines flagged. If gaps were left for
    the end, list them, ask for the answers (not with `--no-ask`) and add each to its note as
