@@ -23,14 +23,12 @@ jq -e '.hooks.SessionStart[0] | .matcher == "startup|resume|clear|compact" and (
 check "SessionStart hook is registered" $?
 jq -e '.hooks.SessionEnd[0].hooks[0].timeout == 60' "$p/hooks/hooks.json" >/dev/null
 check "SessionEnd hook timeout is 60" $?
-for prof in personal work project squad; do
-  jq -e '.name and .sync and (.folders | length > 0)' "$p/templates/profiles/$prof.json" >/dev/null
-  check "profile $prof.json is valid" $?
-done
-jq -e '.sync == "squad"' "$p/templates/profiles/squad.json" >/dev/null; check "squad profile syncs" $?
-jq -e '.extraKnownMarketplaces | keys | sort == ["aether-labs","anthropic-agent-skills","obsidian-skills"]' "$p/templates/settings.json" >/dev/null
-check "settings template declares the three marketplaces" $?
-jq -e '.permissions.deny | length == 5' "$p/templates/settings.json" >/dev/null; check "settings template has 5 deny rules" $?
+jq -e 'type == "array" and length > 0 and all(.[]; (.path | type == "string") and (.description | type == "string"))' "$p/templates/folders-default.json" >/dev/null
+check "folders-default.json is a non-empty array of {path, description}" $?
+[ ! -e "$p/templates/profiles" ]; check "templates/profiles does not exist" $?
+jq -e '.extraKnownMarketplaces | keys == ["aether-labs"]' "$p/templates/settings.json" >/dev/null
+check "settings template declares one marketplace" $?
+jq -e '.permissions.deny | length == 6' "$p/templates/settings.json" >/dev/null; check "settings template has 6 deny rules" $?
 jq -e '.behavior == "create" and .path == "_inbox"' "$p/templates/web-clipper-template.json" >/dev/null
 check "web clipper template saves to _inbox" $?
 jq -e '.userConfig.auto_commit | .type == "boolean" and .default == true' "$pj" >/dev/null

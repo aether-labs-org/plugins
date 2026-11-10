@@ -263,15 +263,26 @@ def cmd_init(args, out, err):
     if args.remote and not (args.git or (target / ".git").exists()):
         print("sb: --remote needs --git (or an existing .git in the vault)", file=err)
         return EXIT_USAGE
-    areas = [a for a in args.areas.split(",") if a.strip()]
-    result = init_mod.run(target, language=args.language, profile=args.profile or "personal",
-                          remote=args.remote, areas=areas, git=args.git)
+    folders = None
+    if args.folders:
+        try:
+            if args.folders == "-":
+                text = _read_stdin(getattr(args, "stdin", None))
+            else:
+                text = Path(args.folders).read_text(encoding="utf-8")
+            folders = init_mod.parse_folders(text)
+        except (ValueError, OSError) as exc:
+            print("sb: invalid --folders: %s" % exc, file=err)
+            return EXIT_USAGE
+    result = init_mod.run(target, language=args.language, folders=folders, remote=args.remote,
+                          git=args.git)
     lines = ["%s: %s" % (result["status"], target)]
     if result["created"]:
         lines.append("created: " + ", ".join(result["created"]))
     if result["kept"]:
         lines.append("kept: " + ", ".join(result["kept"]))
     lines += ["warning: " + w for w in result["warnings"]]
+    lines += ["hint: " + h for h in result["hints"]]
     _emit(args, out, result, "\n".join(lines))
     return EXIT_OK
 
@@ -326,10 +337,10 @@ def build_parser():
 
     p = sub.add_parser("init", parents=[common], help="create a vault in the target directory")
     p.add_argument("--language", default="en")
-    p.add_argument("--profile", choices=("personal", "work", "project", "squad"),
-                   help="folder set and sync mode (default: personal)")
-    p.add_argument("--remote", help="git remote URL to add as origin (needs --git)")
-    p.add_argument("--areas", default="", help="comma-separated initial areas")
+    p.add_argument("--folders", metavar="FILE|-",
+                   help="JSON array of {path, description, conventions?} (default: Projects, Areas, "
+                        "Resources, Archive)")
+    p.add_argument("--remote", help="git remote URL to add as origin; sets sync to pull (needs --git)")
     p.add_argument("--git", action="store_true", help="run git init if there is no .git")
     p.set_defaults(func=cmd_init)
     return parser

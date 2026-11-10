@@ -1,0 +1,22 @@
+[
+  {
+    "path": "Projects",
+    "description": "Active efforts with a goal and an end date.",
+    "conventions": "One note per project; link the notes that feed it. Move it to Archive/ when it ends."
+  },
+  {
+    "path": "Areas",
+    "description": "Ongoing responsibilities with no end date, such as health or finances.",
+    "conventions": "One subfolder per area; notes describe the standard to maintain, not a task list."
+  },
+  {
+    "path": "Resources",
+    "description": "Concepts, entities and references reused across projects.",
+    "conventions": "Atomic notes with one idea each; the file name is the concept."
+  },
+  {
+    "path": "Archive",
+    "description": "Inactive notes kept for reference.",
+    "conventions": "Move notes here instead of deleting them."
+  }
+]

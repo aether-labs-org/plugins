@@ -9,6 +9,7 @@ from pathlib import Path
 
 from sb_helpers import PLUGIN, make_vault, note
 from sb import autocommit, init, session, sync
+from sb.vault import MARKER
 
 
 def git(path, *args, check=True):
@@ -35,7 +36,9 @@ class SquadSyncTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(self.bare), "symbolic-ref", "HEAD", "refs/heads/main"],
                        check=True)
         self.a = base / "A"
-        init.run(self.a, language="en", profile="squad", git=True, remote=str(self.bare))
+        init.run(self.a, language="en", git=True, remote=str(self.bare))
+        marker = self.a / MARKER           # until Task 9 rewrites sync: the old code reads "squad"
+        marker.write_text(marker.read_text(encoding="utf-8").replace('"pull"', '"squad"'), encoding="utf-8")
         git(self.a, "symbolic-ref", "HEAD", "refs/heads/main")
         configure(self.a, "ana")
         self.write(self.a, "Resources/X.md", note("X", body="line one\nline two\nline three"))
