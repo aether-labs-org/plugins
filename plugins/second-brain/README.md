@@ -231,7 +231,7 @@ Notes need no change: dropped keys are ignored.
 | AC9 retrieval gate (Recall@10 ≥ 0.85, MRR ≥ 0.6) | `tests/python/test_sb_eval.py` via `bash tests/sb_cli_test.sh` |
 | AC10 template ≤ 3,200 characters, status ≤ 300 | `tests/sb_structure_test.sh`, `tests/python/test_sb_session.py` |
 | AC11 `claude plugin validate --strict`, no dependencies | `make validate`, `tests/sb_structure_test.sh` |
-| AC12, AC16 ten eval cases, `find-implicit` with and without recall, `ingest-gap`, `no-padding` | `claude plugin eval`, kept results |
+| AC12, AC16 ten eval cases, `find-implicit` with and without recall, `ingest-gap`, `no-padding` | `claude plugin eval`; results are summarised in `docs/specs/2026-11-10-second-brain-v0.3-design.md` |
 | AC13 schema 2 vault refused | `tests/python/test_sb_cli.py`, `tests/python/test_sb_session.py` |
 | AC14 `make check` and both gates | `bmax gate fast`, `bmax gate slow` |
 | AC15 interpreter launcher | `tests/python/test_sb_launcher.py`, `tests/sb_structure_test.sh` |

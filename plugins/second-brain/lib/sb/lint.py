@@ -99,11 +99,9 @@ def lint(root):
     for note in notes:
         findings += check_note(note)
         for line, target in extract(note.body, note.body_line):
-            if target not in known and is_asset(target):
-                if target not in assets:
+            if target not in known:
+                if not (is_asset(target) and target in assets):
                     findings.append(Finding("SB101", note.rel, line, "broken link: [[%s]]" % target))
-            elif target not in known:
-                findings.append(Finding("SB101", note.rel, line, "broken link: [[%s]]" % target))
             elif target != note.name:
                 inbound[target].add(note.name)
         if label(note.data, note.body) == "unreviewed":

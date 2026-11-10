@@ -15,7 +15,7 @@ class TrustTests(unittest.TestCase):
         self.assertEqual(label({"origin": "agent"}, "> [!agent] x"), "unreviewed")
 
     def test_missing_null_empty_and_empty_list_reviewed_are_all_unreviewed(self):
-        # parity with the companion's trustState: [] , "" , null and a missing key mean not reviewed
+        # [] , "" , null and a missing key all mean not reviewed
         for data in ({"origin": "agent"}, {"origin": "agent", "reviewed": None},
                      {"origin": "agent", "reviewed": ""}, {"origin": "agent", "reviewed": []}):
             self.assertEqual(label(data, "x"), "unreviewed", data)

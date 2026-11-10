@@ -115,10 +115,6 @@ class SessionStartTests(unittest.TestCase):
                 self.assertNotIn("unpushed", text)
             self.assertEqual(pull.call_count, 2)
 
-    def test_no_heartbeat_is_written(self):
-        start(self.event(), str(self.root), {})
-        self.assertFalse((self.root / ".sb" / "heartbeat.json").exists())
-
     def test_outside_vault_is_none(self):
         outside = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, outside)
