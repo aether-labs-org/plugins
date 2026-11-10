@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
@@ -47,6 +48,15 @@ class SourceBase(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
+    STAMP = "20261101-093005"
+
+    def clip(self, name, text, when=datetime(2026, 11, 1, 9, 30, 5)):
+        """Write `_inbox/<name>` with a fixed mtime, so its `_done/` name is predictable."""
+        path = self.root / "_inbox" / name
+        path.write_text(text, encoding="utf-8")
+        os.utime(str(path), (when.timestamp(), when.timestamp()))
+        return path
+
     def put_note(self, name, source=None, body="", **extra):
         text = note(name, source=source or "", body=body)
         for key, value in extra.items():
@@ -87,11 +97,11 @@ class SourceTests(SourceBase):
             self.assertEqual(source_value(self.root, str(far)), str(far))
         self.assertEqual(source_value(self.root, " https://X.org/a/?utm_x=1 "), "https://x.org/a")
         (self.root / "_inbox/c.md").write_text("---\nurl: https://x.org/a/\n---\nclip\n", encoding="utf-8")
-        (self.root / "_inbox/p.md").write_text("plain clip\n", encoding="utf-8")
-        (self.root / "_inbox/o.md").write_text("---\nurl: obsidian://open?x\n---\nclip\n", encoding="utf-8")
+        self.clip("p.md", "plain clip\n")
+        self.clip("o.md", "---\nurl: obsidian://open?x\n---\nclip\n")
         self.assertEqual(source_value(self.root, "_inbox/c.md"), "https://x.org/a")
-        self.assertEqual(source_value(self.root, "_inbox/p.md"), "_inbox/_done/p.md")
-        self.assertEqual(source_value(self.root, "_inbox/o.md"), "_inbox/_done/o.md")
+        self.assertEqual(source_value(self.root, "_inbox/p.md"), "_inbox/_done/p-%s.md" % self.STAMP)
+        self.assertEqual(source_value(self.root, "_inbox/o.md"), "_inbox/_done/o-%s.md" % self.STAMP)
 
     def test_url_sources_are_canonical(self):
         (self.root / "_inbox/c.md").write_text("---\nurl: HTTPS://X.org/a/?utm_source=z#f\n---\nclip\n",
@@ -311,37 +321,53 @@ class SourceTests(SourceBase):
         self.assertNotIn("changed", info)
 
     def test_inbox_name_collision_gets_the_real_done_name(self):
-        (self.root / "_inbox/clip.md").write_text("first clip\n", encoding="utf-8")
+        st = self.STAMP
+        self.clip("clip.md", "first clip\n")
         first = inspect(self.root, "_inbox/clip.md")
-        self.assertEqual((first["status"], first["source"]), ("new", "_inbox/_done/clip.md"))
+        self.assertEqual((first["status"], first["source"]), ("new", "_inbox/_done/clip-%s.md" % st))
         self.put_note("A1", source=first["source"])
-        self.assertEqual(inbox_done(self.root, "_inbox/clip.md"), "_inbox/_done/clip.md")
-        (self.root / "_inbox/clip.md").write_text("a different clip\n", encoding="utf-8")
+        self.assertEqual(inbox_done(self.root, "_inbox/clip.md"), "_inbox/_done/clip-%s.md" % st)
+        # same name and same second but other bytes: the counter breaks the tie
+        self.clip("clip.md", "a different clip\n")
         second = inspect(self.root, "_inbox/clip.md")
         self.assertEqual((second["status"], second["source"], second["notes"]),
-                         ("new", "_inbox/_done/clip-2.md", []))
+                         ("new", "_inbox/_done/clip-%s-2.md" % st, []))
         rel = self.put_note("A2", source=second["source"])
         final = inbox_done(self.root, "_inbox/clip.md")
-        self.assertEqual(final, "_inbox/_done/clip-2.md")
+        self.assertEqual(final, "_inbox/_done/clip-%s-2.md" % st)
         self.assertEqual(parse((self.root / rel).read_text(encoding="utf-8")).data["source"], final)
         # the file now in _done/ is its own source, and a third clip goes to -3
-        self.assertEqual(inspect(self.root, "_inbox/_done/clip-2.md")["notes"], [rel])
-        (self.root / "_inbox/clip.md").write_text("a third clip\n", encoding="utf-8")
-        self.assertEqual(source_value(self.root, "_inbox/clip.md"), "_inbox/_done/clip-3.md")
+        self.assertEqual(inspect(self.root, final)["notes"], [rel])
+        self.clip("clip.md", "a third clip\n")
+        self.assertEqual(source_value(self.root, "_inbox/clip.md"), "_inbox/_done/clip-%s-3.md" % st)
 
-    def test_inbox_done_moves_without_logging(self):
-        (self.root / "_inbox/x.md").write_text("x", encoding="utf-8")
+    def test_inbox_done_moves_with_timestamp_suffix(self):
+        self.clip("x.md", "x")
         rel = inbox_done(self.root, "_inbox/x.md")
-        self.assertEqual(rel, "_inbox/_done/x.md")
+        self.assertEqual(rel, "_inbox/_done/x-%s.md" % self.STAMP)
+        self.assertTrue((self.root / rel).is_file())
         self.assertFalse((self.root / "_inbox/x.md").exists())
 
+    def test_inbox_done_keeps_same_named_items_from_different_times(self):
+        self.clip("x.md", "one", datetime(2026, 11, 1, 9, 30, 5))
+        inbox_done(self.root, "_inbox/x.md")
+        self.clip("x.md", "two", datetime(2026, 11, 2, 18, 0, 0))
+        inbox_done(self.root, "_inbox/x.md")
+        names = sorted(p.name for p in (self.root / "_inbox/_done").glob("x-*.md"))
+        self.assertEqual(names, ["x-20261101-093005.md", "x-20261102-180000.md"])
+
     def test_inbox_done_never_overwrites(self):
-        (self.root / "_inbox/_done/x.md").write_text("old", encoding="utf-8")
-        (self.root / "_inbox/x.md").write_text("new", encoding="utf-8")
-        self.assertEqual(inbox_done(self.root, "_inbox/x.md"), "_inbox/_done/x-2.md")
-        (self.root / "_inbox/x.md").write_text("newer", encoding="utf-8")
-        self.assertEqual(inbox_done(self.root, "_inbox/x.md"), "_inbox/_done/x-3.md")
-        self.assertEqual((self.root / "_inbox/_done/x.md").read_text(encoding="utf-8"), "old")
+        old = self.root / ("_inbox/_done/x-%s.md" % self.STAMP)
+        old.write_text("old", encoding="utf-8")
+        self.clip("x.md", "new")
+        self.assertEqual(inbox_done(self.root, "_inbox/x.md"), "_inbox/_done/x-%s-2.md" % self.STAMP)
+        self.clip("x.md", "newer")
+        self.assertEqual(inbox_done(self.root, "_inbox/x.md"), "_inbox/_done/x-%s-3.md" % self.STAMP)
+        self.assertEqual(old.read_text(encoding="utf-8"), "old")
+
+    def test_inbox_done_keeps_extensionless_names(self):
+        self.clip("README", "x")
+        self.assertEqual(inbox_done(self.root, "_inbox/README"), "_inbox/_done/README-%s" % self.STAMP)
 
     def test_inbox_done_rejects_paths_outside_inbox(self):
         (self.root / "_raw/a.pdf").write_bytes(b"x")
@@ -455,9 +481,9 @@ class SourceCliTests(SourceBase):
         self.assertIn("no such file", err)
 
     def test_inbox_done_cli(self):
-        (self.root / "_inbox/x.md").write_text("x", encoding="utf-8")
+        self.clip("x.md", "x")
         code, out, _ = self.run_cli("inbox", "done", "_inbox/x.md", "--json")
-        self.assertEqual((code, json.loads(out)["moved_to"]), (0, "_inbox/_done/x.md"))
+        self.assertEqual((code, json.loads(out)["moved_to"]), (0, "_inbox/_done/x-%s.md" % self.STAMP))
         code, _, err = self.run_cli("inbox", "done", "_raw/a.pdf")
         self.assertEqual(code, 2)
 

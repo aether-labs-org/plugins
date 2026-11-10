@@ -6,7 +6,7 @@ plugin. Run `claude` from this directory. Notes are written in **{{language}}**.
 ## Map
 
 - `wiki/<folder>/` — notes. File them by each folder's `_about.md` (`sb tree` prints them).
-- `_inbox/` — raw captures; processed items go to `_inbox/_done/`.
+- `_inbox/` — raw captures; processed items go to `_inbox/_done/` with a timestamp suffix.
 - `_raw/` — originals the human wants versioned. Read-only for the agent.
 - `_assets/` — images and attachments that notes embed; flat.
 - `_views/` — Obsidian Bases (`unreviewed.base`, `notes.base`).

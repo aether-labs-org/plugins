@@ -104,7 +104,7 @@ findings, `2` usage error, not inside a vault, or a schema 2 vault.
 | --- | --- |
 | `sb init [--language L] [--folders FILE\|-] [--git] [--remote URL]` | Scaffold a vault; idempotent, never overwrites, writes `config.json` last; `--remote` adds `origin` and sets `sync: pull` |
 | `sb source TARGET [--save --tool T \| --relink]` | Provenance of a file, inbox item or URL: `{source, kind, status: new\|seen, notes, converted, moved_from?, changed?}`. A new `.md`/`.txt` is sanitised into `converted/`; `--save` reads extracted Markdown on stdin; `--relink` repoints notes after a move |
-| `sb inbox done FILE` | Moves an ingested item to `_inbox/_done/` without overwriting |
+| `sb inbox done FILE` | Moves an ingested item to `_inbox/_done/` as `<name>-<YYYYMMDD-HHMMSS>.<ext>` (the item's modification time), so same-named items never overwrite each other; `sb source` reports this final path as `source` before the move |
 | `sb search QUERY [--limit N] [--folder-boost FOLDER=W]` | Ranked search; `--json` gives `rel`, `name`, `title`, `folder`, `summary`, `score`, `matched`, `trust`; exits `1` with no result |
 | `sb eval --qrels FILE` | Recall@5, Recall@10 and MRR of `sb search` over a JSONL file |
 | `sb links NOTE [--suggest]` | Links and backlinks of a note; `--suggest` lists unlinked exact title mentions |
