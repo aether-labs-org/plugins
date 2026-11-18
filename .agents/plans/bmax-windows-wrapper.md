@@ -1,7 +1,7 @@
 # bmax wrapper - Windows (Git Bash) and proxy diagnostics
 
 Status: active
-Scope: .agents/bin/bmax, .agents/bmax.lock, plugins/baymax/bmax/bin/bmax, plugins/baymax/bmax/bmax.lock, .gitattributes, tests/bmax_wrapper*.sh, docs/adr/0003-*.md, docs/architecture.md, plugins/baymax/README.md, .agents/plans/bmax-windows-wrapper.md
+Scope: cli/bmax/**, .agents/bin/bmax, .agents/bmax.lock, plugins/baymax/bmax/bin/bmax, plugins/baymax/bmax/bmax.lock, .gitattributes, tests/bmax_wrapper*.sh, docs/adr/0003-*.md, docs/architecture.md, plugins/baymax/README.md, .agents/plans/bmax-windows-wrapper.md
 
 Problem: the wrapper refuses any OS that is not Linux/macOS (`MINGW*`/`MSYS*` from Git Bash end in `unsupported operating system`),
 there is no `windows-amd64` build in `bmax.lock`, and download failures hide the cause (`curl -fsSL`), which hurts behind proxies.
@@ -10,8 +10,11 @@ Protected files are in Scope (`.agents/bin/`, `bmax.lock`, ADR): each edit waits
 
 ## Phases
 
-1. **Decide** (ADR 0003): native Windows via Git Bash (needs a `bmax-windows-amd64.exe` release) vs keep "Windows through WSL" and only
-   improve the message. Recommended: native Git Bash, amd64 only.
+1. **Decide** (ADR 0003): done, human chose native Git Bash (2026-11-18), amd64 only.
+1b. **Port the Go CLI** (found while checking the build: `GOOS=windows go build` fails, `internal/run` is `//go:build unix` and
+   `internal/gate/lock.go` uses `syscall.Kill`): split the process-group code into `*_unix.go` / `*_windows.go`
+   (Windows: `CREATE_NEW_PROCESS_GROUP`, tree kill through `taskkill /T /F`); scripts keep running under Git Bash's `bash`.
+   Add `windows-amd64` to `cli/bmax/Makefile` `PLATFORMS` (output `bmax-windows-amd64.exe`).
 2. **Binary**: build and publish `bmax-windows-amd64.exe` in the `cli/bmax/v<version>` release; add `windows-amd64=<sha256>` to both locks
    (written by Baymax, not by hand).
 3. **Wrapper OS detection** (both copies, kept identical): map `mingw*|msys*|cygwin*` to `windows`; binary name `bmax.exe`;
@@ -30,7 +33,8 @@ Protected files are in Scope (`.agents/bin/`, `bmax.lock`, ADR): each edit waits
 
 ## Acceptance
 
-- [ ] ADR 0003 records the decision (native Git Bash vs WSL only).
+- [x] ADR 0003 records the decision (native Git Bash vs WSL only).
+- [ ] `GOOS=windows GOARCH=amd64 go build ./...` and `go vet` pass; Unix tests unchanged.
 - [ ] On a stubbed `MINGW64_NT` host the wrapper resolves `windows-amd64`, downloads `bmax-windows-amd64.exe` and verifies its sha256.
 - [ ] An unsupported OS still fails with exit 3 and a message that names the supported ones.
 - [ ] The two wrapper copies are identical.

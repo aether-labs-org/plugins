@@ -10,7 +10,7 @@ import (
 )
 
 // Platforms are the keys of the lock, in file order.
-var Platforms = []string{"linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"}
+var Platforms = []string{"linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64", "windows-amd64"}
 
 var hexRE = regexp.MustCompile(`^[0-9a-f]{64}$`)
 

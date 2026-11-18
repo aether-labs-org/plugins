@@ -25,14 +25,14 @@ if command -v shellcheck >/dev/null 2>&1; then shellcheck -s sh "$WRAPPER"; chec
 build_dist() { # build_dist VERSION DIR
   make -C "$REPO_ROOT/cli/bmax" dist VERSION="$1" DIST="$2" >"$W/dist-$1.log" 2>&1
 }
-build_dist "$V1" "$W/d1"; check "dist: make dist builds the four platforms" $?
-ls "$W/d1" | LC_ALL=C sort | tr '\n' ' ' | grep -q '^SHA256SUMS bmax-darwin-amd64 bmax-darwin-arm64 bmax-linux-amd64 bmax-linux-arm64 $'; check "dist: four binaries and SHA256SUMS" $?
+build_dist "$V1" "$W/d1"; check "dist: make dist builds the five platforms" $?
+ls "$W/d1" | LC_ALL=C sort | tr '\n' ' ' | grep -q '^SHA256SUMS bmax-darwin-amd64 bmax-darwin-arm64 bmax-linux-amd64 bmax-linux-arm64 bmax-windows-amd64.exe $'; check "dist: five binaries (Windows with .exe) and SHA256SUMS" $?
 build_dist "$V1" "$W/d1b"
 cmp -s "$W/d1/SHA256SUMS" "$W/d1b/SHA256SUMS"; check "dist: make dist twice gives an identical SHA256SUMS (reproducible)" $?
 build_dist "$V2" "$W/d2"; check "dist: a second version builds" $?
 lock_of() { make -s -C "$REPO_ROOT/cli/bmax" lock VERSION="$1" DIST="$2"; }
 lockv="$(lock_of "$V1" "$W/d1")"; printf '%s\n' "$lockv" | grep -qx "version=$V1"; check "lock: make lock prints the version line" $?
-[ "$(printf '%s\n' "$lockv" | grep -cE '^(linux|darwin)-(amd64|arm64)=[0-9a-f]{64}$')" -eq 4 ]; check "lock: four platform lines with 64 hex" $?
+[ "$(printf '%s\n' "$lockv" | grep -cE '^(linux|darwin)-(amd64|arm64)=[0-9a-f]{64}$|^windows-amd64=[0-9a-f]{64}$')" -eq 5 ]; check "lock: five platform lines with 64 hex (Windows without .exe)" $?
 
 # newrepo VERSION DIST -> a git repository with the wrapper at .agents/bin/bmax and the lock
 newrepo() {
@@ -91,7 +91,7 @@ fi
 
 # a wrong download is refused and leaves no binary behind
 r3="$(newrepo "$V1" "$W/d1")"
-mkdir -p "$W/evil"; cp "$W/d1/"bmax-* "$W/evil/"; printf 'x' >> "$W/evil/bmax-linux-amd64"; printf 'x' >> "$W/evil/bmax-linux-arm64"; printf 'x' >> "$W/evil/bmax-darwin-amd64"; printf 'x' >> "$W/evil/bmax-darwin-arm64"
+mkdir -p "$W/evil"; cp "$W/d1/"bmax-* "$W/evil/"; printf 'x' >> "$W/evil/bmax-linux-amd64"; printf 'x' >> "$W/evil/bmax-linux-arm64"; printf 'x' >> "$W/evil/bmax-darwin-amd64"; printf 'x' >> "$W/evil/bmax-darwin-arm64"; printf 'x' >> "$W/evil/bmax-windows-amd64.exe"
 rm -rf "$XDG_CACHE_HOME/bmax/$V1"
 out="$(cd "$r3" && BMAX_RELEASE_URL="file://$W/evil" $SH .agents/bin/bmax version 2>&1)"; rc=$?
 [ "$rc" -eq 3 ] && printf '%s' "$out" | grep -q 'checksum mismatch'; check "wrapper: a downloaded binary that fails verification is refused" $?
@@ -385,5 +385,38 @@ clean_repo "$HR" "git hooks (linked worktree)" "main wtbranch "
 [ "$(git -C "$W/hooks-wt" symbolic-ref --short HEAD)" = wtbranch ] && [ "$(git -C "$HR" symbolic-ref --short HEAD)" = main ]; check "git hooks (linked worktree): both worktrees are still on their own branch" $?
 [ "$(git -C "$HR" worktree list | sed 's/ [0-9a-f]\{7,\} / /')" = "$wt_before" ]; check "git hooks (linked worktree): git worktree list is unchanged" $?
 unset LEAK_MARK
+
+# ---- Windows through Git Bash (uname is stubbed: MINGW64_NT) and download hints ----
+WB="$W/winbin"; mkdir -p "$WB"
+printf '#!/bin/sh\ncase "${1:-}" in -s) echo MINGW64_NT-10.0-22631 ;; -m) echo x86_64 ;; *) exec /usr/bin/uname "$@" ;; esac\n' > "$WB/uname"; chmod +x "$WB/uname"
+WSTUB="$W/win-stub"; printf '#!/bin/sh\nprintf "BMAX_ROOT=%%s\\n" "${BMAX_ROOT-unset}"\n' > "$WSTUB"; chmod +x "$WSTUB"
+wsum="$(sha256sum "$WSTUB" | cut -d' ' -f1)"
+mkdir -p "$W/winmirror"; cp "$WSTUB" "$W/winmirror/bmax-windows-amd64.exe"
+wr="$W/winrepo"; mkdir -p "$wr/.agents/bin"; cp "$WRAPPER" "$wr/.agents/bin/bmax"
+printf 'version=0.0.0-win\r\nwindows-amd64=%s\r\n' "$wsum" > "$wr/.agents/bmax.lock"   # CRLF lock, as a Windows checkout may leave it
+out="$(cd "$wr" && env PATH="$WB:$PATH" LOCALAPPDATA="$W/lad" BMAX_RELEASE_URL="file://$W/winmirror" $SH .agents/bin/bmax run x 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$out" = "BMAX_ROOT=$wr" ]; check "wrapper (Git Bash): resolves windows-amd64, downloads bmax-windows-amd64.exe, verifies and runs it" $?
+[ -x "$W/lad/bmax/0.0.0-win/bmax.exe" ]; check "wrapper (Git Bash): the binary is cached as bmax.exe under LOCALAPPDATA" $?
+out="$(cd "$wr" && env PATH="$WB:$PATH" LOCALAPPDATA="$W/lad" BMAX_RELEASE_URL="file://$W/missing" $SH .agents/bin/bmax run x 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$out" = "BMAX_ROOT=$wr" ]; check "wrapper (Git Bash): a cached, verified bmax.exe needs no network" $?
+printf 'version=0.0.0-win\nlinux-amd64=%s\n' "$wsum" > "$wr/.agents/bmax.lock"
+out="$(cd "$wr" && env PATH="$WB:$PATH" LOCALAPPDATA="$W/lad2" $SH .agents/bin/bmax run x 2>&1)"; rc=$?
+[ "$rc" -eq 3 ] && printf '%s' "$out" | grep -q 'no windows-amd64= line'; check "wrapper (Git Bash): a lock without windows-amd64 is refused with a clear message (exit 3)" $?
+printf '#!/bin/sh\necho SunOS\n' > "$WB/uname"
+out="$(cd "$wr" && env PATH="$WB:$PATH" $SH .agents/bin/bmax run x 2>&1)"; rc=$?
+[ "$rc" -eq 3 ] && printf '%s' "$out" | grep -q 'Git Bash or WSL'; check "wrapper: an unsupported OS is refused (exit 3) and the message names Git Bash and WSL" $?
+
+# a curl that fails with a given exit code: the message carries the hint for that cause
+FB="$W/failbin"; mkdir -p "$FB"
+printf '#!/bin/sh\nexit "${FAKE_CURL_RC:-7}"\n' > "$FB/curl"; chmod +x "$FB/curl"
+hint_for() { # hint_for CODE -> the wrapper's error
+  local r="$W/hintrepo"; rm -rf "$r"; mkdir -p "$r/.agents/bin"; cp "$WRAPPER" "$r/.agents/bin/bmax"
+  stub_lock "$r/.agents/bmax.lock"
+  (cd "$r" && env PATH="$FB:$PATH" FAKE_CURL_RC="$1" XDG_CACHE_HOME="$W/hintcache$1" $SH .agents/bin/bmax version 2>&1)
+}
+out="$(hint_for 7)"; printf '%s' "$out" | grep -q 'HTTPS_PROXY.*BMAX_RELEASE_URL'; check "wrapper: curl 7 (connect) points at the proxy variables and BMAX_RELEASE_URL" $?
+out="$(hint_for 60)"; printf '%s' "$out" | grep -q 'CURL_CA_BUNDLE'; check "wrapper: curl 60 (TLS) points at CURL_CA_BUNDLE" $?
+out="$(hint_for 22)"; printf '%s' "$out" | grep -q '407'; check "wrapper: curl 22 (HTTP error) mentions the proxy credentials (407)" $?
+out="$(hint_for 99)"; printf '%s' "$out" | grep -q '^bmax: cannot download .*bmax-.*[^-]$'; check "wrapper: an unknown curl code still gives the plain 'cannot download' message" $?
 
 finish

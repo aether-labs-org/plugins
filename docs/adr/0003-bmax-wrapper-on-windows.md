@@ -1,6 +1,6 @@
 # 0003. bmax wrapper on Windows
 
-Status: proposed
+Status: accepted
 Date: 2026-11-18
 
 ## Context and problem statement
@@ -26,9 +26,10 @@ The wrapper (`.agents/bin/bmax`, copy in `plugins/baymax/bmax/bin/bmax`) accepts
 
 ## Decision outcome
 
-Pending the human's confirmation. Recommended: native Git Bash, `windows-amd64` only. Loosened, if accepted:
+Chosen: native Git Bash, `windows-amd64` only. Confirmed by Igor on 2026-11-18. Loosened, by id or file:
 
 - `.agents/bin/bmax` and `plugins/baymax/bmax/bin/bmax` (OS case, cache path, `.exe`)
+- `cli/bmax/internal/run` and `cli/bmax/internal/gate/lock.go` (process-group code split per OS; the CLI did not build for Windows)
 - `.agents/bmax.lock` and `plugins/baymax/bmax/bmax.lock` (`windows-amd64=`)
 
 Proxy behaviour (`HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, `BMAX_RELEASE_URL` mirror) is kept; only the error hints change.

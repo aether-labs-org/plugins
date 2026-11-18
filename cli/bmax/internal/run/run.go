@@ -1,5 +1,3 @@
-//go:build unix
-
 // Package run executes a command in its own process group with a timeout,
 // capturing stdout and stderr into one ordered stream.
 package run
@@ -12,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/aether-labs-org/plugins/cli/bmax/internal/gitenv"
@@ -111,7 +108,7 @@ func Run(ctx context.Context, s Spec, out io.Writer) (o Outcome) {
 	cmd.Env = childEnv(s.Env)
 	cmd.Stdout = pw
 	cmd.Stderr = pw
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setGroup(cmd)
 	if err := cmd.Start(); err != nil {
 		pw.Close()
 		pr.Close()
@@ -146,7 +143,7 @@ func Run(ctx context.Context, s Spec, out io.Writer) (o Outcome) {
 	}
 
 	// The main process is gone: nothing else of the group may keep running.
-	_ = syscall.Kill(-o.pgid, syscall.SIGKILL)
+	killGroup(o.pgid)
 
 	select {
 	case <-copyDone:
@@ -163,22 +160,12 @@ func Run(ctx context.Context, s Spec, out io.Writer) (o Outcome) {
 // terminate sends SIGTERM to the group, waits up to grace for the main process,
 // then sends SIGKILL.
 func terminate(pgid int, waitCh <-chan error, grace time.Duration) {
-	_ = syscall.Kill(-pgid, syscall.SIGTERM)
+	termGroup(pgid)
 	select {
 	case <-waitCh:
 		return
 	case <-time.After(grace):
 	}
-	_ = syscall.Kill(-pgid, syscall.SIGKILL)
+	killGroup(pgid)
 	<-waitCh
-}
-
-func exitCode(ps *os.ProcessState) int {
-	if ps == nil {
-		return -1
-	}
-	if ws, ok := ps.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
-		return 128 + int(ws.Signal())
-	}
-	return ps.ExitCode()
 }

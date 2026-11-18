@@ -8,21 +8,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
 // staleAfter: a lock older than this is taken over even if its pid is alive
 // (the pid may have been reused).
 const staleAfter = 24 * time.Hour
-
-func pidAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	err := syscall.Kill(pid, 0)
-	return err == nil || errors.Is(err, syscall.EPERM)
-}
 
 // Acquire takes .agents/run/gate.lock, waiting up to wait for a live holder.
 // A lock whose pid is dead (a killed bmax) is taken over at once.

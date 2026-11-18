@@ -75,3 +75,18 @@ func TestCheckMismatch(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestWindowsKeyRoundTripsAndOlderLocksStillRead(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "bmax.lock")
+	l := lock.Lock{Version: "0.5.0", SHA256: map[string]string{"linux-amd64": hex64("a"), "windows-amd64": hex64("e")}}
+	if err := os.WriteFile(p, []byte(lock.Format(l)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := lock.Read(p)
+	if err != nil || got.SHA256["windows-amd64"] != hex64("e") {
+		t.Fatalf("windows-amd64 not read back: %v %v", got, err)
+	}
+	if !strings.Contains(lock.Format(l), "\nwindows-amd64="+hex64("e")+"\n") {
+		t.Fatal("windows-amd64 line not written")
+	}
+}
