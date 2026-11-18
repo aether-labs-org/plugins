@@ -1,7 +1,7 @@
 # bmax wrapper - Windows (Git Bash) and proxy diagnostics
 
 Status: active
-Scope: cli/bmax/**, .agents/bin/bmax, .agents/bmax.lock, plugins/baymax/bmax/bin/bmax, plugins/baymax/bmax/bmax.lock, .gitattributes, tests/bmax_wrapper*.sh, docs/adr/0003-*.md, docs/architecture.md, plugins/baymax/README.md, .agents/plans/bmax-windows-wrapper.md
+Scope: cli/bmax/**, .github/workflows/release-bmax.yml, .agents/bin/bmax, .agents/bmax.lock, plugins/baymax/bmax/bin/bmax, plugins/baymax/bmax/bmax.lock, .gitattributes, tests/bmax_wrapper*.sh, docs/adr/0003-*.md, docs/architecture.md, plugins/baymax/README.md, .agents/plans/bmax-windows-wrapper.md
 
 Problem: the wrapper refuses any OS that is not Linux/macOS (`MINGW*`/`MSYS*` from Git Bash end in `unsupported operating system`),
 there is no `windows-amd64` build in `bmax.lock`, and download failures hide the cause (`curl -fsSL`), which hurts behind proxies.
@@ -15,7 +15,8 @@ Protected files are in Scope (`.agents/bin/`, `bmax.lock`, ADR): each edit waits
    `internal/gate/lock.go` uses `syscall.Kill`): split the process-group code into `*_unix.go` / `*_windows.go`
    (Windows: `CREATE_NEW_PROCESS_GROUP`, tree kill through `taskkill /T /F`); scripts keep running under Git Bash's `bash`.
    Add `windows-amd64` to `cli/bmax/Makefile` `PLATFORMS` (output `bmax-windows-amd64.exe`).
-2. **Binary**: build and publish `bmax-windows-amd64.exe` in the `cli/bmax/v<version>` release; add `windows-amd64=<sha256>` to both locks
+2. **Binary**: `v0.5.0` is already released and pinned, and the Go change alters every hash, so tag a NEW version (`cli/bmax/v0.5.1`) on main after the PR merges;
+   the release workflow now attaches `bmax-windows-amd64.exe`; then add `windows-amd64=<sha256>` to both locks
    (written by Baymax, not by hand).
 3. **Wrapper OS detection** (both copies, kept identical): map `mingw*|msys*|cygwin*` to `windows`; binary name `bmax.exe`;
    cache under `${LOCALAPPDATA:-$HOME/AppData/Local}/bmax/<version>` (via `cygpath -u` when present); URL suffix `.exe`;
