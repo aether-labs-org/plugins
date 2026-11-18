@@ -1,6 +1,8 @@
 #!/bin/sh
 # bmax wrapper (Baymax). Runs the bmax binary pinned by bmax.lock: downloads it once into a
 # per-user, per-version cache, verifies its sha256 and execs it. POSIX sh, no bashisms.
+# Linux, macOS, and Windows through Git Bash (a bmax.exe in %LOCALAPPDATA%\bmax) or WSL.
+# Downloads honour HTTPS_PROXY / ALL_PROXY / NO_PROXY (curl) and https_proxy / no_proxy (wget).
 #
 #   sh .agents/bin/bmax <command>        in a repository (the lock is .agents/bmax.lock)
 #   sh bmax/bin/bmax <command>           in the Baymax plugin (the lock is bmax/bmax.lock)
@@ -97,8 +99,18 @@ version=$(lock_get version)
 os=$(uname -s | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
 case "$os" in
   linux | darwin) ;;
-  *) refuse "unsupported operating system: $os (Linux and macOS; Windows through WSL)" ;;
+  mingw* | msys* | cygwin*) os=windows ;; # Git Bash (MSYS2) and Cygwin; WSL reports linux
+  *) refuse "unsupported operating system: $os (Linux, macOS and Windows through Git Bash or WSL)" ;;
 esac
+exe=
+if [ "$os" = windows ]; then
+  exe=.exe
+  # The binary is native Windows: hand it a C:/... path, not the MSYS /c/... one.
+  if [ -n "${BMAX_ROOT:-}" ]; then
+    BMAX_ROOT=$(cd "$BMAX_ROOT" && pwd -W 2>/dev/null || printf '%s' "$BMAX_ROOT")
+    export BMAX_ROOT
+  fi
+fi
 arch=$(uname -m)
 case "$arch" in
   x86_64 | amd64) arch=amd64 ;;
@@ -111,11 +123,16 @@ want=$(lock_get "$os-$arch")
 
 if [ "$os" = darwin ]; then
   cache_root="${HOME:-/tmp}/Library/Caches/bmax"
+elif [ "$os" = windows ]; then
+  cache_root="${LOCALAPPDATA:-${HOME:-/tmp}/AppData/Local}/bmax"
+  if [ -n "${LOCALAPPDATA:-}" ] && command -v cygpath >/dev/null 2>&1; then
+    cache_root="$(cygpath -u "$LOCALAPPDATA")/bmax"
+  fi
 else
   cache_root="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/bmax"
 fi
 cache_dir="$cache_root/$version"
-cached="$cache_dir/bmax"
+cached="$cache_dir/bmax$exe"
 
 sha_of() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -154,14 +171,35 @@ fi
 # 3. Download (never in hook mode).
 [ "$hook_mode" = 1 ] && answer_unavailable
 
-url="${BMAX_RELEASE_URL:-https://github.com/aether-labs-org/plugins/releases/download/cli/bmax/v$version}/bmax-$os-$arch"
+url="${BMAX_RELEASE_URL:-https://github.com/aether-labs-org/plugins/releases/download/cli/bmax/v$version}/bmax-$os-$arch$exe"
 mkdir -p "$cache_dir" || die "cannot create $cache_dir"
 tmp=$(mktemp "$cache_dir/bmax.XXXXXX") || die "cannot create a temporary file in $cache_dir"
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
+
+# download_failed CODE: die naming the likeliest cause of a failed download (curl exit codes; 0 = unknown).
+download_failed() {
+  hint=
+  case "$1" in
+    5 | 6 | 7 | 28 | 56) hint="check the network and the proxy (HTTPS_PROXY, ALL_PROXY, NO_PROXY), or set BMAX_RELEASE_URL to a mirror" ;;
+    35 | 51 | 58 | 60 | 77 | 83) hint="TLS failed: a proxy that inspects TLS needs its CA in CURL_CA_BUNDLE or SSL_CERT_FILE" ;;
+    22) hint="HTTP error (404: no such release; 407: the proxy wants credentials, HTTPS_PROXY=http://user:pass@host:port)" ;;
+  esac
+  die "cannot download $url${hint:+ - $hint}"
+}
+
+# wget only reads the lowercase names.
+if [ -z "${https_proxy:-}" ] && [ -n "${HTTPS_PROXY:-}" ]; then
+  https_proxy=$HTTPS_PROXY
+  export https_proxy
+fi
+if [ -z "${no_proxy:-}" ] && [ -n "${NO_PROXY:-}" ]; then
+  no_proxy=$NO_PROXY
+  export no_proxy
+fi
 if command -v curl >/dev/null 2>&1; then
-  curl -fsSL -o "$tmp" "$url" || die "cannot download $url"
+  curl -fsSL -o "$tmp" "$url" || download_failed $?
 elif command -v wget >/dev/null 2>&1; then
-  wget -q -O "$tmp" "$url" || die "cannot download $url"
+  wget -q -O "$tmp" "$url" || download_failed 0
 else
   die "neither curl nor wget is available to download $url"
 fi

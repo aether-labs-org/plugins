@@ -1,0 +1,7 @@
+# The wrapper and the lock are read by POSIX sh: a CRLF checkout on Windows breaks `set -eu`.
+.agents/bin/bmax text eol=lf
+plugins/baymax/bmax/bin/bmax text eol=lf
+cli/bmax/wrapper/bmax text eol=lf
+*.lock text eol=lf
+*.sh text eol=lf
+.agents/githooks/* text eol=lf

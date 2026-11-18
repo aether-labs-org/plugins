@@ -1,7 +1,7 @@
 # bmax
 
 Baymax's deterministic execution engine. One static binary per platform (Linux and macOS, amd64 and
-arm64), pinned per repository, no network and no model call at gate time. Every verdict comes from an
+arm64; Windows amd64 as `bmax.exe`, run through Git Bash), pinned per repository, no network and no model call at gate time. Every verdict comes from an
 exit code, a parser or a baseline, never from a model.
 
 ## What it does

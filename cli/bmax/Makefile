@@ -1,6 +1,6 @@
 VERSION ?= 0.5.0-dev
 DIST ?= dist
-PLATFORMS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64
+PLATFORMS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64
 SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo "shasum -a 256")
 
 .PHONY: build test dist lock
@@ -22,13 +22,14 @@ dist:
 	mkdir -p $(DIST)
 	rm -f $(DIST)/SHA256SUMS
 	for p in $(PLATFORMS); do \
-	  rm -f $(DIST)/bmax-$$p; \
+	  e=; [ "$${p%-*}" = windows ] && e=.exe; \
+	  rm -f $(DIST)/bmax-$$p$$e; \
 	  GOOS=$${p%-*} GOARCH=$${p#*-} CGO_ENABLED=0 go build -trimpath -buildvcs=false \
-	    -ldflags "-s -w -buildid= -X main.version=$(VERSION)" -o $(DIST)/bmax-$$p . || exit 1; \
+	    -ldflags "-s -w -buildid= -X main.version=$(VERSION)" -o $(DIST)/bmax-$$p$$e . || exit 1; \
 	done
-	cd $(DIST) && for p in $(PLATFORMS); do $(SHA256) bmax-$$p; done > SHA256SUMS
+	cd $(DIST) && for p in $(PLATFORMS); do e=; [ "$${p%-*}" = windows ] && e=.exe; $(SHA256) bmax-$$p$$e; done > SHA256SUMS
 
 # lock: prints a bmax.lock for VERSION from $(DIST)/SHA256SUMS.
 lock:
 	@printf '# bmax.lock - bmax pin; written by Baymax, do not edit by hand\nversion=%s\n' "$(VERSION)"
-	@awk '{ n = $$2; sub(/^bmax-/, "", n); print n "=" $$1 }' $(DIST)/SHA256SUMS
+	@awk '{ n = $$2; sub(/^bmax-/, "", n); sub(/\.exe$$/, "", n); print n "=" $$1 }' $(DIST)/SHA256SUMS

@@ -57,7 +57,7 @@ hook runs the fast gate and hands a failure back once.
 - `staged` gates read file content from disk, not from the index.
 - The first run needs the release host; `BMAX_RELEASE_URL` (a mirror), `BMAX_BINARY` or a source build avoid it.
 - Authority is local: git hooks and agent hooks. Baymax generates no CI.
-- Windows only through WSL. Catalog stacks: TypeScript/JavaScript, Python, JVM.
+- Windows: Git Bash (native `bmax.exe`, amd64) or WSL. Behind a proxy the first download honours `HTTPS_PROXY`/`NO_PROXY`; a TLS-inspecting proxy needs `CURL_CA_BUNDLE`. Catalog stacks: TypeScript/JavaScript, Python, JVM.
 
 ## Versions
 
